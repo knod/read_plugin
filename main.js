@@ -41,7 +41,7 @@
 		delayer 	= new Delayer( oldSettings, storage );
 		timer 		= new Timer( delayer, oldSettings, storage );
 		coreDisplay = new Display( timer );
-		playback 	= new Playback( timer, wordNav, coreDisplay );
+		playback 	= new Playback( timer, coreDisplay );
 		settings 	= new Settings( timer, coreDisplay );
 		speed 		= new Speed( delayer, settings );
 	};  // End afterLoadSettings()
@@ -124,7 +124,7 @@
 
 	chrome.extension.onMessage.addListener(function (request, sender, sendResponse) {
 
-		coreDisplay.show();
+		coreDisplay.open();
 		playback.wait();  // Do we need this?
 
 		var func = request.functiontoInvoke;
@@ -146,8 +146,8 @@
 			detect( sampleText ).then(function afterLanguageDetection(data) {
 				var lang = data.iso6391 || 'en',
 					cmds = unfluff.lazy( $clean.html(), lang ),
-					data = cmds.text();
-				read( data )
+					text = cmds.text();
+				read( text )
 			});
 
 		}  // end if event is ___

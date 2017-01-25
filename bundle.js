@@ -218,7 +218,7 @@
 
 		var rDis = {};
 
-		rDis._toClose = [];
+		rDis._toTrigger = [];
 
 
 		var iframeStr = '<iframe id="__rdly_iframe" title="Readerly article reader."></iframe>';
@@ -248,9 +248,9 @@
 
 		// =========== HOOKS =========== \\
 
-		rDis.addToClosingQueue = function ( newObjWithCloseFunc ) {
+		rDis.addToTriggerList = function ( newObjWithTriggerFuncts ) {
 			// TODO: Prevent duplicates
-			rDis._toClose.push( newObjWithCloseFunc );
+			rDis._toTrigger.push( newObjWithTriggerFuncts );
 			return rDis;
 		};
 
@@ -261,8 +261,18 @@
 		rDis.close = function () {
 		// This is where everything gets closed, paused, put away
 			rDis.hide();
-			for (var closei = 0; closei < rDis._toClose.length; closei++) {
-				rDis._toClose[ closei ].close();
+			for (let trigi = 0; trigi < rDis._toTrigger.length; trigi++) {
+				let obj = rDis._toTrigger[ trigi ]
+				if ( obj.close ) obj.close();
+			};
+			return rDis;
+		};
+
+		rDis.open = function () {
+			rDis.show();
+			for (let trigi = 0; trigi < rDis._toTrigger.length; trigi++) {
+				let obj = rDis._toTrigger[ trigi ]
+				if ( obj.open ) obj.open();
 			};
 			return rDis;
 		};
@@ -421,7 +431,7 @@ if (debug) console.log('scrollable height:', scrollable.style.height)
 					// This is in the wrong place
 					// Reconfig needed. This should construct timer?
 					// Create parent object instead?
-					.addToClosingQueue( timer );
+					.addToTriggerList( timer );
 				// This should not be visible until it's .show()n
 				$iframe.hide();
 				$(readerly).hide(0, rDis.update )
@@ -1419,13 +1429,14 @@ body {\
 
 	"use strict";
 
-	var PlaybackUI = function ( timer, queue, coreDisplay ) {
+	var PlaybackUI = function ( timer, coreDisplay ) {
 
 		var rPUI = {};
 
-		rPUI.modifierKeysDown = [];
+		rPUI.modifierKeysDown = [];  // Will be emptied when app is closed
 		rPUI.sentenceModifierKey = 18;  // 'alt'
 
+		rPUI.isOpen 	 = false;
 		rPUI.isPlaying 	 = false;
 		rPUI.isScrubbing = false;
 		rPUI.nodes 		 = {};
@@ -1460,6 +1471,19 @@ body {\
 
 
 		// =========== RUNTIME ACTIONS =========== \\
+
+		rPUI.clear = function () {
+			rPUI.modifierKeysDown = [];
+			return rPUI;
+		};
+		rPUI.open = function () {
+			rPUI.isOpen = true;
+			return rPUI;
+		};
+		rPUI.close = function () {
+			rPUI.isOpen = false;
+			return rPUI;
+		};
 
 		rPUI.hideText = function () {
 			$(textButton).addClass('__rdly-hidden');
@@ -1512,7 +1536,6 @@ body {\
 			$(playPauseFeedback).fadeTo(0, 0.7).fadeTo(700, 0)
 			return rPUI;
 		}
-
 
 		rPUI._togglePlayPause = function () {
 			timer.togglePlayPause();
@@ -1584,6 +1607,9 @@ body {\
 
 		rPUI.keyUp = function ( evnt ) {
 
+			// If it was closed, the list of keys down is destroyed anyway
+			if (!rPUI.isOpen) { return rPUI; };
+
 			var keyCode = evnt.keyCode || evnt.which || evnt.charCode;
 			var smod 	= rPUI.sentenceModifierKey;
 
@@ -1599,6 +1625,10 @@ body {\
 
 
 		rPUI.keyDown = function ( evnt ) {
+
+			// If the app isn't open, don't want to get errors for trying
+			// to do impossible stuff and don't want to change position in text
+			if (!rPUI.isOpen) { return rPUI; };
 
 			var keyCode = evnt.keyCode || evnt.which || evnt.charCode;
 			var smod = rPUI.sentenceModifierKey;
@@ -1662,11 +1692,11 @@ body {\
 			$(rewindSentence).on( 'touchend click', rPUI._rewindSentence );
 
 			// Keyboard input
-			// Arrow keys only listen to the keydown event
-			$(document.body).on( 'keydown', rPUI.keyDown );
+			// Arrow keys only listen to the keydown and keyup event, not keypress
 			$(coreDisplay.nodes.doc).on( 'keydown', rPUI.keyDown );
-			$(document.body).on( 'keyup', rPUI.keyUp );
 			$(coreDisplay.nodes.doc).on( 'keyup', rPUI.keyUp );
+			$(document.body).on( 'keydown', rPUI.keyDown );
+			$(document.body).on( 'keyup', rPUI.keyUp );
 
 			return rPUI;
 		};  // End rPUI._addEvents()
@@ -1710,6 +1740,9 @@ body {\
 			playbackCSSstr 	= '<style>' + playbackCSSstr + '</style>';
 			var $css 		= $(playbackCSSstr);
 			$css.appendTo( coreNodes.head );
+
+
+			coreDisplay.addToTriggerList( rPUI );
 
 
 			rPUI._addEvents();
@@ -2555,7 +2588,7 @@ body {\
 			rSet._addBase( coreDisplay )
 				._addEvents();
 
-			coreDisplay.addToClosingQueue( rSet );
+			coreDisplay.addToTriggerList( rSet );
 
 			return rSet;
 		};
@@ -3322,7 +3355,7 @@ body {\
 		delayer 	= new Delayer( oldSettings, storage );
 		timer 		= new Timer( delayer, oldSettings, storage );
 		coreDisplay = new Display( timer );
-		playback 	= new Playback( timer, wordNav, coreDisplay );
+		playback 	= new Playback( timer, coreDisplay );
 		settings 	= new Settings( timer, coreDisplay );
 		speed 		= new Speed( delayer, settings );
 	};  // End afterLoadSettings()
@@ -3405,7 +3438,7 @@ body {\
 
 	chrome.extension.onMessage.addListener(function (request, sender, sendResponse) {
 
-		coreDisplay.show();
+		coreDisplay.open();
 		playback.wait();  // Do we need this?
 
 		var func = request.functiontoInvoke;
@@ -3427,8 +3460,9 @@ body {\
 			detect( sampleText ).then(function afterLanguageDetection(data) {
 				var lang = data.iso6391 || 'en',
 					cmds = unfluff.lazy( $clean.html(), lang ),
-					data = cmds.text();
-				read( data )
+					text = cmds.text();
+					console.log(JSON.stringify(text));
+				read( text )
 			});
 
 		}  // end if event is ___
