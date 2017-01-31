@@ -17,6 +17,18 @@
 
 (function(){
 
+	var localforage = require('localforage');
+
+	// ==============================
+	// INDEXEDDB TEST
+	// ==============================
+	// Callback version:
+	localforage.getItem('test1', function(err, value) {
+	    // Run this code once the value has been
+	    // loaded from the offline store.
+	    console.log(value);
+	});
+
 	// ============== SETUP ============== \\
 	var unfluff 	= require('@knod/unfluff'),
 		detect 		= require('detect-lang'),
@@ -72,7 +84,7 @@
 	var read = function ( text ) {
 		// TODO: If there's already a `words`, start where we left off
 		words.process( text );
-		
+
         // Help non-coders identify some bugs (if their browser allows this)
         try {
             console.log('~~~~~~~~~ If any of those tests failed, the problem isn\'t with Readerly, it\'s with one of the other libraries. That problem will have to be fixed later.');

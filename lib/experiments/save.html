@@ -1,0 +1,47 @@
+<!-- save.html -->
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<title>Initial Readerly "Download"</title>
+	<script src='../../node_modules/jquery/dist/jquery.js'></script>
+	<script src='../../node_modules/localforage/dist/localforage.js'></script>
+</head>
+<body>
+	<button id="save_readerly">save</button>
+	<script>
+
+	localforage.config({
+	    name: 'Test1'
+	});
+
+		// // https://developer.mozilla.org/en-US/docs/Web/API/IndexedDB_API/Using_IndexedDB
+		// // // In the following line, you should include the prefixes of implementations you want to test.
+		// // window.indexedDB = window.indexedDB || window.mozIndexedDB || window.webkitIndexedDB || window.msIndexedDB;
+		// // window.IDBTransaction = window.IDBTransaction || window.webkitIDBTransaction || window.msIDBTransaction || {READ_WRITE: "readwrite"}; // This line should only be needed if it is needed to support the object's constants for older browsers
+		// // window.IDBKeyRange = window.IDBKeyRange || window.webkitIDBKeyRange || window.msIDBKeyRange;
+		// if (!window.indexedDB) {
+		//     // use some other version
+		// } else {
+
+			var save = function() {
+				console.log(localforage.name)
+				// localforage.setItem('test1', 'value1');
+
+				// localforage.getItem('test1', function(err, value) {
+				//     // Run this code once the value has been
+				//     // loaded from the offline store.
+				//     console.log(value);
+				// });
+				localforage.clear();
+			};
+
+
+			$('#save_readerly').on('click', save );
+
+		// }
+	</script>
+	
+</body>
+</html>
