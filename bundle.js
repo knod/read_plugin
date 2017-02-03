@@ -188,10 +188,10 @@
 
 
 (function (root, setupFactory) {  // root is usually `window`
-    if (typeof define === 'function' && define.amd) {  // amd if possible
+    if ( typeof define === 'function' && define.amd) {  // amd if possible
         // AMD. Register as an anonymous module.
         define( ['jquery', 'franc', 'iso-639.json', '@knod/unfluff', 'nlp_compromise'], function (jQuery, franc, langCodes, unfluff, nlp_compromise) { return (root.Parser = setupFactory(jQuery, franc, langCodes, unfluff, nlp_compromise) ); });
-    } else if (typeof module === 'object' && module.exports) {  // Node-ish next
+    } else if ( typeof module === 'object' && module.exports) {  // Node-ish next
         // Node. Does not work with strict CommonJS, but only CommonJS-like
         // environments that support module.exports, like Node.
         module.exports = setupFactory( require('jquery'), require('franc'), require('./parse/iso-639.json'), require('@knod/unfluff'), require('nlp_compromise') );
@@ -200,14 +200,14 @@
         console.warn('If this isn\'t running off browserify, I\'m not sure how to get these libs in here.')
         // root.Parser = setupFactory( JQuery );
     }
-}(this, function ( $, franc, langCodes, unfluff, nlp_compromise ) {
+}( this, function ( $, franc, langCodes, unfluff, nlp_compromise ) {
 	/* (jQuery, {}, {}, {}) -> Parser Constructor */
 
     "use strict";
 
 
     var ParserSetup = function () {
-    /* (func, func, func, func) -> Parser
+    /* () -> ParserSetup
     * 
     * Builds the options needed for the parser
     */
@@ -218,7 +218,7 @@
     	rSup.cleanNode = function ( node ) {
     	/* ( DOM Node ) -> same DOM Node
     	* 
-    	* Removes unwanted elements from the node and returns it
+    	* Removes unwanted elements from the node and returns it.
 	    */
     		var $node = $(node);
 
@@ -233,7 +233,7 @@
     	rSup.detectLanguage = function ( text ) {
     	/* ( Str ) -> iso6391 language code Str
     	* 
-    	* Best guess. Defaults to English if none other is found
+    	* Best guess. Defaults to English if none other is found.
     	*/
     		var lang = franc( text,
     			// The languages unfluff can handle atm
@@ -244,11 +244,8 @@
     		if (lang = 'und') {lang = 'eng';}
 
     		var iso6391Lang = langCodes[lang].iso6391;
-
-    		if (rSup.debug) {
-	        	try {
-	        	    console.log('~~~parse debug~~~ language detected:', iso6391Lang);
-	        	} catch (err) {}
+    		if (rSup.debug) {  // Help non-coder devs identify some bugs
+        	    console.log( '~~~parse debug~~~ language detected:', iso6391Lang );
     		}
 
     		return iso6391Lang;
@@ -264,35 +261,50 @@
 	    	var html = $(node).html(),
 				cmds = unfluff.lazy( html, lang ),
 				text = cmds.text();
-
-    		if (rSup.debug) {
-	        	try {
-	        	    console.log('~~~parse debug~~~ article text identified:', text);
-	        	} catch (err) {}
+    		if (rSup.debug) {  // Help non-coder devs identify some bugs
+        	    console.log( '~~~parse debug~~~ article text identified:', text );
     		}
 
 			return text;
     	};  // End rSup.findArticle()
 
 
-    	// Does nothing by default
-    	rSup.cleanText = function () {};
-
-
-    	rSup.splitSentences = function (text) {
-    	/* ( Str ) -> [Str]
+    	rSup.cleanText = function ( text ) {
+    	/* (Str) -> Str
     	* 
-    	* Returns a list of sentences. Best with English.
-	    */
-	    	var sentences = nlp_compromise.text(text).sentences;
+    	* Does whatever further text filtering, cleaning, and parsing needs
+    	* to be done. Default does nothing
+    	*/
+    		var cleaned = text;
 
-    		if (rSup.debug) {
-	        	try {
-	        	    console.log('~~~parse debug~~~ sentences:', sentences);
-	        	} catch (err) {}
+    		// Add your code here
+    		if (rSup.debug) {  // Help non-coder devs identify some bugs
+        	    console.log( '~~~parse debug~~~ plain text cleaned:', cleaned );
     		}
 
-            return sentences
+    		return cleaned;
+    	};  // End rSup.cleanText()
+
+
+    	rSup.splitSentences = function ( text ) {
+    	/* ( Str ) -> [Str]
+    	* 
+    	* Returns a list of strings that are the sentences. Best with English.
+    	* TODO: Make this return a list of lists of words instead?
+	    */
+	    	var sentences = nlp_compromise.text( text ).sentences;
+	    	var strs = [];
+	    	for (let senti = 0; senti < sentences.length; senti++) {
+	    		let sent = sentences[senti];
+	    		strs.push( sent.str );
+	    	};
+
+    		if (rSup.debug) {  // Help non-coder devs identify some bugs
+        	    console.log( '~~~parse debug~~~ sentences:', strs );
+        	    console.log( '~~~??????????parse debug~~~ sentences:', sentences );
+    		}
+
+            return strs;
     	};
 
 		return rSup;
@@ -965,20 +977,6 @@ body {\
     */
     	var rPar = {};
 
-		// rPar.read = function ( text ) {
-		// 	// TODO: If there's already a `words`, start where we left off
-		// 	words.process( text );
-			
-	 //        // Help non-coders identify some bugs (if their browser allows this)
-	 //        try {
-	 //            console.log('~~~~~~~~~ If any of those tests failed, the problem isn\'t with Readerly, it\'s with one of the other libraries. That problem will have to be fixed later.');
-	 //        } catch (err) {}
-			
-		// 	wordNav.process( words );
-		// 	timer.start( wordNav );
-		// 	return true;
-		// };
-
 
 		rPar.cleanHTML = function ( $node ) {
 		// Remove unwanted nodes from the text
@@ -1357,25 +1355,14 @@ body {\
 
         // ========= BUILD THE QUEUE (internal) ========= \\
         wrds.process = function ( sentences ) {
-        // wrds.process = function ( text ) {
         // No automatic `._init()` this time. ??: Convert all to this format?
-
-            // // Cleanup
-            // wrds.text 	  = text;
-            // // TODO: Add hack to make paragraphs their own sentences?
-            // let sentences = sentenceParser.text(text).sentences;
-
-            // Help non-coders identify some bugs (if their browser allows this)
-            try {
-                console.log('~~~~~~~~~ nlp_compromise test. Did it parse the sentences correctly?', sentences);
-            } catch (err) {}
 
  			// Array of arrays of fragment objects (just words later)
             var sFrags   	= wrds.sentenceFragments = [];  
             wrds.positions 	= [];
 
             for ( let senti = 0; senti < sentences.length; senti++ ) {
-                let sentence     = sentences[senti].str,
+                let sentence     = sentences[senti],
                     fragmented   = wrds._processSentence( sentence, senti );
                 sFrags.push( fragmented );
             }
@@ -6156,7 +6143,6 @@ module.exports={
 	var Parser 		= require('./lib/parse/Parser.js'),
 		ParserSetup = require('./lib/ParserSetup.js');
 
-	// var Queue 		= require('./lib/Queue.js'),
 	var Words 		= require('./lib/parse/Words.js'),
 		WordNav 	= require('./lib/parse/WordNav.js'),
 		Storage 	= require('./lib/ReaderlyStorage.js'),
@@ -6168,7 +6154,6 @@ module.exports={
 		Speed 		= require('./lib/settings/SpeedSettings.js');
 
 	var parser, words, wordNav, storage, delayer, timer, coreDisplay, playback, settings, speed;
-	// var queue, storage, delayer, timer, coreDisplay, playback, settings, speed;
 
 
 	var afterLoadSettings = function ( oldSettings ) {
@@ -6186,34 +6171,23 @@ module.exports={
 	};  // End addEvents()
 
 
-
-	// var cleanNode = function ( $node ) {
-	// // Remove unwanted nodes from the text
-	// 	$node.find('sup').remove();
-	// 	// These have English, skewing language detection results
-	// 	$node.find('script').remove();
-	// 	$node.find('style').remove();
-	// 	return $node;
-	// };
-
 	var getParser = function () {
-		var pSetup = new ParserSetup();
-		// Testing for now
-		pSetup.debug = true;
+		var pSup = new ParserSetup();
+		// FOR TESTING
+		pSup.debug = true;
 
 		// Functions to pass to parser
-		var cleanNode 		= pSetup.cleanNode,
-			detectLanguage 	= pSetup.detectLanguage,
-			findArticle 	= pSetup.findArticle,
-			cleanText 		= pSetup.cleanText,
-			splitSentences 	= pSetup.splitSentences;
+		var cleanNode 		= pSup.cleanNode,
+			detectLanguage 	= pSup.detectLanguage,
+			findArticle 	= pSup.findArticle,
+			cleanText 		= pSup.cleanText,
+			splitSentences 	= pSup.splitSentences;
 
 		return new Parser( cleanNode, detectLanguage, findArticle, cleanText, splitSentences );
 	};  // End getParser()
 
 
 	var init = function () {
-		// queue 	= new Queue();
 		parser  = getParser();
 		words 	= new Words();
 		wordNav = new WordNav();
@@ -6231,56 +6205,19 @@ module.exports={
 
 	// ============== RUNTIME ============== \\
 	var read = function ( node ) {
-	// var read = function ( text ) {
 
 		var sentences = parser.parse( node );
+        if (parser.debug) {  // Help non-coder devs identify some bugs
+    	    console.log('~~~~~parse debug~~~~~ If any of those tests failed, the problem isn\'t with Readerly, it\'s with one of the other libraries. That problem will have to be fixed later.');
+        }
+
 		// TODO: If there's already a `words` (if this isn't new), start where we left off
 		words.process( sentences );
-		// words.process( text );
-		
-        // Help non-coders identify some bugs (if their browser allows this)
-        if (parser.debug) {
-        	try {
-        	    console.log('~~~~~parse debug~~~~~ If any of those tests failed, the problem isn\'t with Readerly, it\'s with one of the other libraries. That problem will have to be fixed later.');
-        	} catch (err) {}
-        }
 		
 		wordNav.process( words );
 		timer.start( wordNav );
 		return true;
 	};
-
-
-	// var smallSample = function ( $node, desiredSampleLength ) {
-	// /* ( jQuery Node, [int] ) -> Str
-	// * 
-	// * Get a sample of the text (probably to use in detecting language)
-	// * A hack for language detection for now until language detection
-	// * is made lazy.
-	// */
-	// 	var halfSampleLength = desiredSampleLength/2 || 500;
-
-	// 	var text = $node.text();
-	// 	text = text.replace(/\s\s+/g, ' ');
-
-	// 	// Average letter length of an English word = ~5 characters + a space
-	// 	var aproxNumWords 	= Math.floor(text.length/6),
-	// 		halfNumWords 	= aproxNumWords/2;
-
-	// 	// Want to get as close to 1k words as possible
-	// 	var startingPoint, length;
-	// 	if ( halfNumWords > halfSampleLength ) {
-	// 		length = halfSampleLength * 2;
-	// 		startingPoint = halfNumWords - halfSampleLength;
-	// 	} else {
-	// 		length = text.length;
-	// 		startingPoint = 0;
-	// 	}
-
-	// 	var sample = text.slice( startingPoint, startingPoint + length );
-
-	// 	return sample;
-	// };  // End smallSample()
 
 
 
@@ -6296,32 +6233,12 @@ module.exports={
 			var contents = document.getSelection().getRangeAt(0).cloneContents();
 			var $container = $('<div></div>');
 			$container.append(contents);
-			// container.find('sup').remove();
-			// read( container.text() );
 			read( $container[0] );
 
 		} else if ( func === "readFullPage" ) {
 
 			var $clone = $('html').clone();
 			read( $clone[0] );
-			// ,
-			// 	$clean = cleanNode( $clone );
-
-			// var sampleText = smallSample( $clean );
-
-			// detect( sampleText ).then(function afterLanguageDetection(data) {
-			// 	var lang = data.iso6391 || 'en',
-			// 		cmds = unfluff.lazy( $clean.html(), lang ),
-			// 		text = cmds.text();
-
-			// 	// Help non-coders identify some bugs (if their browser allows this)
-			// 	try {
-			// 		console.log('~~~~~~~~~ detect-language test. Has it detected the correct language?', lang);
-			// 		console.log('~~~~~~~~~ unfulff test. Is this showing the correct text?', text);
-			// 	} catch (err) {}
-
-			// 	read( text )
-			// });
 
 		}  // end if event is ___
 

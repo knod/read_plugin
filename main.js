@@ -57,16 +57,16 @@
 
 
 	var getParser = function () {
-		var pSetup = new ParserSetup();
-		// Testing for now
-		pSetup.debug = true;
+		var pSup = new ParserSetup();
+		// FOR TESTING
+		pSup.debug = true;
 
 		// Functions to pass to parser
-		var cleanNode 		= pSetup.cleanNode,
-			detectLanguage 	= pSetup.detectLanguage,
-			findArticle 	= pSetup.findArticle,
-			cleanText 		= pSetup.cleanText,
-			splitSentences 	= pSetup.splitSentences;
+		var cleanNode 		= pSup.cleanNode,
+			detectLanguage 	= pSup.detectLanguage,
+			findArticle 	= pSup.findArticle,
+			cleanText 		= pSup.cleanText,
+			splitSentences 	= pSup.splitSentences;
 
 		return new Parser( cleanNode, detectLanguage, findArticle, cleanText, splitSentences );
 	};  // End getParser()
@@ -90,19 +90,14 @@
 
 	// ============== RUNTIME ============== \\
 	var read = function ( node ) {
-	// var read = function ( text ) {
 
 		var sentences = parser.parse( node );
+        if (parser.debug) {  // Help non-coder devs identify some bugs
+    	    console.log('~~~~~parse debug~~~~~ If any of those tests failed, the problem isn\'t with Readerly, it\'s with one of the other libraries. That problem will have to be fixed later.');
+        }
+
 		// TODO: If there's already a `words` (if this isn't new), start where we left off
 		words.process( sentences );
-		// words.process( text );
-		
-        // Help non-coders identify some bugs (if their browser allows this)
-        if (parser.debug) {
-        	try {
-        	    console.log('~~~~~parse debug~~~~~ If any of those tests failed, the problem isn\'t with Readerly, it\'s with one of the other libraries. That problem will have to be fixed later.');
-        	} catch (err) {}
-        }
 		
 		wordNav.process( words );
 		timer.start( wordNav );
