@@ -181,6 +181,138 @@
 }));
 
 },{}],2:[function(require,module,exports){
+/* ParserSetup.js
+* 
+* Sets up options/functions for parser
+*/
+
+
+(function (root, setupFactory) {  // root is usually `window`
+    if ( typeof define === 'function' && define.amd) {  // amd if possible
+        // AMD. Register as an anonymous module.
+        define( ['jquery', 'franc', 'iso-639.json', '@knod/unfluff', 'nlp_compromise'], function (jQuery, franc, langCodes, unfluff, nlp_compromise) { return (root.Parser = setupFactory(jQuery, franc, langCodes, unfluff, nlp_compromise) ); });
+    } else if ( typeof module === 'object' && module.exports) {  // Node-ish next
+        // Node. Does not work with strict CommonJS, but only CommonJS-like
+        // environments that support module.exports, like Node.
+        module.exports = setupFactory( require('jquery'), require('franc'), require('./parse/iso-639.json'), require('@knod/unfluff'), require('nlp_compromise') );
+    } else {  // Global if nothing else
+        // Browser globals
+        console.warn('If this isn\'t running off browserify, I\'m not sure how to get these libs in here.')
+        // root.Parser = setupFactory( JQuery );
+    }
+}( this, function ( $, franc, langCodes, unfluff, nlp_compromise ) {
+	/* (jQuery, {}, {}, {}) -> Parser Constructor */
+
+    "use strict";
+
+
+    var ParserSetup = function () {
+    /* () -> ParserSetup
+    * 
+    * Builds the options needed for the parser
+    */
+    	var rSup = {};
+
+    	rSup.debug = false;
+
+    	rSup.cleanNode = function ( node ) {
+    	/* ( DOM Node ) -> same DOM Node
+    	* 
+    	* Removes unwanted elements from the node and returns it.
+	    */
+    		var $node = $(node);
+
+    		$node.find('sup').remove();
+    		// These have English, skewing language detection results
+    		$node.find('script').remove();
+    		$node.find('style').remove();
+    		return $node[0];
+    	};
+
+
+    	rSup.detectLanguage = function ( text ) {
+    	/* ( Str ) -> iso6391 language code Str
+    	* 
+    	* Best guess. Defaults to English if none other is found.
+    	*/
+    		var lang = franc( text,
+    			// The languages unfluff can handle atm
+    				{ 'whitelist': ['ara', 'bul', 'ces', 'dan', 'deu', 'ell',
+    					'eng', 'spa', 'fin', 'fra', 'hun', 'ind', 'ita', 'kor',
+    					'nob', 'nor', 'pol', 'por', 'rus', 'swe', 'tha', 'tur', 'zho']
+    			});
+    		if (lang = 'und') {lang = 'eng';}
+
+    		var iso6391Lang = langCodes[lang].iso6391;
+    		if (rSup.debug) {  // Help non-coder devs identify some bugs
+        	    console.log( '~~~parse debug~~~ language detected:', iso6391Lang );
+    		}
+
+    		return iso6391Lang;
+    	};  // End rSup.detectLanguage()
+
+
+    	rSup.findArticle = function ( node, lang ) {
+    	/* ( DOM Node, Str ) -> Str
+    	* 
+    	* Uses the language `lang` and a DOM Node to return
+    	* the best guess at the main text of the article
+	    */
+	    	var html = $(node).html(),
+				cmds = unfluff.lazy( html, lang ),
+				text = cmds.text();
+    		if (rSup.debug) {  // Help non-coder devs identify some bugs
+        	    console.log( '~~~parse debug~~~ article text identified:', text );
+    		}
+
+			return text;
+    	};  // End rSup.findArticle()
+
+
+    	rSup.cleanText = function ( text ) {
+    	/* (Str) -> Str
+    	* 
+    	* Does whatever further text filtering, cleaning, and parsing needs
+    	* to be done. Default does nothing
+    	*/
+    		var cleaned = text;
+
+    		// Add your code here
+    		if (rSup.debug) {  // Help non-coder devs identify some bugs
+        	    console.log( '~~~parse debug~~~ plain text cleaned:', cleaned );
+    		}
+
+    		return cleaned;
+    	};  // End rSup.cleanText()
+
+
+    	rSup.splitSentences = function ( text ) {
+    	/* ( Str ) -> [Str]
+    	* 
+    	* Returns a list of strings that are the sentences. Best with English.
+    	* TODO: Make this return a list of lists of words instead?
+	    */
+	    	var sentences = nlp_compromise.text( text ).sentences;
+	    	var strs = [];
+	    	for (let senti = 0; senti < sentences.length; senti++) {
+	    		let sent = sentences[senti];
+	    		strs.push( sent.str );
+	    	};
+
+    		if (rSup.debug) {  // Help non-coder devs identify some bugs
+        	    console.log( '~~~parse debug~~~ sentences:', strs );
+    		}
+
+            return strs;
+    	};
+
+		return rSup;
+    };  // End ParserSetup() -> {}
+
+    return ParserSetup;
+}));
+
+},{"./parse/iso-639.json":9,"@knod/unfluff":24,"franc":98,"jquery":104,"nlp_compromise":105}],3:[function(require,module,exports){
 /* ReaderlyDisplay.js
 * 
 * Just the Readerly text display, including areas for
@@ -453,7 +585,7 @@ if (debug) console.log('scrollable height:', scrollable.style.height)
     return ReaderlyDisplay;
 }));
 
-},{"./core-CSS":4,"./settings/noui-CSS":13,"jquery":147}],3:[function(require,module,exports){
+},{"./core-CSS":5,"./settings/noui-CSS":16,"jquery":104}],4:[function(require,module,exports){
 /* ReaderlyStorage.js
 * 
 * Destructive, unfortunately - doesn't mutate settings,
@@ -539,12 +671,12 @@ if (debug) console.log('scrollable height:', scrollable.style.height)
 
     return ReaderlyStorage;
 }));
-},{}],4:[function(require,module,exports){
+},{}],5:[function(require,module,exports){
 /* core-CSS.js
 * css that's bundleable
 * 
 * Scroll bars issue:
-* https://jsfiddle.net/fpd4fb80/4/ <- height of iframe has to be 100%
+* https://jsfiddle.net/fpd4fb80/31/
 */
 
 (function (root, coreCSSFactory) {  // root is usually `window`
@@ -800,7 +932,133 @@ body {\
     return coreCSS;
 }));
 
-},{}],5:[function(require,module,exports){
+},{}],6:[function(require,module,exports){
+/* Parser.js
+* 
+* Make your own parser if you want, as long as
+* its .parse() returns a list of strings.
+*/
+
+(function (root, parserFactory) {  // root is usually `window`
+    if (typeof define === 'function' && define.amd) {  // amd if possible
+        // AMD. Register as an anonymous module.
+        define( ['jquery'], function (jquery) { return (root.Parser = parserFactory(jquery) ); });
+    } else if (typeof module === 'object' && module.exports) {  // Node-ish next
+        // Node. Does not work with strict CommonJS, but only CommonJS-like
+        // environments that support module.exports, like Node.
+        module.exports = parserFactory( require('jquery') );
+    } else {  // Global if nothing else
+        // Browser globals
+        root.Parser = parserFactory( jQuery );
+    }
+}(this, function ($) {
+	/* (jQuery) -> Parser Constructor */
+
+    "use strict";
+
+
+    var Parser = function ( cleanNode, detectLanguage, findArticle, cleanText, splitSentences ) {
+    /* (func, func, func, func) -> Parser
+    * 
+    * Given a set of functions, returns an object that can use those modules to
+    * extract text as a list of sentences. If all that's being passed in is
+    * text (not a DOM node), the only required modules are 'cleanText' and `splitSentences`.
+    *
+    * - 'cleanNode' accepts a DOM node and removes unwanted elements
+    * - `detectLanguage` accepts a string of text and returns the code
+    * for the detected language
+    * - `findArticle` uses that language and a DOM Node containing text
+    * to return the main text of the article
+    * - `cleanText` accepts a string and does something (or nothing) to
+    * it, then returns the changed (or same) string
+    * - `splitSentences` accepts text (best with English) and returns a
+    * list of sentences
+    */
+    	var rPar = {};
+
+
+		rPar.cleanHTML = function ( $node ) {
+		// Remove unwanted nodes from the text
+			$node.find('sup').remove();
+			// These would have English, so they'd skew language detection results
+			$node.find('script').remove();
+			$node.find('style').remove();
+			return $node;
+		};
+
+
+		rPar.smallSample = function ( node, desiredSampleLength ) {
+		/* ( jQuery Node, [int] ) -> Str
+		* 
+		* Get a sample of the text (probably to use in detecting language)
+		* A hack for language detection for now until language detection
+		* is made lazy.
+		*/
+			var $node 				= $(node),
+				halfSampleLength 	= desiredSampleLength/2 || 500;
+
+
+			var text = $node.text();
+			text = text.replace(/\s\s+/g, ' ');
+
+			// Average letter length of an English word = ~5 characters + a space
+			var aproxNumWords 	= Math.floor(text.length/6),
+				halfNumWords 	= aproxNumWords/2;
+
+			// Want to get as close to 1k words as possible
+			var startingPoint, length;
+			if ( halfNumWords > halfSampleLength ) {
+				length = halfSampleLength * 2;
+				startingPoint = halfNumWords - halfSampleLength;
+			} else {
+				length = text.length;
+				startingPoint = 0;
+			}
+
+			var sample = text.slice( startingPoint, startingPoint + length );
+
+			return sample;
+		};  // End rPar.smallSample()
+
+
+		rPar.parse = function ( input ) {
+	    /* ( DOM Node || Str ) -> [Str]
+	    * 
+	    * Given an DOM node or string of text, returns a list of sentences.
+	    * What it returns depends heavily on
+	    */
+	    	var rawText = '';
+
+	    	if ( typeof input === 'string' ) {
+
+	    		rawText = input;
+
+	    	// Otherwise it's a DOM node
+	    	} else {
+	    		var $node = $(input);
+
+		    	var clone = $node.clone()[0],
+		    		clean = cleanNode( clone );
+
+		    	var sampleText 	= rPar.smallSample( clean ),
+		    		lang 		= detectLanguage( sampleText );
+
+		    	rawText = findArticle( clean, lang );
+	    	}
+
+	    	var refinedText = cleanText( rawText ),
+	    		sentences = splitSentences( rawText );
+
+	    	return sentences;
+		};  // End rPar.parse()
+
+		return rPar;
+    };  // End Parser() -> {}
+
+    return Parser;
+}));
+
+},{"jquery":104}],7:[function(require,module,exports){
 /* WordNav.js
 * 
 * Navigate the sentences and words in Words
@@ -1031,7 +1289,7 @@ body {\
     return WordNav;
 }));
 
-},{}],6:[function(require,module,exports){
+},{}],8:[function(require,module,exports){
 /* Words.js
 * 
 * Breaking up the text into sentences and words
@@ -1050,12 +1308,11 @@ body {\
 (function (root, wordsFactory) {  // root is usually `window`
     if (typeof define === 'function' && define.amd) {  // amd if possible
         // AMD. Register as an anonymous module.
-        define( ['lib/Fragment', 'sbd'], function (Fragment, sbd) { return (root.Words = wordsFactory(Fragment, sbd)); });
+        define( ['lib/Fragment', 'nlp_compromise'], function (Fragment, npl) { return (root.Words = wordsFactory(Fragment, npl) ); });
     } else if (typeof module === 'object' && module.exports) {  // Node-ish next
         // Node. Does not work with strict CommonJS, but only CommonJS-like
         // environments that support module.exports, like Node.
         module.exports = wordsFactory( require('../Fragment.js'), require('nlp_compromise') );
-        // module.exports = wordsFactory( require('../Fragment.js'), require('sbd') );
     } else {  // Global if nothing else
         // Browser globals
         root.Words = wordsFactory( Fragment, root );  // root.sentences is undefined :P Not sure what to provide there
@@ -1096,20 +1353,15 @@ body {\
 
 
         // ========= BUILD THE QUEUE (internal) ========= \\
-        wrds.process = function ( text ) {
+        wrds.process = function ( sentences ) {
         // No automatic `._init()` this time. ??: Convert all to this format?
-
-            // Cleanup
-            wrds.text 	  = text;
-            // TODO: Add hack to make paragraphs their own sentences?
-            let sentences = sentenceParser.text(text).sentences;
 
  			// Array of arrays of fragment objects (just words later)
             var sFrags   	= wrds.sentenceFragments = [];  
             wrds.positions 	= [];
 
             for ( let senti = 0; senti < sentences.length; senti++ ) {
-                let sentence     = sentences[senti].str,
+                let sentence     = sentences[senti],
                     fragmented   = wrds._processSentence( sentence, senti );
                 sFrags.push( fragmented );
             }
@@ -1209,7 +1461,2555 @@ body {\
 }));
 
 
-},{"../Fragment.js":1,"nlp_compromise":148}],7:[function(require,module,exports){
+},{"../Fragment.js":1,"nlp_compromise":105}],9:[function(require,module,exports){
+module.exports={
+  "aar": {
+    "terminologic": null,
+    "iso6391": "aa",
+    "name": "Afar"
+  },
+  "abk": {
+    "terminologic": null,
+    "iso6391": "ab",
+    "name": "Abkhazian"
+  },
+  "ace": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "Achinese"
+  },
+  "ach": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "Acoli"
+  },
+  "ada": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "Adangme"
+  },
+  "ady": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "Adyghe; Adygei"
+  },
+  "afa": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "Afro-Asiatic languages"
+  },
+  "afh": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "Afrihili"
+  },
+  "afr": {
+    "terminologic": null,
+    "iso6391": "af",
+    "name": "Afrikaans"
+  },
+  "ain": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "Ainu"
+  },
+  "aka": {
+    "terminologic": null,
+    "iso6391": "ak",
+    "name": "Akan"
+  },
+  "akk": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "Akkadian"
+  },
+  "alb": {
+    "terminologic": "sqi",
+    "iso6391": "sq",
+    "name": "Albanian"
+  },
+  "ale": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "Aleut"
+  },
+  "alg": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "Algonquian languages"
+  },
+  "als": {
+    "terminologic": "sqi",
+    "iso6391": "sq",
+    "name": "Albanian"
+  },
+  "alt": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "Southern Altai"
+  },
+  "amh": {
+    "terminologic": null,
+    "iso6391": "am",
+    "name": "Amharic"
+  },
+  "ang": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "English, Old (ca.450-1100)"
+  },
+  "anp": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "Angika"
+  },
+  "apa": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "Apache languages"
+  },
+  "ara": {
+    "terminologic": null,
+    "iso6391": "ar",
+    "name": "Arabic"
+  },
+  "arb": {
+    "iso6392": "ara",
+    "iso6391": "ar",
+    "name": "Arabic"
+  },
+  "arc": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "Official Aramaic (700-300 BCE); Imperial Aramaic (700-300 BCE)"
+  },
+  "arg": {
+    "terminologic": null,
+    "iso6391": "an",
+    "name": "Aragonese"
+  },
+  "arm": {
+    "terminologic": "hye",
+    "iso6391": "hy",
+    "name": "Armenian"
+  },
+  "arn": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "Mapudungun; Mapuche"
+  },
+  "arp": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "Arapaho"
+  },
+  "art": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "Artificial languages"
+  },
+  "arw": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "Arawak"
+  },
+  "asm": {
+    "terminologic": null,
+    "iso6391": "as",
+    "name": "Assamese"
+  },
+  "ast": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "Asturian; Bable; Leonese; Asturleonese"
+  },
+  "ath": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "Athapascan languages"
+  },
+  "aus": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "Australian languages"
+  },
+  "ava": {
+    "terminologic": null,
+    "iso6391": "av",
+    "name": "Avaric"
+  },
+  "ave": {
+    "terminologic": null,
+    "iso6391": "ae",
+    "name": "Avestan"
+  },
+  "awa": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "Awadhi"
+  },
+  "aym": {
+    "terminologic": null,
+    "iso6391": "ay",
+    "name": "Aymara"
+  },
+  "aze": {
+    "terminologic": null,
+    "iso6391": "az",
+    "name": "Azerbaijani"
+  },
+  "bad": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "Banda languages"
+  },
+  "bai": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "Bamileke languages"
+  },
+  "bak": {
+    "terminologic": null,
+    "iso6391": "ba",
+    "name": "Bashkir"
+  },
+  "bal": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "Baluchi"
+  },
+  "bam": {
+    "terminologic": null,
+    "iso6391": "bm",
+    "name": "Bambara"
+  },
+  "ban": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "Balinese"
+  },
+  "baq": {
+    "terminologic": "eus",
+    "iso6391": "eu",
+    "name": "Basque"
+  },
+  "bas": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "Basa"
+  },
+  "bat": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "Baltic languages"
+  },
+  "bej": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "Beja; Bedawiyet"
+  },
+  "bel": {
+    "terminologic": null,
+    "iso6391": "be",
+    "name": "Belarusian"
+  },
+  "bem": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "Bemba"
+  },
+  "ben": {
+    "terminologic": null,
+    "iso6391": "bn",
+    "name": "Bengali"
+  },
+  "ber": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "Berber languages"
+  },
+  "bho": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "Bhojpuri"
+  },
+  "bih": {
+    "terminologic": null,
+    "iso6391": "bh",
+    "name": "Bihari languages"
+  },
+  "bik": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "Bikol"
+  },
+  "bin": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "Bini; Edo"
+  },
+  "bis": {
+    "terminologic": null,
+    "iso6391": "bi",
+    "name": "Bislama"
+  },
+  "bla": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "Siksika"
+  },
+  "bnt": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "Bantu (Other)"
+  },
+  "bod": {
+    "bibliographic": "tib",
+    "iso6391": "bo",
+    "name": "Tibetan"
+  },
+  "bos": {
+    "terminologic": null,
+    "iso6391": "bs",
+    "name": "Bosnian"
+  },
+  "bra": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "Braj"
+  },
+  "bre": {
+    "terminologic": null,
+    "iso6391": "br",
+    "name": "Breton"
+  },
+  "btk": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "Batak languages"
+  },
+  "bua": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "Buriat"
+  },
+  "bug": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "Buginese"
+  },
+  "bul": {
+    "terminologic": null,
+    "iso6391": "bg",
+    "name": "Bulgarian"
+  },
+  "bur": {
+    "terminologic": "mya",
+    "iso6391": "my",
+    "name": "Burmese"
+  },
+  "byn": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "Blin; Bilin"
+  },
+  "cad": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "Caddo"
+  },
+  "cai": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "Central American Indian languages"
+  },
+  "car": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "Galibi Carib"
+  },
+  "cat": {
+    "terminologic": null,
+    "iso6391": "ca",
+    "name": "Catalan; Valencian"
+  },
+  "cau": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "Caucasian languages"
+  },
+  "ceb": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "Cebuano"
+  },
+  "cel": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "Celtic languages"
+  },
+  "ces": {
+    "bibliographic": "cze",
+    "iso6391": "cs",
+    "name": "Czech"
+  },
+  "cha": {
+    "terminologic": null,
+    "iso6391": "ch",
+    "name": "Chamorro"
+  },
+  "chb": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "Chibcha"
+  },
+  "che": {
+    "terminologic": null,
+    "iso6391": "ce",
+    "name": "Chechen"
+  },
+  "chg": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "Chagatai"
+  },
+  "chi": {
+    "terminologic": "zho",
+    "iso6391": "zh",
+    "name": "Chinese"
+  },
+  "chk": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "Chuukese"
+  },
+  "chm": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "Mari"
+  },
+  "chn": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "Chinook jargon"
+  },
+  "cho": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "Choctaw"
+  },
+  "chp": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "Chipewyan; Dene Suline"
+  },
+  "chr": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "Cherokee"
+  },
+  "chu": {
+    "terminologic": null,
+    "iso6391": "cu",
+    "name": "Church Slavic; Old Slavonic; Church Slavonic; Old Bulgarian; Old Church Slavonic"
+  },
+  "chv": {
+    "terminologic": null,
+    "iso6391": "cv",
+    "name": "Chuvash"
+  },
+  "chy": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "Cheyenne"
+  },
+  "cmc": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "Chamic languages"
+  },
+  "cmn": {
+    "bibliographic": "chi",
+    "iso6391": "zh",
+    "name": "Chinese"
+  },
+  "cop": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "Coptic"
+  },
+  "cor": {
+    "terminologic": null,
+    "iso6391": "kw",
+    "name": "Cornish"
+  },
+  "cos": {
+    "terminologic": null,
+    "iso6391": "co",
+    "name": "Corsican"
+  },
+  "cpe": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "Creoles and pidgins, English based"
+  },
+  "cpf": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "Creoles and pidgins, French-based "
+  },
+  "cpp": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "Creoles and pidgins, Portuguese-based "
+  },
+  "cre": {
+    "terminologic": null,
+    "iso6391": "cr",
+    "name": "Cree"
+  },
+  "crh": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "Crimean Tatar; Crimean Turkish"
+  },
+  "crp": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "Creoles and pidgins "
+  },
+  "csb": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "Kashubian"
+  },
+  "cus": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "Cushitic languages"
+  },
+  "cym": {
+    "bibliographic": "wel",
+    "iso6391": "cy",
+    "name": "Welsh"
+  },
+  "cze": {
+    "terminologic": "ces",
+    "iso6391": "cs",
+    "name": "Czech"
+  },
+  "dak": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "Dakota"
+  },
+  "dan": {
+    "terminologic": null,
+    "iso6391": "da",
+    "name": "Danish"
+  },
+  "dar": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "Dargwa"
+  },
+  "day": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "Land Dayak languages"
+  },
+  "del": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "Delaware"
+  },
+  "den": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "Slave (Athapascan)"
+  },
+  "deu": {
+    "bibliographic": "ger",
+    "iso6391": "de",
+    "name": "German"
+  },
+  "dgr": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "Dogrib"
+  },
+  "din": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "Dinka"
+  },
+  "div": {
+    "terminologic": null,
+    "iso6391": "dv",
+    "name": "Divehi; Dhivehi; Maldivian"
+  },
+  "doi": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "Dogri"
+  },
+  "dra": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "Dravidian languages"
+  },
+  "dsb": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "Lower Sorbian"
+  },
+  "dua": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "Duala"
+  },
+  "dum": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "Dutch, Middle (ca.1050-1350)"
+  },
+  "dut": {
+    "terminologic": "nld",
+    "iso6391": "nl",
+    "name": "Dutch; Flemish"
+  },
+  "dyu": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "Dyula"
+  },
+  "dzo": {
+    "terminologic": null,
+    "iso6391": "dz",
+    "name": "Dzongkha"
+  },
+  "efi": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "Efik"
+  },
+  "egy": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "Egyptian (Ancient)"
+  },
+  "eka": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "Ekajuk"
+  },
+  "ell": {
+    "bibliographic": "gre",
+    "iso6391": "el",
+    "name": "Greek, Modern (1453-)"
+  },
+  "elx": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "Elamite"
+  },
+  "eng": {
+    "terminologic": null,
+    "iso6391": "en",
+    "name": "English"
+  },
+  "enm": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "English, Middle (1100-1500)"
+  },
+  "epo": {
+    "terminologic": null,
+    "iso6391": "eo",
+    "name": "Esperanto"
+  },
+  "est": {
+    "terminologic": null,
+    "iso6391": "et",
+    "name": "Estonian"
+  },
+  "eus": {
+    "bibliographic": "baq",
+    "iso6391": "eu",
+    "name": "Basque"
+  },
+  "ewe": {
+    "terminologic": null,
+    "iso6391": "ee",
+    "name": "Ewe"
+  },
+  "ewo": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "Ewondo"
+  },
+  "fan": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "Fang"
+  },
+  "fao": {
+    "terminologic": null,
+    "iso6391": "fo",
+    "name": "Faroese"
+  },
+  "fas": {
+    "bibliographic": "per",
+    "iso6391": "fa",
+    "name": "Persian"
+  },
+  "fat": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "Fanti"
+  },
+  "fij": {
+    "terminologic": null,
+    "iso6391": "fj",
+    "name": "Fijian"
+  },
+  "fil": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "Filipino; Pilipino"
+  },
+  "fin": {
+    "terminologic": null,
+    "iso6391": "fi",
+    "name": "Finnish"
+  },
+  "fiu": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "Finno-Ugrian languages"
+  },
+  "fon": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "Fon"
+  },
+  "fra": {
+    "bibliographic": "fre",
+    "iso6391": "fr",
+    "name": "French"
+  },
+  "fre": {
+    "terminologic": "fra",
+    "iso6391": "fr",
+    "name": "French"
+  },
+  "frm": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "French, Middle (ca.1400-1600)"
+  },
+  "fro": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "French, Old (842-ca.1400)"
+  },
+  "frr": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "Northern Frisian"
+  },
+  "frs": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "Eastern Frisian"
+  },
+  "fry": {
+    "terminologic": null,
+    "iso6391": "fy",
+    "name": "Western Frisian"
+  },
+  "ful": {
+    "terminologic": null,
+    "iso6391": "ff",
+    "name": "Fulah"
+  },
+  "fur": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "Friulian"
+  },
+  "gaa": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "Ga"
+  },
+  "gay": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "Gayo"
+  },
+  "gba": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "Gbaya"
+  },
+  "gem": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "Germanic languages"
+  },
+  "geo": {
+    "terminologic": "kat",
+    "iso6391": "ka",
+    "name": "Georgian"
+  },
+  "ger": {
+    "terminologic": "deu",
+    "iso6391": "de",
+    "name": "German"
+  },
+  "gez": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "Geez"
+  },
+  "gil": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "Gilbertese"
+  },
+  "gla": {
+    "terminologic": null,
+    "iso6391": "gd",
+    "name": "Gaelic; Scottish Gaelic"
+  },
+  "gle": {
+    "terminologic": null,
+    "iso6391": "ga",
+    "name": "Irish"
+  },
+  "glg": {
+    "terminologic": null,
+    "iso6391": "gl",
+    "name": "Galician"
+  },
+  "glv": {
+    "terminologic": null,
+    "iso6391": "gv",
+    "name": "Manx"
+  },
+  "gmh": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "German, Middle High (ca.1050-1500)"
+  },
+  "goh": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "German, Old High (ca.750-1050)"
+  },
+  "gon": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "Gondi"
+  },
+  "gor": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "Gorontalo"
+  },
+  "got": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "Gothic"
+  },
+  "grb": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "Grebo"
+  },
+  "grc": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "Greek, Ancient (to 1453)"
+  },
+  "gre": {
+    "terminologic": "ell",
+    "iso6391": "el",
+    "name": "Greek, Modern (1453-)"
+  },
+  "grn": {
+    "terminologic": null,
+    "iso6391": "gn",
+    "name": "Guarani"
+  },
+  "gsw": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "Swiss German; Alemannic; Alsatian"
+  },
+  "guj": {
+    "terminologic": null,
+    "iso6391": "gu",
+    "name": "Gujarati"
+  },
+  "gwi": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "Gwich'in"
+  },
+  "hai": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "Haida"
+  },
+  "hat": {
+    "terminologic": null,
+    "iso6391": "ht",
+    "name": "Haitian; Haitian Creole"
+  },
+  "hau": {
+    "terminologic": null,
+    "iso6391": "ha",
+    "name": "Hausa"
+  },
+  "haw": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "Hawaiian"
+  },
+  "heb": {
+    "terminologic": null,
+    "iso6391": "he",
+    "name": "Hebrew"
+  },
+  "her": {
+    "terminologic": null,
+    "iso6391": "hz",
+    "name": "Herero"
+  },
+  "hil": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "Hiligaynon"
+  },
+  "him": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "Himachali languages; Western Pahari languages"
+  },
+  "hin": {
+    "terminologic": null,
+    "iso6391": "hi",
+    "name": "Hindi"
+  },
+  "hit": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "Hittite"
+  },
+  "hmn": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "Hmong; Mong"
+  },
+  "hmo": {
+    "terminologic": null,
+    "iso6391": "ho",
+    "name": "Hiri Motu"
+  },
+  "hrv": {
+    "terminologic": null,
+    "iso6391": "hr",
+    "name": "Croatian"
+  },
+  "hsb": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "Upper Sorbian"
+  },
+  "hun": {
+    "terminologic": null,
+    "iso6391": "hu",
+    "name": "Hungarian"
+  },
+  "hup": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "Hupa"
+  },
+  "hye": {
+    "bibliographic": "arm",
+    "iso6391": "hy",
+    "name": "Armenian"
+  },
+  "iba": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "Iban"
+  },
+  "ibo": {
+    "terminologic": null,
+    "iso6391": "ig",
+    "name": "Igbo"
+  },
+  "ice": {
+    "terminologic": "isl",
+    "iso6391": "is",
+    "name": "Icelandic"
+  },
+  "ido": {
+    "terminologic": null,
+    "iso6391": "io",
+    "name": "Ido"
+  },
+  "iii": {
+    "terminologic": null,
+    "iso6391": "ii",
+    "name": "Sichuan Yi; Nuosu"
+  },
+  "ijo": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "Ijo languages"
+  },
+  "iku": {
+    "terminologic": null,
+    "iso6391": "iu",
+    "name": "Inuktitut"
+  },
+  "ile": {
+    "terminologic": null,
+    "iso6391": "ie",
+    "name": "Interlingue; Occidental"
+  },
+  "ilo": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "Iloko"
+  },
+  "ina": {
+    "terminologic": null,
+    "iso6391": "ia",
+    "name": "Interlingua (International Auxiliary Language Association)"
+  },
+  "inc": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "Indic languages"
+  },
+  "ind": {
+    "terminologic": null,
+    "iso6391": "id",
+    "name": "Indonesian"
+  },
+  "ine": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "Indo-European languages"
+  },
+  "inh": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "Ingush"
+  },
+  "ipk": {
+    "terminologic": null,
+    "iso6391": "ik",
+    "name": "Inupiaq"
+  },
+  "ira": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "Iranian languages"
+  },
+  "iro": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "Iroquoian languages"
+  },
+  "isl": {
+    "bibliographic": "ice",
+    "iso6391": "is",
+    "name": "Icelandic"
+  },
+  "ita": {
+    "terminologic": null,
+    "iso6391": "it",
+    "name": "Italian"
+  },
+  "jav": {
+    "terminologic": null,
+    "iso6391": "jv",
+    "name": "Javanese"
+  },
+  "jbo": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "Lojban"
+  },
+  "jpn": {
+    "terminologic": null,
+    "iso6391": "ja",
+    "name": "Japanese"
+  },
+  "jpr": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "Judeo-Persian"
+  },
+  "jrb": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "Judeo-Arabic"
+  },
+  "kaa": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "Kara-Kalpak"
+  },
+  "kab": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "Kabyle"
+  },
+  "kac": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "Kachin; Jingpho"
+  },
+  "kal": {
+    "terminologic": null,
+    "iso6391": "kl",
+    "name": "Kalaallisut; Greenlandic"
+  },
+  "kam": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "Kamba"
+  },
+  "kan": {
+    "terminologic": null,
+    "iso6391": "kn",
+    "name": "Kannada"
+  },
+  "kar": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "Karen languages"
+  },
+  "kas": {
+    "terminologic": null,
+    "iso6391": "ks",
+    "name": "Kashmiri"
+  },
+  "kat": {
+    "bibliographic": "geo",
+    "iso6391": "ka",
+    "name": "Georgian"
+  },
+  "kau": {
+    "terminologic": null,
+    "iso6391": "kr",
+    "name": "Kanuri"
+  },
+  "kaw": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "Kawi"
+  },
+  "kaz": {
+    "terminologic": null,
+    "iso6391": "kk",
+    "name": "Kazakh"
+  },
+  "kbd": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "Kabardian"
+  },
+  "kha": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "Khasi"
+  },
+  "khi": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "Khoisan languages"
+  },
+  "khm": {
+    "terminologic": null,
+    "iso6391": "km",
+    "name": "Central Khmer"
+  },
+  "kho": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "Khotanese; Sakan"
+  },
+  "kik": {
+    "terminologic": null,
+    "iso6391": "ki",
+    "name": "Kikuyu; Gikuyu"
+  },
+  "kin": {
+    "terminologic": null,
+    "iso6391": "rw",
+    "name": "Kinyarwanda"
+  },
+  "kir": {
+    "terminologic": null,
+    "iso6391": "ky",
+    "name": "Kirghiz; Kyrgyz"
+  },
+  "kmb": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "Kimbundu"
+  },
+  "kok": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "Konkani"
+  },
+  "kom": {
+    "terminologic": null,
+    "iso6391": "kv",
+    "name": "Komi"
+  },
+  "kon": {
+    "terminologic": null,
+    "iso6391": "kg",
+    "name": "Kongo"
+  },
+  "kor": {
+    "terminologic": null,
+    "iso6391": "ko",
+    "name": "Korean"
+  },
+  "kos": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "Kosraean"
+  },
+  "kpe": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "Kpelle"
+  },
+  "krc": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "Karachay-Balkar"
+  },
+  "krl": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "Karelian"
+  },
+  "kro": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "Kru languages"
+  },
+  "kru": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "Kurukh"
+  },
+  "kua": {
+    "terminologic": null,
+    "iso6391": "kj",
+    "name": "Kuanyama; Kwanyama"
+  },
+  "kum": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "Kumyk"
+  },
+  "kur": {
+    "terminologic": null,
+    "iso6391": "ku",
+    "name": "Kurdish"
+  },
+  "kut": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "Kutenai"
+  },
+  "lad": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "Ladino"
+  },
+  "lah": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "Lahnda"
+  },
+  "lam": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "Lamba"
+  },
+  "lao": {
+    "terminologic": null,
+    "iso6391": "lo",
+    "name": "Lao"
+  },
+  "lat": {
+    "terminologic": null,
+    "iso6391": "la",
+    "name": "Latin"
+  },
+  "lav": {
+    "terminologic": null,
+    "iso6391": "lv",
+    "name": "Latvian"
+  },
+  "lez": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "Lezghian"
+  },
+  "lim": {
+    "terminologic": null,
+    "iso6391": "li",
+    "name": "Limburgan; Limburger; Limburgish"
+  },
+  "lin": {
+    "terminologic": null,
+    "iso6391": "ln",
+    "name": "Lingala"
+  },
+  "lit": {
+    "terminologic": null,
+    "iso6391": "lt",
+    "name": "Lithuanian"
+  },
+  "lol": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "Mongo"
+  },
+  "loz": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "Lozi"
+  },
+  "ltz": {
+    "terminologic": null,
+    "iso6391": "lb",
+    "name": "Luxembourgish; Letzeburgesch"
+  },
+  "lua": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "Luba-Lulua"
+  },
+  "lub": {
+    "terminologic": null,
+    "iso6391": "lu",
+    "name": "Luba-Katanga"
+  },
+  "lug": {
+    "terminologic": null,
+    "iso6391": "lg",
+    "name": "Ganda"
+  },
+  "lui": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "Luiseno"
+  },
+  "lun": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "Lunda"
+  },
+  "luo": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "Luo (Kenya and Tanzania)"
+  },
+  "lus": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "Lushai"
+  },
+  "mac": {
+    "terminologic": "mkd",
+    "iso6391": "mk",
+    "name": "Macedonian"
+  },
+  "mad": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "Madurese"
+  },
+  "mag": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "Magahi"
+  },
+  "mah": {
+    "terminologic": null,
+    "iso6391": "mh",
+    "name": "Marshallese"
+  },
+  "mai": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "Maithili"
+  },
+  "mak": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "Makasar"
+  },
+  "mal": {
+    "terminologic": null,
+    "iso6391": "ml",
+    "name": "Malayalam"
+  },
+  "man": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "Mandingo"
+  },
+  "mao": {
+    "terminologic": "mri",
+    "iso6391": "mi",
+    "name": "Maori"
+  },
+  "map": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "Austronesian languages"
+  },
+  "mar": {
+    "terminologic": null,
+    "iso6391": "mr",
+    "name": "Marathi"
+  },
+  "mas": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "Masai"
+  },
+  "may": {
+    "terminologic": "msa",
+    "iso6391": "ms",
+    "name": "Malay"
+  },
+  "mdf": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "Moksha"
+  },
+  "mdr": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "Mandar"
+  },
+  "men": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "Mende"
+  },
+  "mga": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "Irish, Middle (900-1200)"
+  },
+  "mic": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "Mi'kmaq; Micmac"
+  },
+  "min": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "Minangkabau"
+  },
+  "mis": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "Uncoded languages"
+  },
+  "mkd": {
+    "bibliographic": "mac",
+    "iso6391": "mk",
+    "name": "Macedonian"
+  },
+  "mkh": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "Mon-Khmer languages"
+  },
+  "mlg": {
+    "terminologic": null,
+    "iso6391": "mg",
+    "name": "Malagasy"
+  },
+  "mlt": {
+    "terminologic": null,
+    "iso6391": "mt",
+    "name": "Maltese"
+  },
+  "mnc": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "Manchu"
+  },
+  "mni": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "Manipuri"
+  },
+  "mno": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "Manobo languages"
+  },
+  "moh": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "Mohawk"
+  },
+  "mon": {
+    "terminologic": null,
+    "iso6391": "mn",
+    "name": "Mongolian"
+  },
+  "mos": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "Mossi"
+  },
+  "mri": {
+    "bibliographic": "mao",
+    "iso6391": "mi",
+    "name": "Maori"
+  },
+  "msa": {
+    "bibliographic": "may",
+    "iso6391": "ms",
+    "name": "Malay"
+  },
+  "mul": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "Multiple languages"
+  },
+  "mun": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "Munda languages"
+  },
+  "mus": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "Creek"
+  },
+  "mwl": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "Mirandese"
+  },
+  "mwr": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "Marwari"
+  },
+  "mya": {
+    "bibliographic": "bur",
+    "iso6391": "my",
+    "name": "Burmese"
+  },
+  "myn": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "Mayan languages"
+  },
+  "myv": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "Erzya"
+  },
+  "nah": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "Nahuatl languages"
+  },
+  "nai": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "North American Indian languages"
+  },
+  "nap": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "Neapolitan"
+  },
+  "nau": {
+    "terminologic": null,
+    "iso6391": "na",
+    "name": "Nauru"
+  },
+  "nav": {
+    "terminologic": null,
+    "iso6391": "nv",
+    "name": "Navajo; Navaho"
+  },
+  "nbl": {
+    "terminologic": null,
+    "iso6391": "nr",
+    "name": "Ndebele, South; South Ndebele"
+  },
+  "nde": {
+    "terminologic": null,
+    "iso6391": "nd",
+    "name": "Ndebele, North; North Ndebele"
+  },
+  "ndo": {
+    "terminologic": null,
+    "iso6391": "ng",
+    "name": "Ndonga"
+  },
+  "nds": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "Low German; Low Saxon; German, Low; Saxon, Low"
+  },
+  "nep": {
+    "terminologic": null,
+    "iso6391": "ne",
+    "name": "Nepali"
+  },
+  "new": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "Nepal Bhasa; Newari"
+  },
+  "nia": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "Nias"
+  },
+  "nic": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "Niger-Kordofanian languages"
+  },
+  "niu": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "Niuean"
+  },
+  "nld": {
+    "bibliographic": "dut",
+    "iso6391": "nl",
+    "name": "Dutch; Flemish"
+  },
+  "nno": {
+    "terminologic": null,
+    "iso6391": "nn",
+    "name": "Norwegian Nynorsk; Nynorsk, Norwegian"
+  },
+  "nob": {
+    "terminologic": null,
+    "iso6391": "nb",
+    "name": "Bokmål, Norwegian; Norwegian Bokmål"
+  },
+  "nog": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "Nogai"
+  },
+  "non": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "Norse, Old"
+  },
+  "nor": {
+    "terminologic": null,
+    "iso6391": "no",
+    "name": "Norwegian"
+  },
+  "nqo": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "N'Ko"
+  },
+  "nso": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "Pedi; Sepedi; Northern Sotho"
+  },
+  "nub": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "Nubian languages"
+  },
+  "nwc": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "Classical Newari; Old Newari; Classical Nepal Bhasa"
+  },
+  "nya": {
+    "terminologic": null,
+    "iso6391": "ny",
+    "name": "Chichewa; Chewa; Nyanja"
+  },
+  "nym": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "Nyamwezi"
+  },
+  "nyn": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "Nyankole"
+  },
+  "nyo": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "Nyoro"
+  },
+  "nzi": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "Nzima"
+  },
+  "oci": {
+    "terminologic": null,
+    "iso6391": "oc",
+    "name": "Occitan (post 1500); Provençal"
+  },
+  "oji": {
+    "terminologic": null,
+    "iso6391": "oj",
+    "name": "Ojibwa"
+  },
+  "ori": {
+    "terminologic": null,
+    "iso6391": "or",
+    "name": "Oriya"
+  },
+  "orm": {
+    "terminologic": null,
+    "iso6391": "om",
+    "name": "Oromo"
+  },
+  "osa": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "Osage"
+  },
+  "oss": {
+    "terminologic": null,
+    "iso6391": "os",
+    "name": "Ossetian; Ossetic"
+  },
+  "ota": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "Turkish, Ottoman (1500-1928)"
+  },
+  "oto": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "Otomian languages"
+  },
+  "paa": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "Papuan languages"
+  },
+  "pag": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "Pangasinan"
+  },
+  "pal": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "Pahlavi"
+  },
+  "pam": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "Pampanga; Kapampangan"
+  },
+  "pan": {
+    "terminologic": null,
+    "iso6391": "pa",
+    "name": "Panjabi; Punjabi"
+  },
+  "pap": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "Papiamento"
+  },
+  "pau": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "Palauan"
+  },
+  "peo": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "Persian, Old (ca.600-400 B.C.)"
+  },
+  "per": {
+    "terminologic": "fas",
+    "iso6391": "fa",
+    "name": "Persian"
+  },
+  "phi": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "Philippine languages"
+  },
+  "phn": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "Phoenician"
+  },
+  "pli": {
+    "terminologic": null,
+    "iso6391": "pi",
+    "name": "Pali"
+  },
+  "pol": {
+    "terminologic": null,
+    "iso6391": "pl",
+    "name": "Polish"
+  },
+  "pon": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "Pohnpeian"
+  },
+  "por": {
+    "terminologic": null,
+    "iso6391": "pt",
+    "name": "Portuguese"
+  },
+  "pra": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "Prakrit languages"
+  },
+  "pro": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "Provençal, Old (to 1500)"
+  },
+  "pus": {
+    "terminologic": null,
+    "iso6391": "ps",
+    "name": "Pushto; Pashto"
+  },
+  "qaa-qtz": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "Reserved for local use"
+  },
+  "que": {
+    "terminologic": null,
+    "iso6391": "qu",
+    "name": "Quechua"
+  },
+  "raj": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "Rajasthani"
+  },
+  "rap": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "Rapanui"
+  },
+  "rar": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "Rarotongan; Cook Islands Maori"
+  },
+  "roa": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "Romance languages"
+  },
+  "roh": {
+    "terminologic": null,
+    "iso6391": "rm",
+    "name": "Romansh"
+  },
+  "rom": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "Romany"
+  },
+  "ron": {
+    "bibliographic": "rum",
+    "iso6391": "ro",
+    "name": "Romanian; Moldavian; Moldovan"
+  },
+  "rum": {
+    "terminologic": "ron",
+    "iso6391": "ro",
+    "name": "Romanian; Moldavian; Moldovan"
+  },
+  "run": {
+    "terminologic": null,
+    "iso6391": "rn",
+    "name": "Rundi"
+  },
+  "rup": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "Aromanian; Arumanian; Macedo-Romanian"
+  },
+  "rus": {
+    "terminologic": null,
+    "iso6391": "ru",
+    "name": "Russian"
+  },
+  "sad": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "Sandawe"
+  },
+  "sag": {
+    "terminologic": null,
+    "iso6391": "sg",
+    "name": "Sango"
+  },
+  "sah": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "Yakut"
+  },
+  "sai": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "South American Indian (Other)"
+  },
+  "sal": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "Salishan languages"
+  },
+  "sam": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "Samaritan Aramaic"
+  },
+  "san": {
+    "terminologic": null,
+    "iso6391": "sa",
+    "name": "Sanskrit"
+  },
+  "sas": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "Sasak"
+  },
+  "sat": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "Santali"
+  },
+  "scn": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "Sicilian"
+  },
+  "sco": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "Scots"
+  },
+  "sel": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "Selkup"
+  },
+  "sem": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "Semitic languages"
+  },
+  "sga": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "Irish, Old (to 900)"
+  },
+  "sgn": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "Sign Languages"
+  },
+  "shn": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "Shan"
+  },
+  "sid": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "Sidamo"
+  },
+  "sin": {
+    "terminologic": null,
+    "iso6391": "si",
+    "name": "Sinhala; Sinhalese"
+  },
+  "sio": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "Siouan languages"
+  },
+  "sit": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "Sino-Tibetan languages"
+  },
+  "sla": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "Slavic languages"
+  },
+  "slo": {
+    "terminologic": "slk",
+    "iso6391": "sk",
+    "name": "Slovak"
+  },
+  "slk": {
+    "bibliographic": "slo",
+    "iso6391": "sk",
+    "name": "Slovak"
+  },
+  "slv": {
+    "terminologic": null,
+    "iso6391": "sl",
+    "name": "Slovenian"
+  },
+  "sma": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "Southern Sami"
+  },
+  "sme": {
+    "terminologic": null,
+    "iso6391": "se",
+    "name": "Northern Sami"
+  },
+  "smi": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "Sami languages"
+  },
+  "smj": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "Lule Sami"
+  },
+  "smn": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "Inari Sami"
+  },
+  "smo": {
+    "terminologic": null,
+    "iso6391": "sm",
+    "name": "Samoan"
+  },
+  "sms": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "Skolt Sami"
+  },
+  "sna": {
+    "terminologic": null,
+    "iso6391": "sn",
+    "name": "Shona"
+  },
+  "snd": {
+    "terminologic": null,
+    "iso6391": "sd",
+    "name": "Sindhi"
+  },
+  "snk": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "Soninke"
+  },
+  "sog": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "Sogdian"
+  },
+  "som": {
+    "terminologic": null,
+    "iso6391": "so",
+    "name": "Somali"
+  },
+  "son": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "Songhai languages"
+  },
+  "sot": {
+    "terminologic": null,
+    "iso6391": "st",
+    "name": "Sotho, Southern"
+  },
+  "spa": {
+    "terminologic": null,
+    "iso6391": "es",
+    "name": "Spanish; Castilian"
+  },
+  "sqi": {
+    "bibliographic": "alb",
+    "iso6391": "sq",
+    "name": "Albanian"
+  },
+  "srd": {
+    "terminologic": null,
+    "iso6391": "sc",
+    "name": "Sardinian"
+  },
+  "srn": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "Sranan Tongo"
+  },
+  "srp": {
+    "terminologic": null,
+    "iso6391": "sr",
+    "name": "Serbian"
+  },
+  "srr": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "Serer"
+  },
+  "ssa": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "Nilo-Saharan languages"
+  },
+  "ssw": {
+    "terminologic": null,
+    "iso6391": "ss",
+    "name": "Swati"
+  },
+  "suk": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "Sukuma"
+  },
+  "sun": {
+    "terminologic": null,
+    "iso6391": "su",
+    "name": "Sundanese"
+  },
+  "sus": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "Susu"
+  },
+  "sux": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "Sumerian"
+  },
+  "swa": {
+    "terminologic": null,
+    "iso6391": "sw",
+    "name": "Swahili"
+  },
+  "swe": {
+    "terminologic": null,
+    "iso6391": "sv",
+    "name": "Swedish"
+  },
+  "syc": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "Classical Syriac"
+  },
+  "syr": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "Syriac"
+  },
+  "tah": {
+    "terminologic": null,
+    "iso6391": "ty",
+    "name": "Tahitian"
+  },
+  "tai": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "Tai languages"
+  },
+  "tam": {
+    "terminologic": null,
+    "iso6391": "ta",
+    "name": "Tamil"
+  },
+  "tat": {
+    "terminologic": null,
+    "iso6391": "tt",
+    "name": "Tatar"
+  },
+  "tel": {
+    "terminologic": null,
+    "iso6391": "te",
+    "name": "Telugu"
+  },
+  "tem": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "Timne"
+  },
+  "ter": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "Tereno"
+  },
+  "tet": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "Tetum"
+  },
+  "tgk": {
+    "terminologic": null,
+    "iso6391": "tg",
+    "name": "Tajik"
+  },
+  "tgl": {
+    "terminologic": null,
+    "iso6391": "tl",
+    "name": "Tagalog"
+  },
+  "tha": {
+    "terminologic": null,
+    "iso6391": "th",
+    "name": "Thai"
+  },
+  "tib": {
+    "terminologic": "bod",
+    "iso6391": "bo",
+    "name": "Tibetan"
+  },
+  "tig": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "Tigre"
+  },
+  "tir": {
+    "terminologic": null,
+    "iso6391": "ti",
+    "name": "Tigrinya"
+  },
+  "tiv": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "Tiv"
+  },
+  "tkl": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "Tokelau"
+  },
+  "tlh": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "Klingon; tlhIngan-Hol"
+  },
+  "tli": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "Tlingit"
+  },
+  "tmh": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "Tamashek"
+  },
+  "tog": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "Tonga (Nyasa)"
+  },
+  "ton": {
+    "terminologic": null,
+    "iso6391": "to",
+    "name": "Tonga (Tonga Islands)"
+  },
+  "tpi": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "Tok Pisin"
+  },
+  "tsi": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "Tsimshian"
+  },
+  "tsn": {
+    "terminologic": null,
+    "iso6391": "tn",
+    "name": "Tswana"
+  },
+  "tso": {
+    "terminologic": null,
+    "iso6391": "ts",
+    "name": "Tsonga"
+  },
+  "tuk": {
+    "terminologic": null,
+    "iso6391": "tk",
+    "name": "Turkmen"
+  },
+  "tum": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "Tumbuka"
+  },
+  "tup": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "Tupi languages"
+  },
+  "tur": {
+    "terminologic": null,
+    "iso6391": "tr",
+    "name": "Turkish"
+  },
+  "tut": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "Altaic languages"
+  },
+  "tvl": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "Tuvalu"
+  },
+  "twi": {
+    "terminologic": null,
+    "iso6391": "tw",
+    "name": "Twi"
+  },
+  "tyv": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "Tuvinian"
+  },
+  "udm": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "Udmurt"
+  },
+  "uga": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "Ugaritic"
+  },
+  "uig": {
+    "terminologic": null,
+    "iso6391": "ug",
+    "name": "Uighur; Uyghur"
+  },
+  "ukr": {
+    "terminologic": null,
+    "iso6391": "uk",
+    "name": "Ukrainian"
+  },
+  "umb": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "Umbundu"
+  },
+  "und": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "Undetermined"
+  },
+  "urd": {
+    "terminologic": null,
+    "iso6391": "ur",
+    "name": "Urdu"
+  },
+  "uzb": {
+    "terminologic": null,
+    "iso6391": "uz",
+    "name": "Uzbek"
+  },
+  "vai": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "Vai"
+  },
+  "ven": {
+    "terminologic": null,
+    "iso6391": "ve",
+    "name": "Venda"
+  },
+  "vie": {
+    "terminologic": null,
+    "iso6391": "vi",
+    "name": "Vietnamese"
+  },
+  "vol": {
+    "terminologic": null,
+    "iso6391": "vo",
+    "name": "Volapük"
+  },
+  "vot": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "Votic"
+  },
+  "wak": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "Wakashan languages"
+  },
+  "wal": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "Walamo"
+  },
+  "war": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "Waray"
+  },
+  "was": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "Washo"
+  },
+  "wel": {
+    "terminologic": "cym",
+    "iso6391": "cy",
+    "name": "Welsh"
+  },
+  "wen": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "Sorbian languages"
+  },
+  "wln": {
+    "terminologic": null,
+    "iso6391": "wa",
+    "name": "Walloon"
+  },
+  "wol": {
+    "terminologic": null,
+    "iso6391": "wo",
+    "name": "Wolof"
+  },
+  "xal": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "Kalmyk; Oirat"
+  },
+  "xho": {
+    "terminologic": null,
+    "iso6391": "xh",
+    "name": "Xhosa"
+  },
+  "yao": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "Yao"
+  },
+  "yap": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "Yapese"
+  },
+  "yid": {
+    "terminologic": null,
+    "iso6391": "yi",
+    "name": "Yiddish"
+  },
+  "yor": {
+    "terminologic": null,
+    "iso6391": "yo",
+    "name": "Yoruba"
+  },
+  "ypk": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "Yupik languages"
+  },
+  "zap": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "Zapotec"
+  },
+  "zbl": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "Blissymbols; Blissymbolics; Bliss"
+  },
+  "zen": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "Zenaga"
+  },
+  "zgh": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "Standard Moroccan Tamazight"
+  },
+  "zha": {
+    "terminologic": null,
+    "iso6391": "za",
+    "name": "Zhuang; Chuang"
+  },
+  "zho": {
+    "bibliographic": "chi",
+    "iso6391": "zh",
+    "name": "Chinese"
+  },
+  "znd": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "Zande languages"
+  },
+  "zul": {
+    "terminologic": null,
+    "iso6391": "zu",
+    "name": "Zulu"
+  },
+  "zun": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "Zuni"
+  },
+  "zxx": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "No linguistic content; Not applicable"
+  },
+  "zza": {
+    "terminologic": null,
+    "iso6391": null,
+    "name": "Zaza; Dimili; Dimli; Kirdki; Kirmanjki; Zazaki"
+  }
+}
+},{}],10:[function(require,module,exports){
 /* Delayer.js
 * 
 * Holding the changing user delay settinga and mananging
@@ -1401,7 +4201,7 @@ body {\
     return Delayer;
 }));
 
-},{}],8:[function(require,module,exports){
+},{}],11:[function(require,module,exports){
 /* PlaybackUI.js
 * 
 * Pause, play, rewind, fast-forward, and scrub
@@ -1763,7 +4563,7 @@ body {\
     return PlaybackUI;
 }));
 
-},{"./playback-CSS":10,"jquery":147,"nouislider":149}],9:[function(require,module,exports){
+},{"./playback-CSS":13,"jquery":104,"nouislider":106}],12:[function(require,module,exports){
 /* ReaderlyTimer.js
 * 
 * Transmits fragments from Queue. Uses `delayer` to determine time
@@ -2157,7 +4957,7 @@ body {\
     return ReaderlyTimer;
 }));
 
-},{"jquery":147}],10:[function(require,module,exports){
+},{"jquery":104}],13:[function(require,module,exports){
 // playback-CSS.js
 // css that's bundleable
 
@@ -2351,7 +5151,7 @@ body {\
     return playbackCSS;
 }));
 
-},{}],11:[function(require,module,exports){
+},{}],14:[function(require,module,exports){
 /* ReaderlySettings.js
 * 
 * Should manage settings. Don't put them directly in here
@@ -2607,7 +5407,7 @@ body {\
     return ReaderlySettings;
 }));
 
-},{"./settings-CSS":14,"jquery":147}],12:[function(require,module,exports){
+},{"./settings-CSS":17,"jquery":104}],15:[function(require,module,exports){
 /* SpeedSettings.js
 * 
 * UI elements for setting various speeds/delays for
@@ -2862,7 +5662,7 @@ body {\
     return SpeedSettings;
 }));
 
-},{"jquery":147,"nouislider":149}],13:[function(require,module,exports){
+},{"jquery":104,"nouislider":106}],16:[function(require,module,exports){
 // noui-CSS.js
 // css that's bundleable
 
@@ -3106,7 +5906,7 @@ body {\
     return nouiCSS;
 }));
 
-},{}],14:[function(require,module,exports){
+},{}],17:[function(require,module,exports){
 // settings-CSS.js
 // css that's bundleable
 
@@ -3311,19 +6111,22 @@ body {\
     return settingsCSS;
 }));
 
-},{}],15:[function(require,module,exports){
+},{}],18:[function(require,module,exports){
 /* main.js
 * 
 * TODO:
 * - Cache whole page text when possible/read
-* - Cache options and prevent them from being reset on
-* 	close of extension
 * - Cache reading progress?
-* - Trigger pause on clicking of central element, not
-* 	just text
-* - Add function "cleanHTML" to get rid of unwanted elements
 * - Remove html parsing from sbd node module
 * - Break this up into more descrete modules
+* 
+* DONE:
+* - Cache options and prevent them from being reset on
+* 	close of extension
+* - Trigger pause on clicking of central element, not
+* 	just text
+* - Add function "cleanNode" to get rid of unwanted elements
+* 
 * 
 * WARNING:
 * Storage is all user settings. Too cumbersome otherwise for now.
@@ -3332,11 +6135,11 @@ body {\
 (function(){
 
 	// ============== SETUP ============== \\
-	var unfluff 	= require('@knod/unfluff'),
-		detect 		= require('detect-lang'),
-		$ 			= require('jquery');
+	var $ 			= require('jquery');
 
-	// var Queue 		= require('./lib/Queue.js'),
+	var Parser 		= require('./lib/parse/Parser.js'),
+		ParserSetup = require('./lib/ParserSetup.js');
+
 	var Words 		= require('./lib/parse/Words.js'),
 		WordNav 	= require('./lib/parse/WordNav.js'),
 		Storage 	= require('./lib/ReaderlyStorage.js'),
@@ -3347,8 +6150,7 @@ body {\
 		Settings 	= require('./lib/settings/ReaderlySettings.js'),
 		Speed 		= require('./lib/settings/SpeedSettings.js');
 
-	var words, wordNav, storage, delayer, timer, coreDisplay, playback, settings, speed;
-	// var queue, storage, delayer, timer, coreDisplay, playback, settings, speed;
+	var parser, words, wordNav, storage, delayer, timer, coreDisplay, playback, settings, speed;
 
 
 	var afterLoadSettings = function ( oldSettings ) {
@@ -3366,8 +6168,24 @@ body {\
 	};  // End addEvents()
 
 
+	var getParser = function () {
+		var pSup = new ParserSetup();
+		// FOR TESTING
+		pSup.debug = true;
+
+		// Functions to pass to parser
+		var cleanNode 		= pSup.cleanNode,
+			detectLanguage 	= pSup.detectLanguage,
+			findArticle 	= pSup.findArticle,
+			cleanText 		= pSup.cleanText,
+			splitSentences 	= pSup.splitSentences;
+
+		return new Parser( cleanNode, detectLanguage, findArticle, cleanText, splitSentences );
+	};  // End getParser()
+
+
 	var init = function () {
-		// queue 	= new Queue();
+		parser  = getParser();
 		words 	= new Words();
 		wordNav = new WordNav();
 		storage = new Storage();
@@ -3383,55 +6201,20 @@ body {\
 
 
 	// ============== RUNTIME ============== \\
-	var read = function ( text ) {
-		// TODO: If there's already a `words`, start where we left off
-		words.process( text );
+	var read = function ( node ) {
+
+		var sentences = parser.parse( node );
+        if (parser.debug) {  // Help non-coder devs identify some bugs
+    	    console.log('~~~~~parse debug~~~~~ If any of those tests failed, the problem isn\'t with Readerly, it\'s with one of the other libraries. That problem will have to be fixed later.');
+        }
+
+		// TODO: If there's already a `words` (if this isn't new), start where we left off
+		words.process( sentences );
+		
 		wordNav.process( words );
 		timer.start( wordNav );
 		return true;
 	};
-
-
-	var cleanHTML = function ( $node ) {
-	// Remove unwanted nodes from the text
-		$node.find('sup').remove();
-		// These have English, skewing language detection results
-		$node.find('script').remove();
-		$node.find('style').remove();
-		return $node;
-	};
-
-
-	var smallSample = function ( $node, desiredSampleLength ) {
-	/* ( jQuery Node, [int] ) -> Str
-	* 
-	* Get a sample of the text (probably to use in detecting language)
-	* A hack for language detection for now until language detection
-	* is made lazy.
-	*/
-		var halfSampleLength = desiredSampleLength/2 || 500;
-
-		var text = $node.text();
-		text = text.replace(/\s\s+/g, ' ');
-
-		// Average letter length of an English word = ~5 characters + a space
-		var aproxNumWords 	= Math.floor(text.length/6),
-			halfNumWords 	= aproxNumWords/2;
-
-		// Want to get as close to 1k words as possible
-		var startingPoint, length;
-		if ( halfNumWords > halfSampleLength ) {
-			length = halfSampleLength * 2;
-			startingPoint = halfNumWords - halfSampleLength;
-		} else {
-			length = text.length;
-			startingPoint = 0;
-		}
-
-		var sample = text.slice( startingPoint, startingPoint + length );
-
-		return sample;
-	};  // End smallSample()
 
 
 
@@ -3445,25 +6228,14 @@ body {\
 		if ( func === "readSelectedText" ) {
 			
 			var contents = document.getSelection().getRangeAt(0).cloneContents();
-			var container = $('<div></div>');
-			container.append(contents);
-			container.find('sup').remove();
-			read( container.text() );
+			var $container = $('<div></div>');
+			$container.append(contents);
+			read( $container[0] );
 
 		} else if ( func === "readFullPage" ) {
 
-			var $clone = $('html').clone(),
-				$clean = cleanHTML( $clone );
-
-			var sampleText = smallSample( $clean );
-
-			detect( sampleText ).then(function afterLanguageDetection(data) {
-				var lang = data.iso6391 || 'en',
-					cmds = unfluff.lazy( $clean.html(), lang ),
-					text = cmds.text();
-					console.log(JSON.stringify(text));
-				read( text )
-			});
+			var $clone = $('html').clone();
+			read( $clone[0] );
 
 		}  // end if event is ___
 
@@ -3471,7 +6243,7 @@ body {\
 
 })();
 
-},{"./lib/ReaderlyDisplay.js":2,"./lib/ReaderlyStorage.js":3,"./lib/parse/WordNav.js":5,"./lib/parse/Words.js":6,"./lib/playback/Delayer.js":7,"./lib/playback/PlaybackUI.js":8,"./lib/playback/ReaderlyTimer.js":9,"./lib/settings/ReaderlySettings.js":11,"./lib/settings/SpeedSettings.js":12,"@knod/unfluff":21,"detect-lang":95,"jquery":147}],16:[function(require,module,exports){
+},{"./lib/ParserSetup.js":2,"./lib/ReaderlyDisplay.js":3,"./lib/ReaderlyStorage.js":4,"./lib/parse/Parser.js":6,"./lib/parse/WordNav.js":7,"./lib/parse/Words.js":8,"./lib/playback/Delayer.js":10,"./lib/playback/PlaybackUI.js":11,"./lib/playback/ReaderlyTimer.js":12,"./lib/settings/ReaderlySettings.js":14,"./lib/settings/SpeedSettings.js":15,"jquery":104}],19:[function(require,module,exports){
 // Generated by CoffeeScript 2.0.0-beta7
 void function () {
   var _, cleanArticleTags, cleanBadTags, cleanCodeBlocks, cleanEmTags, cleaner, cleanErrantLinebreaks, cleanParaSpans, cleanUnderlines, divToPara, getReplacementNodes, removeBodyClasses, removeDropCaps, removeNodesRegex, removeScriptsStyles, replaceWithPara;
@@ -3682,7 +6454,7 @@ void function () {
   };
 }.call(this);
 
-},{"lodash":93}],17:[function(require,module,exports){
+},{"lodash":96}],20:[function(require,module,exports){
 // Generated by CoffeeScript 2.0.0-beta7
 void function () {
   var _, addSiblings, biggestTitleChunk, cleanText, cleanTitle, formatter, getObjectTag, getScore, getSiblingsContent, getSiblingsScore, getVideoAttrs, isBoostable, isHighlinkDensity, isNodescoreThresholdMet, isTableAndNoParaExist, postCleanup, rawTitle, stopwords, updateNodeCount, updateScore;
@@ -4191,7 +6963,7 @@ void function () {
   };
 }.call(this);
 
-},{"./formatter":18,"./stopwords":19,"lodash":93}],18:[function(require,module,exports){
+},{"./formatter":21,"./stopwords":22,"lodash":96}],21:[function(require,module,exports){
 // Generated by CoffeeScript 2.0.0-beta7
 void function () {
   var _, addNewlineToBr, cleanParagraphText, convertToText, formatter, linksToText, removeFewwordsParagraphs, removeNegativescoresNodes, replaceWithText, stopwords, ulToText, XRegExp;
@@ -4314,7 +7086,7 @@ void function () {
   };
 }.call(this);
 
-},{"./stopwords":19,"lodash":93,"xregexp":94}],19:[function(require,module,exports){
+},{"./stopwords":22,"lodash":96,"xregexp":97}],22:[function(require,module,exports){
 // Generated by CoffeeScript 2.0.0-beta7
 void function () {
   var _, cache, candiateWords, removePunctuation, stopwords, stopwordsData;
@@ -4358,7 +7130,7 @@ void function () {
   };
 }.call(this);
 
-},{"./stopwordsdata":20,"lodash":93}],20:[function(require,module,exports){
+},{"./stopwordsdata":23,"lodash":96}],23:[function(require,module,exports){
 // Generated by CoffeeScript 2.0.0-beta7
 module.exports = {
   ar: [
@@ -12716,7 +15488,7 @@ module.exports = {
   ]
 };
 
-},{}],21:[function(require,module,exports){
+},{}],24:[function(require,module,exports){
 // Generated by CoffeeScript 2.0.0-beta7
 void function () {
   var cheerio, cleaner, extractor, getCleanedDoc, getParsedDoc, getTopNode, unfluff;
@@ -12858,7 +15630,7 @@ void function () {
   };
 }.call(this);
 
-},{"./cleaner":16,"./extractor":17,"cheerio":22}],22:[function(require,module,exports){
+},{"./cleaner":19,"./extractor":20,"cheerio":25}],25:[function(require,module,exports){
 /**
  * Export cheerio (with )
  */
@@ -12871,7 +15643,7 @@ exports = module.exports = require('./lib/cheerio');
 
 exports.version = require('./package').version;
 
-},{"./lib/cheerio":27,"./package":92}],23:[function(require,module,exports){
+},{"./lib/cheerio":30,"./package":95}],26:[function(require,module,exports){
 var _ = require('lodash'),
   utils = require('../utils'),
   isTag = utils.isTag,
@@ -13286,7 +16058,7 @@ var is = exports.is = function (selector) {
 };
 
 
-},{"../utils":30,"lodash":93}],24:[function(require,module,exports){
+},{"../utils":33,"lodash":96}],27:[function(require,module,exports){
 var _ = require('lodash'),
     domEach = require('../utils').domEach;
 var toString = Object.prototype.toString;
@@ -13406,7 +16178,7 @@ function parse(styles) {
     }, {});
 }
 
-},{"../utils":30,"lodash":93}],25:[function(require,module,exports){
+},{"../utils":33,"lodash":96}],28:[function(require,module,exports){
 var _ = require('lodash'),
     parse = require('../parse'),
     $ = require('../static'),
@@ -13712,7 +16484,7 @@ var clone = exports.clone = function() {
   return this._make($.html(this));
 };
 
-},{"../parse":28,"../static":29,"../utils":30,"lodash":93}],26:[function(require,module,exports){
+},{"../parse":31,"../static":32,"../utils":33,"lodash":96}],29:[function(require,module,exports){
 var _ = require('lodash'),
     select = require('CSSselect'),
     utils = require('../utils'),
@@ -14075,7 +16847,7 @@ var add = exports.add = function(other, context) {
   return selection;
 };
 
-},{"../utils":30,"CSSselect":31,"htmlparser2":65,"lodash":93}],27:[function(require,module,exports){
+},{"../utils":33,"CSSselect":34,"htmlparser2":68,"lodash":96}],30:[function(require,module,exports){
 /*
   Module dependencies
 */
@@ -14238,7 +17010,7 @@ var isNode = function(obj) {
   return obj.name || obj.type === 'text' || obj.type === 'comment';
 };
 
-},{"./api/attributes":23,"./api/css":24,"./api/manipulation":25,"./api/traversing":26,"./parse":28,"./static":29,"lodash":93,"path":159}],28:[function(require,module,exports){
+},{"./api/attributes":26,"./api/css":27,"./api/manipulation":28,"./api/traversing":29,"./parse":31,"./static":32,"lodash":96,"path":115}],31:[function(require,module,exports){
 (function (Buffer){
 /*
   Module Dependencies
@@ -14335,7 +17107,7 @@ var update = exports.update = function(arr, parent) {
 // module.exports = $.extend(exports);
 
 }).call(this,{"isBuffer":require("../../../../../../../../../../../../usr/local/lib/node_modules/browserify/node_modules/insert-module-globals/node_modules/is-buffer/index.js")})
-},{"../../../../../../../../../../../../usr/local/lib/node_modules/browserify/node_modules/insert-module-globals/node_modules/is-buffer/index.js":158,"./utils":30,"htmlparser2":65}],29:[function(require,module,exports){
+},{"../../../../../../../../../../../../usr/local/lib/node_modules/browserify/node_modules/insert-module-globals/node_modules/is-buffer/index.js":114,"./utils":33,"htmlparser2":68}],32:[function(require,module,exports){
 /**
  * Module dependencies
  */
@@ -14493,7 +17265,7 @@ var contains = exports.contains = function(container, contained) {
   return false;
 };
 
-},{"./cheerio":27,"./parse":28,"CSSselect":31,"dom-serializer":48,"lodash":93}],30:[function(require,module,exports){
+},{"./cheerio":30,"./parse":31,"CSSselect":34,"dom-serializer":51,"lodash":96}],33:[function(require,module,exports){
 /**
  * HTML Tags
  */
@@ -14546,7 +17318,7 @@ exports.domEach = function(cheerio, fn) {
   return cheerio;
 };
 
-},{}],31:[function(require,module,exports){
+},{}],34:[function(require,module,exports){
 "use strict";
 
 module.exports = CSSselect;
@@ -14602,7 +17374,7 @@ CSSselect.is = is;
 CSSselect.parse = compile;
 CSSselect.iterate = selectAll;
 
-},{"./lib/basefunctions.js":33,"./lib/compile.js":34,"./lib/pseudos.js":37,"domutils":40}],32:[function(require,module,exports){
+},{"./lib/basefunctions.js":36,"./lib/compile.js":37,"./lib/pseudos.js":40,"domutils":43}],35:[function(require,module,exports){
 var DomUtils  = require("domutils"),
     hasAttrib = DomUtils.hasAttrib,
     getAttributeValue = DomUtils.getAttributeValue,
@@ -14782,7 +17554,7 @@ module.exports = {
 	rules: attributeRules
 };
 
-},{"./basefunctions.js":33,"domutils":40}],33:[function(require,module,exports){
+},{"./basefunctions.js":36,"domutils":43}],36:[function(require,module,exports){
 module.exports = {
 	trueFunc: function trueFunc(){
 		return true;
@@ -14791,7 +17563,7 @@ module.exports = {
 		return false;
 	}
 };
-},{}],34:[function(require,module,exports){
+},{}],37:[function(require,module,exports){
 /*
 	compiles a selector to an executable function
 */
@@ -14877,7 +17649,7 @@ filters.has = function(next, selector){
 	};
 };
 
-},{"./basefunctions.js":33,"./general.js":35,"./pseudos.js":37,"./sort.js":38,"CSSwhat":39,"domutils":40}],35:[function(require,module,exports){
+},{"./basefunctions.js":36,"./general.js":38,"./pseudos.js":40,"./sort.js":41,"CSSwhat":42,"domutils":43}],38:[function(require,module,exports){
 var DomUtils    = require("domutils"),
     isTag       = DomUtils.isTag,
     getParent   = DomUtils.getParent,
@@ -14958,7 +17730,7 @@ module.exports = {
 		return next;
 	}
 };
-},{"./attributes.js":32,"./pseudos.js":37,"domutils":40}],36:[function(require,module,exports){
+},{"./attributes.js":35,"./pseudos.js":40,"domutils":43}],39:[function(require,module,exports){
 var BaseFuncs = require("./basefunctions.js"),
     trueFunc  = BaseFuncs.trueFunc,
     falseFunc = BaseFuncs.falseFunc;
@@ -15043,7 +17815,7 @@ function compile(parsed){
 		return pos <= b && pos % a === bMod;
 	};
 }
-},{"./basefunctions.js":33}],37:[function(require,module,exports){
+},{"./basefunctions.js":36}],40:[function(require,module,exports){
 /*
 	pseudo selectors
 	
@@ -15383,7 +18155,7 @@ module.exports = {
 	pseudos: pseudos
 };
 
-},{"./attributes.js":32,"./basefunctions.js":33,"./nth-check.js":36,"domutils":40}],38:[function(require,module,exports){
+},{"./attributes.js":35,"./basefunctions.js":36,"./nth-check.js":39,"domutils":43}],41:[function(require,module,exports){
 module.exports = sortByProcedure;
 
 /*
@@ -15443,7 +18215,7 @@ function sortByProcedure(arr){
 	}
 	return arr;
 }
-},{}],39:[function(require,module,exports){
+},{}],42:[function(require,module,exports){
 "use strict";
 
 module.exports = parse;
@@ -15626,7 +18398,7 @@ function parse(selector, options){
 	subselects.push(tokens);
 	return subselects;
 }
-},{}],40:[function(require,module,exports){
+},{}],43:[function(require,module,exports){
 var DomUtils = module.exports;
 
 [
@@ -15642,7 +18414,7 @@ var DomUtils = module.exports;
 	});
 });
 
-},{"./lib/helpers":41,"./lib/legacy":42,"./lib/manipulation":43,"./lib/querying":44,"./lib/stringify":45,"./lib/traversal":46}],41:[function(require,module,exports){
+},{"./lib/helpers":44,"./lib/legacy":45,"./lib/manipulation":46,"./lib/querying":47,"./lib/stringify":48,"./lib/traversal":49}],44:[function(require,module,exports){
 // removeSubsets
 // Given an array of nodes, remove any member that is contained by another.
 exports.removeSubsets = function(nodes) {
@@ -15675,7 +18447,7 @@ exports.removeSubsets = function(nodes) {
 	return nodes;
 };
 
-},{}],42:[function(require,module,exports){
+},{}],45:[function(require,module,exports){
 var ElementType = require("domelementtype");
 var isTag = exports.isTag = ElementType.isTag;
 
@@ -15764,7 +18536,7 @@ exports.getElementsByTagType = function(type, element, recurse, limit){
 	return this.filter(Checks.tag_type(type), element, recurse, limit);
 };
 
-},{"domelementtype":47}],43:[function(require,module,exports){
+},{"domelementtype":50}],46:[function(require,module,exports){
 exports.removeElement = function(elem){
 	if(elem.prev) elem.prev.next = elem.next;
 	if(elem.next) elem.next.prev = elem.prev;
@@ -15843,7 +18615,7 @@ exports.prepend = function(elem, prev){
 
 
 
-},{}],44:[function(require,module,exports){
+},{}],47:[function(require,module,exports){
 var isTag = require("domelementtype").isTag;
 
 module.exports = {
@@ -15939,7 +18711,7 @@ function findAll(test, elems){
 	return result;
 }
 
-},{"domelementtype":47}],45:[function(require,module,exports){
+},{"domelementtype":50}],48:[function(require,module,exports){
 var ElementType = require("domelementtype"),
     isTag = ElementType.isTag;
 
@@ -16033,7 +18805,7 @@ function getText(elem){
 	if(elem.type === ElementType.Text) return elem.data;
 	return "";
 }
-},{"domelementtype":47}],46:[function(require,module,exports){
+},{"domelementtype":50}],49:[function(require,module,exports){
 var getChildren = exports.getChildren = function(elem){
 	return elem.children;
 };
@@ -16059,7 +18831,7 @@ exports.getName = function(elem){
 	return elem.name;
 };
 
-},{}],47:[function(require,module,exports){
+},{}],50:[function(require,module,exports){
 //Types of elements found in the DOM
 module.exports = {
 	Text: "text", //Text
@@ -16076,7 +18848,7 @@ module.exports = {
 	}
 };
 
-},{}],48:[function(require,module,exports){
+},{}],51:[function(require,module,exports){
 /*
   Module dependencies
 */
@@ -16260,7 +19032,7 @@ function renderComment(elem) {
   return '<!--' + elem.data + '-->';
 }
 
-},{"domelementtype":49,"entities":50}],49:[function(require,module,exports){
+},{"domelementtype":52,"entities":53}],52:[function(require,module,exports){
 //Types of elements found in the DOM
 module.exports = {
 	Text: "text", //Text
@@ -16275,7 +19047,7 @@ module.exports = {
 		return elem.type === "tag" || elem.type === "script" || elem.type === "style";
 	}
 };
-},{}],50:[function(require,module,exports){
+},{}],53:[function(require,module,exports){
 var encode = require("./lib/encode.js"),
     decode = require("./lib/decode.js");
 
@@ -16310,7 +19082,7 @@ exports.decodeHTMLStrict = decode.HTMLStrict;
 
 exports.escape = encode.escape;
 
-},{"./lib/decode.js":51,"./lib/encode.js":53}],51:[function(require,module,exports){
+},{"./lib/decode.js":54,"./lib/encode.js":56}],54:[function(require,module,exports){
 var entityMap = require("../maps/entities.json"),
     legacyMap = require("../maps/legacy.json"),
     xmlMap    = require("../maps/xml.json"),
@@ -16383,7 +19155,7 @@ module.exports = {
 	HTML: decodeHTML,
 	HTMLStrict: decodeHTMLStrict
 };
-},{"../maps/entities.json":55,"../maps/legacy.json":56,"../maps/xml.json":57,"./decode_codepoint.js":52}],52:[function(require,module,exports){
+},{"../maps/entities.json":58,"../maps/legacy.json":59,"../maps/xml.json":60,"./decode_codepoint.js":55}],55:[function(require,module,exports){
 var decodeMap = require("../maps/decode.json");
 
 module.exports = decodeCodePoint;
@@ -16411,7 +19183,7 @@ function decodeCodePoint(codePoint){
 	return output;
 }
 
-},{"../maps/decode.json":54}],53:[function(require,module,exports){
+},{"../maps/decode.json":57}],56:[function(require,module,exports){
 var inverseXML = getInverseObj(require("../maps/xml.json")),
     xmlReplacer = getInverseReplacer(inverseXML);
 
@@ -16486,16 +19258,16 @@ function escapeXML(data){
 
 exports.escape = escapeXML;
 
-},{"../maps/entities.json":55,"../maps/xml.json":57}],54:[function(require,module,exports){
+},{"../maps/entities.json":58,"../maps/xml.json":60}],57:[function(require,module,exports){
 module.exports={"0":65533,"128":8364,"130":8218,"131":402,"132":8222,"133":8230,"134":8224,"135":8225,"136":710,"137":8240,"138":352,"139":8249,"140":338,"142":381,"145":8216,"146":8217,"147":8220,"148":8221,"149":8226,"150":8211,"151":8212,"152":732,"153":8482,"154":353,"155":8250,"156":339,"158":382,"159":376}
-},{}],55:[function(require,module,exports){
+},{}],58:[function(require,module,exports){
 module.exports={"Aacute":"\u00C1","aacute":"\u00E1","Abreve":"\u0102","abreve":"\u0103","ac":"\u223E","acd":"\u223F","acE":"\u223E\u0333","Acirc":"\u00C2","acirc":"\u00E2","acute":"\u00B4","Acy":"\u0410","acy":"\u0430","AElig":"\u00C6","aelig":"\u00E6","af":"\u2061","Afr":"\uD835\uDD04","afr":"\uD835\uDD1E","Agrave":"\u00C0","agrave":"\u00E0","alefsym":"\u2135","aleph":"\u2135","Alpha":"\u0391","alpha":"\u03B1","Amacr":"\u0100","amacr":"\u0101","amalg":"\u2A3F","amp":"&","AMP":"&","andand":"\u2A55","And":"\u2A53","and":"\u2227","andd":"\u2A5C","andslope":"\u2A58","andv":"\u2A5A","ang":"\u2220","ange":"\u29A4","angle":"\u2220","angmsdaa":"\u29A8","angmsdab":"\u29A9","angmsdac":"\u29AA","angmsdad":"\u29AB","angmsdae":"\u29AC","angmsdaf":"\u29AD","angmsdag":"\u29AE","angmsdah":"\u29AF","angmsd":"\u2221","angrt":"\u221F","angrtvb":"\u22BE","angrtvbd":"\u299D","angsph":"\u2222","angst":"\u00C5","angzarr":"\u237C","Aogon":"\u0104","aogon":"\u0105","Aopf":"\uD835\uDD38","aopf":"\uD835\uDD52","apacir":"\u2A6F","ap":"\u2248","apE":"\u2A70","ape":"\u224A","apid":"\u224B","apos":"'","ApplyFunction":"\u2061","approx":"\u2248","approxeq":"\u224A","Aring":"\u00C5","aring":"\u00E5","Ascr":"\uD835\uDC9C","ascr":"\uD835\uDCB6","Assign":"\u2254","ast":"*","asymp":"\u2248","asympeq":"\u224D","Atilde":"\u00C3","atilde":"\u00E3","Auml":"\u00C4","auml":"\u00E4","awconint":"\u2233","awint":"\u2A11","backcong":"\u224C","backepsilon":"\u03F6","backprime":"\u2035","backsim":"\u223D","backsimeq":"\u22CD","Backslash":"\u2216","Barv":"\u2AE7","barvee":"\u22BD","barwed":"\u2305","Barwed":"\u2306","barwedge":"\u2305","bbrk":"\u23B5","bbrktbrk":"\u23B6","bcong":"\u224C","Bcy":"\u0411","bcy":"\u0431","bdquo":"\u201E","becaus":"\u2235","because":"\u2235","Because":"\u2235","bemptyv":"\u29B0","bepsi":"\u03F6","bernou":"\u212C","Bernoullis":"\u212C","Beta":"\u0392","beta":"\u03B2","beth":"\u2136","between":"\u226C","Bfr":"\uD835\uDD05","bfr":"\uD835\uDD1F","bigcap":"\u22C2","bigcirc":"\u25EF","bigcup":"\u22C3","bigodot":"\u2A00","bigoplus":"\u2A01","bigotimes":"\u2A02","bigsqcup":"\u2A06","bigstar":"\u2605","bigtriangledown":"\u25BD","bigtriangleup":"\u25B3","biguplus":"\u2A04","bigvee":"\u22C1","bigwedge":"\u22C0","bkarow":"\u290D","blacklozenge":"\u29EB","blacksquare":"\u25AA","blacktriangle":"\u25B4","blacktriangledown":"\u25BE","blacktriangleleft":"\u25C2","blacktriangleright":"\u25B8","blank":"\u2423","blk12":"\u2592","blk14":"\u2591","blk34":"\u2593","block":"\u2588","bne":"=\u20E5","bnequiv":"\u2261\u20E5","bNot":"\u2AED","bnot":"\u2310","Bopf":"\uD835\uDD39","bopf":"\uD835\uDD53","bot":"\u22A5","bottom":"\u22A5","bowtie":"\u22C8","boxbox":"\u29C9","boxdl":"\u2510","boxdL":"\u2555","boxDl":"\u2556","boxDL":"\u2557","boxdr":"\u250C","boxdR":"\u2552","boxDr":"\u2553","boxDR":"\u2554","boxh":"\u2500","boxH":"\u2550","boxhd":"\u252C","boxHd":"\u2564","boxhD":"\u2565","boxHD":"\u2566","boxhu":"\u2534","boxHu":"\u2567","boxhU":"\u2568","boxHU":"\u2569","boxminus":"\u229F","boxplus":"\u229E","boxtimes":"\u22A0","boxul":"\u2518","boxuL":"\u255B","boxUl":"\u255C","boxUL":"\u255D","boxur":"\u2514","boxuR":"\u2558","boxUr":"\u2559","boxUR":"\u255A","boxv":"\u2502","boxV":"\u2551","boxvh":"\u253C","boxvH":"\u256A","boxVh":"\u256B","boxVH":"\u256C","boxvl":"\u2524","boxvL":"\u2561","boxVl":"\u2562","boxVL":"\u2563","boxvr":"\u251C","boxvR":"\u255E","boxVr":"\u255F","boxVR":"\u2560","bprime":"\u2035","breve":"\u02D8","Breve":"\u02D8","brvbar":"\u00A6","bscr":"\uD835\uDCB7","Bscr":"\u212C","bsemi":"\u204F","bsim":"\u223D","bsime":"\u22CD","bsolb":"\u29C5","bsol":"\\","bsolhsub":"\u27C8","bull":"\u2022","bullet":"\u2022","bump":"\u224E","bumpE":"\u2AAE","bumpe":"\u224F","Bumpeq":"\u224E","bumpeq":"\u224F","Cacute":"\u0106","cacute":"\u0107","capand":"\u2A44","capbrcup":"\u2A49","capcap":"\u2A4B","cap":"\u2229","Cap":"\u22D2","capcup":"\u2A47","capdot":"\u2A40","CapitalDifferentialD":"\u2145","caps":"\u2229\uFE00","caret":"\u2041","caron":"\u02C7","Cayleys":"\u212D","ccaps":"\u2A4D","Ccaron":"\u010C","ccaron":"\u010D","Ccedil":"\u00C7","ccedil":"\u00E7","Ccirc":"\u0108","ccirc":"\u0109","Cconint":"\u2230","ccups":"\u2A4C","ccupssm":"\u2A50","Cdot":"\u010A","cdot":"\u010B","cedil":"\u00B8","Cedilla":"\u00B8","cemptyv":"\u29B2","cent":"\u00A2","centerdot":"\u00B7","CenterDot":"\u00B7","cfr":"\uD835\uDD20","Cfr":"\u212D","CHcy":"\u0427","chcy":"\u0447","check":"\u2713","checkmark":"\u2713","Chi":"\u03A7","chi":"\u03C7","circ":"\u02C6","circeq":"\u2257","circlearrowleft":"\u21BA","circlearrowright":"\u21BB","circledast":"\u229B","circledcirc":"\u229A","circleddash":"\u229D","CircleDot":"\u2299","circledR":"\u00AE","circledS":"\u24C8","CircleMinus":"\u2296","CirclePlus":"\u2295","CircleTimes":"\u2297","cir":"\u25CB","cirE":"\u29C3","cire":"\u2257","cirfnint":"\u2A10","cirmid":"\u2AEF","cirscir":"\u29C2","ClockwiseContourIntegral":"\u2232","CloseCurlyDoubleQuote":"\u201D","CloseCurlyQuote":"\u2019","clubs":"\u2663","clubsuit":"\u2663","colon":":","Colon":"\u2237","Colone":"\u2A74","colone":"\u2254","coloneq":"\u2254","comma":",","commat":"@","comp":"\u2201","compfn":"\u2218","complement":"\u2201","complexes":"\u2102","cong":"\u2245","congdot":"\u2A6D","Congruent":"\u2261","conint":"\u222E","Conint":"\u222F","ContourIntegral":"\u222E","copf":"\uD835\uDD54","Copf":"\u2102","coprod":"\u2210","Coproduct":"\u2210","copy":"\u00A9","COPY":"\u00A9","copysr":"\u2117","CounterClockwiseContourIntegral":"\u2233","crarr":"\u21B5","cross":"\u2717","Cross":"\u2A2F","Cscr":"\uD835\uDC9E","cscr":"\uD835\uDCB8","csub":"\u2ACF","csube":"\u2AD1","csup":"\u2AD0","csupe":"\u2AD2","ctdot":"\u22EF","cudarrl":"\u2938","cudarrr":"\u2935","cuepr":"\u22DE","cuesc":"\u22DF","cularr":"\u21B6","cularrp":"\u293D","cupbrcap":"\u2A48","cupcap":"\u2A46","CupCap":"\u224D","cup":"\u222A","Cup":"\u22D3","cupcup":"\u2A4A","cupdot":"\u228D","cupor":"\u2A45","cups":"\u222A\uFE00","curarr":"\u21B7","curarrm":"\u293C","curlyeqprec":"\u22DE","curlyeqsucc":"\u22DF","curlyvee":"\u22CE","curlywedge":"\u22CF","curren":"\u00A4","curvearrowleft":"\u21B6","curvearrowright":"\u21B7","cuvee":"\u22CE","cuwed":"\u22CF","cwconint":"\u2232","cwint":"\u2231","cylcty":"\u232D","dagger":"\u2020","Dagger":"\u2021","daleth":"\u2138","darr":"\u2193","Darr":"\u21A1","dArr":"\u21D3","dash":"\u2010","Dashv":"\u2AE4","dashv":"\u22A3","dbkarow":"\u290F","dblac":"\u02DD","Dcaron":"\u010E","dcaron":"\u010F","Dcy":"\u0414","dcy":"\u0434","ddagger":"\u2021","ddarr":"\u21CA","DD":"\u2145","dd":"\u2146","DDotrahd":"\u2911","ddotseq":"\u2A77","deg":"\u00B0","Del":"\u2207","Delta":"\u0394","delta":"\u03B4","demptyv":"\u29B1","dfisht":"\u297F","Dfr":"\uD835\uDD07","dfr":"\uD835\uDD21","dHar":"\u2965","dharl":"\u21C3","dharr":"\u21C2","DiacriticalAcute":"\u00B4","DiacriticalDot":"\u02D9","DiacriticalDoubleAcute":"\u02DD","DiacriticalGrave":"`","DiacriticalTilde":"\u02DC","diam":"\u22C4","diamond":"\u22C4","Diamond":"\u22C4","diamondsuit":"\u2666","diams":"\u2666","die":"\u00A8","DifferentialD":"\u2146","digamma":"\u03DD","disin":"\u22F2","div":"\u00F7","divide":"\u00F7","divideontimes":"\u22C7","divonx":"\u22C7","DJcy":"\u0402","djcy":"\u0452","dlcorn":"\u231E","dlcrop":"\u230D","dollar":"$","Dopf":"\uD835\uDD3B","dopf":"\uD835\uDD55","Dot":"\u00A8","dot":"\u02D9","DotDot":"\u20DC","doteq":"\u2250","doteqdot":"\u2251","DotEqual":"\u2250","dotminus":"\u2238","dotplus":"\u2214","dotsquare":"\u22A1","doublebarwedge":"\u2306","DoubleContourIntegral":"\u222F","DoubleDot":"\u00A8","DoubleDownArrow":"\u21D3","DoubleLeftArrow":"\u21D0","DoubleLeftRightArrow":"\u21D4","DoubleLeftTee":"\u2AE4","DoubleLongLeftArrow":"\u27F8","DoubleLongLeftRightArrow":"\u27FA","DoubleLongRightArrow":"\u27F9","DoubleRightArrow":"\u21D2","DoubleRightTee":"\u22A8","DoubleUpArrow":"\u21D1","DoubleUpDownArrow":"\u21D5","DoubleVerticalBar":"\u2225","DownArrowBar":"\u2913","downarrow":"\u2193","DownArrow":"\u2193","Downarrow":"\u21D3","DownArrowUpArrow":"\u21F5","DownBreve":"\u0311","downdownarrows":"\u21CA","downharpoonleft":"\u21C3","downharpoonright":"\u21C2","DownLeftRightVector":"\u2950","DownLeftTeeVector":"\u295E","DownLeftVectorBar":"\u2956","DownLeftVector":"\u21BD","DownRightTeeVector":"\u295F","DownRightVectorBar":"\u2957","DownRightVector":"\u21C1","DownTeeArrow":"\u21A7","DownTee":"\u22A4","drbkarow":"\u2910","drcorn":"\u231F","drcrop":"\u230C","Dscr":"\uD835\uDC9F","dscr":"\uD835\uDCB9","DScy":"\u0405","dscy":"\u0455","dsol":"\u29F6","Dstrok":"\u0110","dstrok":"\u0111","dtdot":"\u22F1","dtri":"\u25BF","dtrif":"\u25BE","duarr":"\u21F5","duhar":"\u296F","dwangle":"\u29A6","DZcy":"\u040F","dzcy":"\u045F","dzigrarr":"\u27FF","Eacute":"\u00C9","eacute":"\u00E9","easter":"\u2A6E","Ecaron":"\u011A","ecaron":"\u011B","Ecirc":"\u00CA","ecirc":"\u00EA","ecir":"\u2256","ecolon":"\u2255","Ecy":"\u042D","ecy":"\u044D","eDDot":"\u2A77","Edot":"\u0116","edot":"\u0117","eDot":"\u2251","ee":"\u2147","efDot":"\u2252","Efr":"\uD835\uDD08","efr":"\uD835\uDD22","eg":"\u2A9A","Egrave":"\u00C8","egrave":"\u00E8","egs":"\u2A96","egsdot":"\u2A98","el":"\u2A99","Element":"\u2208","elinters":"\u23E7","ell":"\u2113","els":"\u2A95","elsdot":"\u2A97","Emacr":"\u0112","emacr":"\u0113","empty":"\u2205","emptyset":"\u2205","EmptySmallSquare":"\u25FB","emptyv":"\u2205","EmptyVerySmallSquare":"\u25AB","emsp13":"\u2004","emsp14":"\u2005","emsp":"\u2003","ENG":"\u014A","eng":"\u014B","ensp":"\u2002","Eogon":"\u0118","eogon":"\u0119","Eopf":"\uD835\uDD3C","eopf":"\uD835\uDD56","epar":"\u22D5","eparsl":"\u29E3","eplus":"\u2A71","epsi":"\u03B5","Epsilon":"\u0395","epsilon":"\u03B5","epsiv":"\u03F5","eqcirc":"\u2256","eqcolon":"\u2255","eqsim":"\u2242","eqslantgtr":"\u2A96","eqslantless":"\u2A95","Equal":"\u2A75","equals":"=","EqualTilde":"\u2242","equest":"\u225F","Equilibrium":"\u21CC","equiv":"\u2261","equivDD":"\u2A78","eqvparsl":"\u29E5","erarr":"\u2971","erDot":"\u2253","escr":"\u212F","Escr":"\u2130","esdot":"\u2250","Esim":"\u2A73","esim":"\u2242","Eta":"\u0397","eta":"\u03B7","ETH":"\u00D0","eth":"\u00F0","Euml":"\u00CB","euml":"\u00EB","euro":"\u20AC","excl":"!","exist":"\u2203","Exists":"\u2203","expectation":"\u2130","exponentiale":"\u2147","ExponentialE":"\u2147","fallingdotseq":"\u2252","Fcy":"\u0424","fcy":"\u0444","female":"\u2640","ffilig":"\uFB03","fflig":"\uFB00","ffllig":"\uFB04","Ffr":"\uD835\uDD09","ffr":"\uD835\uDD23","filig":"\uFB01","FilledSmallSquare":"\u25FC","FilledVerySmallSquare":"\u25AA","fjlig":"fj","flat":"\u266D","fllig":"\uFB02","fltns":"\u25B1","fnof":"\u0192","Fopf":"\uD835\uDD3D","fopf":"\uD835\uDD57","forall":"\u2200","ForAll":"\u2200","fork":"\u22D4","forkv":"\u2AD9","Fouriertrf":"\u2131","fpartint":"\u2A0D","frac12":"\u00BD","frac13":"\u2153","frac14":"\u00BC","frac15":"\u2155","frac16":"\u2159","frac18":"\u215B","frac23":"\u2154","frac25":"\u2156","frac34":"\u00BE","frac35":"\u2157","frac38":"\u215C","frac45":"\u2158","frac56":"\u215A","frac58":"\u215D","frac78":"\u215E","frasl":"\u2044","frown":"\u2322","fscr":"\uD835\uDCBB","Fscr":"\u2131","gacute":"\u01F5","Gamma":"\u0393","gamma":"\u03B3","Gammad":"\u03DC","gammad":"\u03DD","gap":"\u2A86","Gbreve":"\u011E","gbreve":"\u011F","Gcedil":"\u0122","Gcirc":"\u011C","gcirc":"\u011D","Gcy":"\u0413","gcy":"\u0433","Gdot":"\u0120","gdot":"\u0121","ge":"\u2265","gE":"\u2267","gEl":"\u2A8C","gel":"\u22DB","geq":"\u2265","geqq":"\u2267","geqslant":"\u2A7E","gescc":"\u2AA9","ges":"\u2A7E","gesdot":"\u2A80","gesdoto":"\u2A82","gesdotol":"\u2A84","gesl":"\u22DB\uFE00","gesles":"\u2A94","Gfr":"\uD835\uDD0A","gfr":"\uD835\uDD24","gg":"\u226B","Gg":"\u22D9","ggg":"\u22D9","gimel":"\u2137","GJcy":"\u0403","gjcy":"\u0453","gla":"\u2AA5","gl":"\u2277","glE":"\u2A92","glj":"\u2AA4","gnap":"\u2A8A","gnapprox":"\u2A8A","gne":"\u2A88","gnE":"\u2269","gneq":"\u2A88","gneqq":"\u2269","gnsim":"\u22E7","Gopf":"\uD835\uDD3E","gopf":"\uD835\uDD58","grave":"`","GreaterEqual":"\u2265","GreaterEqualLess":"\u22DB","GreaterFullEqual":"\u2267","GreaterGreater":"\u2AA2","GreaterLess":"\u2277","GreaterSlantEqual":"\u2A7E","GreaterTilde":"\u2273","Gscr":"\uD835\uDCA2","gscr":"\u210A","gsim":"\u2273","gsime":"\u2A8E","gsiml":"\u2A90","gtcc":"\u2AA7","gtcir":"\u2A7A","gt":">","GT":">","Gt":"\u226B","gtdot":"\u22D7","gtlPar":"\u2995","gtquest":"\u2A7C","gtrapprox":"\u2A86","gtrarr":"\u2978","gtrdot":"\u22D7","gtreqless":"\u22DB","gtreqqless":"\u2A8C","gtrless":"\u2277","gtrsim":"\u2273","gvertneqq":"\u2269\uFE00","gvnE":"\u2269\uFE00","Hacek":"\u02C7","hairsp":"\u200A","half":"\u00BD","hamilt":"\u210B","HARDcy":"\u042A","hardcy":"\u044A","harrcir":"\u2948","harr":"\u2194","hArr":"\u21D4","harrw":"\u21AD","Hat":"^","hbar":"\u210F","Hcirc":"\u0124","hcirc":"\u0125","hearts":"\u2665","heartsuit":"\u2665","hellip":"\u2026","hercon":"\u22B9","hfr":"\uD835\uDD25","Hfr":"\u210C","HilbertSpace":"\u210B","hksearow":"\u2925","hkswarow":"\u2926","hoarr":"\u21FF","homtht":"\u223B","hookleftarrow":"\u21A9","hookrightarrow":"\u21AA","hopf":"\uD835\uDD59","Hopf":"\u210D","horbar":"\u2015","HorizontalLine":"\u2500","hscr":"\uD835\uDCBD","Hscr":"\u210B","hslash":"\u210F","Hstrok":"\u0126","hstrok":"\u0127","HumpDownHump":"\u224E","HumpEqual":"\u224F","hybull":"\u2043","hyphen":"\u2010","Iacute":"\u00CD","iacute":"\u00ED","ic":"\u2063","Icirc":"\u00CE","icirc":"\u00EE","Icy":"\u0418","icy":"\u0438","Idot":"\u0130","IEcy":"\u0415","iecy":"\u0435","iexcl":"\u00A1","iff":"\u21D4","ifr":"\uD835\uDD26","Ifr":"\u2111","Igrave":"\u00CC","igrave":"\u00EC","ii":"\u2148","iiiint":"\u2A0C","iiint":"\u222D","iinfin":"\u29DC","iiota":"\u2129","IJlig":"\u0132","ijlig":"\u0133","Imacr":"\u012A","imacr":"\u012B","image":"\u2111","ImaginaryI":"\u2148","imagline":"\u2110","imagpart":"\u2111","imath":"\u0131","Im":"\u2111","imof":"\u22B7","imped":"\u01B5","Implies":"\u21D2","incare":"\u2105","in":"\u2208","infin":"\u221E","infintie":"\u29DD","inodot":"\u0131","intcal":"\u22BA","int":"\u222B","Int":"\u222C","integers":"\u2124","Integral":"\u222B","intercal":"\u22BA","Intersection":"\u22C2","intlarhk":"\u2A17","intprod":"\u2A3C","InvisibleComma":"\u2063","InvisibleTimes":"\u2062","IOcy":"\u0401","iocy":"\u0451","Iogon":"\u012E","iogon":"\u012F","Iopf":"\uD835\uDD40","iopf":"\uD835\uDD5A","Iota":"\u0399","iota":"\u03B9","iprod":"\u2A3C","iquest":"\u00BF","iscr":"\uD835\uDCBE","Iscr":"\u2110","isin":"\u2208","isindot":"\u22F5","isinE":"\u22F9","isins":"\u22F4","isinsv":"\u22F3","isinv":"\u2208","it":"\u2062","Itilde":"\u0128","itilde":"\u0129","Iukcy":"\u0406","iukcy":"\u0456","Iuml":"\u00CF","iuml":"\u00EF","Jcirc":"\u0134","jcirc":"\u0135","Jcy":"\u0419","jcy":"\u0439","Jfr":"\uD835\uDD0D","jfr":"\uD835\uDD27","jmath":"\u0237","Jopf":"\uD835\uDD41","jopf":"\uD835\uDD5B","Jscr":"\uD835\uDCA5","jscr":"\uD835\uDCBF","Jsercy":"\u0408","jsercy":"\u0458","Jukcy":"\u0404","jukcy":"\u0454","Kappa":"\u039A","kappa":"\u03BA","kappav":"\u03F0","Kcedil":"\u0136","kcedil":"\u0137","Kcy":"\u041A","kcy":"\u043A","Kfr":"\uD835\uDD0E","kfr":"\uD835\uDD28","kgreen":"\u0138","KHcy":"\u0425","khcy":"\u0445","KJcy":"\u040C","kjcy":"\u045C","Kopf":"\uD835\uDD42","kopf":"\uD835\uDD5C","Kscr":"\uD835\uDCA6","kscr":"\uD835\uDCC0","lAarr":"\u21DA","Lacute":"\u0139","lacute":"\u013A","laemptyv":"\u29B4","lagran":"\u2112","Lambda":"\u039B","lambda":"\u03BB","lang":"\u27E8","Lang":"\u27EA","langd":"\u2991","langle":"\u27E8","lap":"\u2A85","Laplacetrf":"\u2112","laquo":"\u00AB","larrb":"\u21E4","larrbfs":"\u291F","larr":"\u2190","Larr":"\u219E","lArr":"\u21D0","larrfs":"\u291D","larrhk":"\u21A9","larrlp":"\u21AB","larrpl":"\u2939","larrsim":"\u2973","larrtl":"\u21A2","latail":"\u2919","lAtail":"\u291B","lat":"\u2AAB","late":"\u2AAD","lates":"\u2AAD\uFE00","lbarr":"\u290C","lBarr":"\u290E","lbbrk":"\u2772","lbrace":"{","lbrack":"[","lbrke":"\u298B","lbrksld":"\u298F","lbrkslu":"\u298D","Lcaron":"\u013D","lcaron":"\u013E","Lcedil":"\u013B","lcedil":"\u013C","lceil":"\u2308","lcub":"{","Lcy":"\u041B","lcy":"\u043B","ldca":"\u2936","ldquo":"\u201C","ldquor":"\u201E","ldrdhar":"\u2967","ldrushar":"\u294B","ldsh":"\u21B2","le":"\u2264","lE":"\u2266","LeftAngleBracket":"\u27E8","LeftArrowBar":"\u21E4","leftarrow":"\u2190","LeftArrow":"\u2190","Leftarrow":"\u21D0","LeftArrowRightArrow":"\u21C6","leftarrowtail":"\u21A2","LeftCeiling":"\u2308","LeftDoubleBracket":"\u27E6","LeftDownTeeVector":"\u2961","LeftDownVectorBar":"\u2959","LeftDownVector":"\u21C3","LeftFloor":"\u230A","leftharpoondown":"\u21BD","leftharpoonup":"\u21BC","leftleftarrows":"\u21C7","leftrightarrow":"\u2194","LeftRightArrow":"\u2194","Leftrightarrow":"\u21D4","leftrightarrows":"\u21C6","leftrightharpoons":"\u21CB","leftrightsquigarrow":"\u21AD","LeftRightVector":"\u294E","LeftTeeArrow":"\u21A4","LeftTee":"\u22A3","LeftTeeVector":"\u295A","leftthreetimes":"\u22CB","LeftTriangleBar":"\u29CF","LeftTriangle":"\u22B2","LeftTriangleEqual":"\u22B4","LeftUpDownVector":"\u2951","LeftUpTeeVector":"\u2960","LeftUpVectorBar":"\u2958","LeftUpVector":"\u21BF","LeftVectorBar":"\u2952","LeftVector":"\u21BC","lEg":"\u2A8B","leg":"\u22DA","leq":"\u2264","leqq":"\u2266","leqslant":"\u2A7D","lescc":"\u2AA8","les":"\u2A7D","lesdot":"\u2A7F","lesdoto":"\u2A81","lesdotor":"\u2A83","lesg":"\u22DA\uFE00","lesges":"\u2A93","lessapprox":"\u2A85","lessdot":"\u22D6","lesseqgtr":"\u22DA","lesseqqgtr":"\u2A8B","LessEqualGreater":"\u22DA","LessFullEqual":"\u2266","LessGreater":"\u2276","lessgtr":"\u2276","LessLess":"\u2AA1","lesssim":"\u2272","LessSlantEqual":"\u2A7D","LessTilde":"\u2272","lfisht":"\u297C","lfloor":"\u230A","Lfr":"\uD835\uDD0F","lfr":"\uD835\uDD29","lg":"\u2276","lgE":"\u2A91","lHar":"\u2962","lhard":"\u21BD","lharu":"\u21BC","lharul":"\u296A","lhblk":"\u2584","LJcy":"\u0409","ljcy":"\u0459","llarr":"\u21C7","ll":"\u226A","Ll":"\u22D8","llcorner":"\u231E","Lleftarrow":"\u21DA","llhard":"\u296B","lltri":"\u25FA","Lmidot":"\u013F","lmidot":"\u0140","lmoustache":"\u23B0","lmoust":"\u23B0","lnap":"\u2A89","lnapprox":"\u2A89","lne":"\u2A87","lnE":"\u2268","lneq":"\u2A87","lneqq":"\u2268","lnsim":"\u22E6","loang":"\u27EC","loarr":"\u21FD","lobrk":"\u27E6","longleftarrow":"\u27F5","LongLeftArrow":"\u27F5","Longleftarrow":"\u27F8","longleftrightarrow":"\u27F7","LongLeftRightArrow":"\u27F7","Longleftrightarrow":"\u27FA","longmapsto":"\u27FC","longrightarrow":"\u27F6","LongRightArrow":"\u27F6","Longrightarrow":"\u27F9","looparrowleft":"\u21AB","looparrowright":"\u21AC","lopar":"\u2985","Lopf":"\uD835\uDD43","lopf":"\uD835\uDD5D","loplus":"\u2A2D","lotimes":"\u2A34","lowast":"\u2217","lowbar":"_","LowerLeftArrow":"\u2199","LowerRightArrow":"\u2198","loz":"\u25CA","lozenge":"\u25CA","lozf":"\u29EB","lpar":"(","lparlt":"\u2993","lrarr":"\u21C6","lrcorner":"\u231F","lrhar":"\u21CB","lrhard":"\u296D","lrm":"\u200E","lrtri":"\u22BF","lsaquo":"\u2039","lscr":"\uD835\uDCC1","Lscr":"\u2112","lsh":"\u21B0","Lsh":"\u21B0","lsim":"\u2272","lsime":"\u2A8D","lsimg":"\u2A8F","lsqb":"[","lsquo":"\u2018","lsquor":"\u201A","Lstrok":"\u0141","lstrok":"\u0142","ltcc":"\u2AA6","ltcir":"\u2A79","lt":"<","LT":"<","Lt":"\u226A","ltdot":"\u22D6","lthree":"\u22CB","ltimes":"\u22C9","ltlarr":"\u2976","ltquest":"\u2A7B","ltri":"\u25C3","ltrie":"\u22B4","ltrif":"\u25C2","ltrPar":"\u2996","lurdshar":"\u294A","luruhar":"\u2966","lvertneqq":"\u2268\uFE00","lvnE":"\u2268\uFE00","macr":"\u00AF","male":"\u2642","malt":"\u2720","maltese":"\u2720","Map":"\u2905","map":"\u21A6","mapsto":"\u21A6","mapstodown":"\u21A7","mapstoleft":"\u21A4","mapstoup":"\u21A5","marker":"\u25AE","mcomma":"\u2A29","Mcy":"\u041C","mcy":"\u043C","mdash":"\u2014","mDDot":"\u223A","measuredangle":"\u2221","MediumSpace":"\u205F","Mellintrf":"\u2133","Mfr":"\uD835\uDD10","mfr":"\uD835\uDD2A","mho":"\u2127","micro":"\u00B5","midast":"*","midcir":"\u2AF0","mid":"\u2223","middot":"\u00B7","minusb":"\u229F","minus":"\u2212","minusd":"\u2238","minusdu":"\u2A2A","MinusPlus":"\u2213","mlcp":"\u2ADB","mldr":"\u2026","mnplus":"\u2213","models":"\u22A7","Mopf":"\uD835\uDD44","mopf":"\uD835\uDD5E","mp":"\u2213","mscr":"\uD835\uDCC2","Mscr":"\u2133","mstpos":"\u223E","Mu":"\u039C","mu":"\u03BC","multimap":"\u22B8","mumap":"\u22B8","nabla":"\u2207","Nacute":"\u0143","nacute":"\u0144","nang":"\u2220\u20D2","nap":"\u2249","napE":"\u2A70\u0338","napid":"\u224B\u0338","napos":"\u0149","napprox":"\u2249","natural":"\u266E","naturals":"\u2115","natur":"\u266E","nbsp":"\u00A0","nbump":"\u224E\u0338","nbumpe":"\u224F\u0338","ncap":"\u2A43","Ncaron":"\u0147","ncaron":"\u0148","Ncedil":"\u0145","ncedil":"\u0146","ncong":"\u2247","ncongdot":"\u2A6D\u0338","ncup":"\u2A42","Ncy":"\u041D","ncy":"\u043D","ndash":"\u2013","nearhk":"\u2924","nearr":"\u2197","neArr":"\u21D7","nearrow":"\u2197","ne":"\u2260","nedot":"\u2250\u0338","NegativeMediumSpace":"\u200B","NegativeThickSpace":"\u200B","NegativeThinSpace":"\u200B","NegativeVeryThinSpace":"\u200B","nequiv":"\u2262","nesear":"\u2928","nesim":"\u2242\u0338","NestedGreaterGreater":"\u226B","NestedLessLess":"\u226A","NewLine":"\n","nexist":"\u2204","nexists":"\u2204","Nfr":"\uD835\uDD11","nfr":"\uD835\uDD2B","ngE":"\u2267\u0338","nge":"\u2271","ngeq":"\u2271","ngeqq":"\u2267\u0338","ngeqslant":"\u2A7E\u0338","nges":"\u2A7E\u0338","nGg":"\u22D9\u0338","ngsim":"\u2275","nGt":"\u226B\u20D2","ngt":"\u226F","ngtr":"\u226F","nGtv":"\u226B\u0338","nharr":"\u21AE","nhArr":"\u21CE","nhpar":"\u2AF2","ni":"\u220B","nis":"\u22FC","nisd":"\u22FA","niv":"\u220B","NJcy":"\u040A","njcy":"\u045A","nlarr":"\u219A","nlArr":"\u21CD","nldr":"\u2025","nlE":"\u2266\u0338","nle":"\u2270","nleftarrow":"\u219A","nLeftarrow":"\u21CD","nleftrightarrow":"\u21AE","nLeftrightarrow":"\u21CE","nleq":"\u2270","nleqq":"\u2266\u0338","nleqslant":"\u2A7D\u0338","nles":"\u2A7D\u0338","nless":"\u226E","nLl":"\u22D8\u0338","nlsim":"\u2274","nLt":"\u226A\u20D2","nlt":"\u226E","nltri":"\u22EA","nltrie":"\u22EC","nLtv":"\u226A\u0338","nmid":"\u2224","NoBreak":"\u2060","NonBreakingSpace":"\u00A0","nopf":"\uD835\uDD5F","Nopf":"\u2115","Not":"\u2AEC","not":"\u00AC","NotCongruent":"\u2262","NotCupCap":"\u226D","NotDoubleVerticalBar":"\u2226","NotElement":"\u2209","NotEqual":"\u2260","NotEqualTilde":"\u2242\u0338","NotExists":"\u2204","NotGreater":"\u226F","NotGreaterEqual":"\u2271","NotGreaterFullEqual":"\u2267\u0338","NotGreaterGreater":"\u226B\u0338","NotGreaterLess":"\u2279","NotGreaterSlantEqual":"\u2A7E\u0338","NotGreaterTilde":"\u2275","NotHumpDownHump":"\u224E\u0338","NotHumpEqual":"\u224F\u0338","notin":"\u2209","notindot":"\u22F5\u0338","notinE":"\u22F9\u0338","notinva":"\u2209","notinvb":"\u22F7","notinvc":"\u22F6","NotLeftTriangleBar":"\u29CF\u0338","NotLeftTriangle":"\u22EA","NotLeftTriangleEqual":"\u22EC","NotLess":"\u226E","NotLessEqual":"\u2270","NotLessGreater":"\u2278","NotLessLess":"\u226A\u0338","NotLessSlantEqual":"\u2A7D\u0338","NotLessTilde":"\u2274","NotNestedGreaterGreater":"\u2AA2\u0338","NotNestedLessLess":"\u2AA1\u0338","notni":"\u220C","notniva":"\u220C","notnivb":"\u22FE","notnivc":"\u22FD","NotPrecedes":"\u2280","NotPrecedesEqual":"\u2AAF\u0338","NotPrecedesSlantEqual":"\u22E0","NotReverseElement":"\u220C","NotRightTriangleBar":"\u29D0\u0338","NotRightTriangle":"\u22EB","NotRightTriangleEqual":"\u22ED","NotSquareSubset":"\u228F\u0338","NotSquareSubsetEqual":"\u22E2","NotSquareSuperset":"\u2290\u0338","NotSquareSupersetEqual":"\u22E3","NotSubset":"\u2282\u20D2","NotSubsetEqual":"\u2288","NotSucceeds":"\u2281","NotSucceedsEqual":"\u2AB0\u0338","NotSucceedsSlantEqual":"\u22E1","NotSucceedsTilde":"\u227F\u0338","NotSuperset":"\u2283\u20D2","NotSupersetEqual":"\u2289","NotTilde":"\u2241","NotTildeEqual":"\u2244","NotTildeFullEqual":"\u2247","NotTildeTilde":"\u2249","NotVerticalBar":"\u2224","nparallel":"\u2226","npar":"\u2226","nparsl":"\u2AFD\u20E5","npart":"\u2202\u0338","npolint":"\u2A14","npr":"\u2280","nprcue":"\u22E0","nprec":"\u2280","npreceq":"\u2AAF\u0338","npre":"\u2AAF\u0338","nrarrc":"\u2933\u0338","nrarr":"\u219B","nrArr":"\u21CF","nrarrw":"\u219D\u0338","nrightarrow":"\u219B","nRightarrow":"\u21CF","nrtri":"\u22EB","nrtrie":"\u22ED","nsc":"\u2281","nsccue":"\u22E1","nsce":"\u2AB0\u0338","Nscr":"\uD835\uDCA9","nscr":"\uD835\uDCC3","nshortmid":"\u2224","nshortparallel":"\u2226","nsim":"\u2241","nsime":"\u2244","nsimeq":"\u2244","nsmid":"\u2224","nspar":"\u2226","nsqsube":"\u22E2","nsqsupe":"\u22E3","nsub":"\u2284","nsubE":"\u2AC5\u0338","nsube":"\u2288","nsubset":"\u2282\u20D2","nsubseteq":"\u2288","nsubseteqq":"\u2AC5\u0338","nsucc":"\u2281","nsucceq":"\u2AB0\u0338","nsup":"\u2285","nsupE":"\u2AC6\u0338","nsupe":"\u2289","nsupset":"\u2283\u20D2","nsupseteq":"\u2289","nsupseteqq":"\u2AC6\u0338","ntgl":"\u2279","Ntilde":"\u00D1","ntilde":"\u00F1","ntlg":"\u2278","ntriangleleft":"\u22EA","ntrianglelefteq":"\u22EC","ntriangleright":"\u22EB","ntrianglerighteq":"\u22ED","Nu":"\u039D","nu":"\u03BD","num":"#","numero":"\u2116","numsp":"\u2007","nvap":"\u224D\u20D2","nvdash":"\u22AC","nvDash":"\u22AD","nVdash":"\u22AE","nVDash":"\u22AF","nvge":"\u2265\u20D2","nvgt":">\u20D2","nvHarr":"\u2904","nvinfin":"\u29DE","nvlArr":"\u2902","nvle":"\u2264\u20D2","nvlt":"<\u20D2","nvltrie":"\u22B4\u20D2","nvrArr":"\u2903","nvrtrie":"\u22B5\u20D2","nvsim":"\u223C\u20D2","nwarhk":"\u2923","nwarr":"\u2196","nwArr":"\u21D6","nwarrow":"\u2196","nwnear":"\u2927","Oacute":"\u00D3","oacute":"\u00F3","oast":"\u229B","Ocirc":"\u00D4","ocirc":"\u00F4","ocir":"\u229A","Ocy":"\u041E","ocy":"\u043E","odash":"\u229D","Odblac":"\u0150","odblac":"\u0151","odiv":"\u2A38","odot":"\u2299","odsold":"\u29BC","OElig":"\u0152","oelig":"\u0153","ofcir":"\u29BF","Ofr":"\uD835\uDD12","ofr":"\uD835\uDD2C","ogon":"\u02DB","Ograve":"\u00D2","ograve":"\u00F2","ogt":"\u29C1","ohbar":"\u29B5","ohm":"\u03A9","oint":"\u222E","olarr":"\u21BA","olcir":"\u29BE","olcross":"\u29BB","oline":"\u203E","olt":"\u29C0","Omacr":"\u014C","omacr":"\u014D","Omega":"\u03A9","omega":"\u03C9","Omicron":"\u039F","omicron":"\u03BF","omid":"\u29B6","ominus":"\u2296","Oopf":"\uD835\uDD46","oopf":"\uD835\uDD60","opar":"\u29B7","OpenCurlyDoubleQuote":"\u201C","OpenCurlyQuote":"\u2018","operp":"\u29B9","oplus":"\u2295","orarr":"\u21BB","Or":"\u2A54","or":"\u2228","ord":"\u2A5D","order":"\u2134","orderof":"\u2134","ordf":"\u00AA","ordm":"\u00BA","origof":"\u22B6","oror":"\u2A56","orslope":"\u2A57","orv":"\u2A5B","oS":"\u24C8","Oscr":"\uD835\uDCAA","oscr":"\u2134","Oslash":"\u00D8","oslash":"\u00F8","osol":"\u2298","Otilde":"\u00D5","otilde":"\u00F5","otimesas":"\u2A36","Otimes":"\u2A37","otimes":"\u2297","Ouml":"\u00D6","ouml":"\u00F6","ovbar":"\u233D","OverBar":"\u203E","OverBrace":"\u23DE","OverBracket":"\u23B4","OverParenthesis":"\u23DC","para":"\u00B6","parallel":"\u2225","par":"\u2225","parsim":"\u2AF3","parsl":"\u2AFD","part":"\u2202","PartialD":"\u2202","Pcy":"\u041F","pcy":"\u043F","percnt":"%","period":".","permil":"\u2030","perp":"\u22A5","pertenk":"\u2031","Pfr":"\uD835\uDD13","pfr":"\uD835\uDD2D","Phi":"\u03A6","phi":"\u03C6","phiv":"\u03D5","phmmat":"\u2133","phone":"\u260E","Pi":"\u03A0","pi":"\u03C0","pitchfork":"\u22D4","piv":"\u03D6","planck":"\u210F","planckh":"\u210E","plankv":"\u210F","plusacir":"\u2A23","plusb":"\u229E","pluscir":"\u2A22","plus":"+","plusdo":"\u2214","plusdu":"\u2A25","pluse":"\u2A72","PlusMinus":"\u00B1","plusmn":"\u00B1","plussim":"\u2A26","plustwo":"\u2A27","pm":"\u00B1","Poincareplane":"\u210C","pointint":"\u2A15","popf":"\uD835\uDD61","Popf":"\u2119","pound":"\u00A3","prap":"\u2AB7","Pr":"\u2ABB","pr":"\u227A","prcue":"\u227C","precapprox":"\u2AB7","prec":"\u227A","preccurlyeq":"\u227C","Precedes":"\u227A","PrecedesEqual":"\u2AAF","PrecedesSlantEqual":"\u227C","PrecedesTilde":"\u227E","preceq":"\u2AAF","precnapprox":"\u2AB9","precneqq":"\u2AB5","precnsim":"\u22E8","pre":"\u2AAF","prE":"\u2AB3","precsim":"\u227E","prime":"\u2032","Prime":"\u2033","primes":"\u2119","prnap":"\u2AB9","prnE":"\u2AB5","prnsim":"\u22E8","prod":"\u220F","Product":"\u220F","profalar":"\u232E","profline":"\u2312","profsurf":"\u2313","prop":"\u221D","Proportional":"\u221D","Proportion":"\u2237","propto":"\u221D","prsim":"\u227E","prurel":"\u22B0","Pscr":"\uD835\uDCAB","pscr":"\uD835\uDCC5","Psi":"\u03A8","psi":"\u03C8","puncsp":"\u2008","Qfr":"\uD835\uDD14","qfr":"\uD835\uDD2E","qint":"\u2A0C","qopf":"\uD835\uDD62","Qopf":"\u211A","qprime":"\u2057","Qscr":"\uD835\uDCAC","qscr":"\uD835\uDCC6","quaternions":"\u210D","quatint":"\u2A16","quest":"?","questeq":"\u225F","quot":"\"","QUOT":"\"","rAarr":"\u21DB","race":"\u223D\u0331","Racute":"\u0154","racute":"\u0155","radic":"\u221A","raemptyv":"\u29B3","rang":"\u27E9","Rang":"\u27EB","rangd":"\u2992","range":"\u29A5","rangle":"\u27E9","raquo":"\u00BB","rarrap":"\u2975","rarrb":"\u21E5","rarrbfs":"\u2920","rarrc":"\u2933","rarr":"\u2192","Rarr":"\u21A0","rArr":"\u21D2","rarrfs":"\u291E","rarrhk":"\u21AA","rarrlp":"\u21AC","rarrpl":"\u2945","rarrsim":"\u2974","Rarrtl":"\u2916","rarrtl":"\u21A3","rarrw":"\u219D","ratail":"\u291A","rAtail":"\u291C","ratio":"\u2236","rationals":"\u211A","rbarr":"\u290D","rBarr":"\u290F","RBarr":"\u2910","rbbrk":"\u2773","rbrace":"}","rbrack":"]","rbrke":"\u298C","rbrksld":"\u298E","rbrkslu":"\u2990","Rcaron":"\u0158","rcaron":"\u0159","Rcedil":"\u0156","rcedil":"\u0157","rceil":"\u2309","rcub":"}","Rcy":"\u0420","rcy":"\u0440","rdca":"\u2937","rdldhar":"\u2969","rdquo":"\u201D","rdquor":"\u201D","rdsh":"\u21B3","real":"\u211C","realine":"\u211B","realpart":"\u211C","reals":"\u211D","Re":"\u211C","rect":"\u25AD","reg":"\u00AE","REG":"\u00AE","ReverseElement":"\u220B","ReverseEquilibrium":"\u21CB","ReverseUpEquilibrium":"\u296F","rfisht":"\u297D","rfloor":"\u230B","rfr":"\uD835\uDD2F","Rfr":"\u211C","rHar":"\u2964","rhard":"\u21C1","rharu":"\u21C0","rharul":"\u296C","Rho":"\u03A1","rho":"\u03C1","rhov":"\u03F1","RightAngleBracket":"\u27E9","RightArrowBar":"\u21E5","rightarrow":"\u2192","RightArrow":"\u2192","Rightarrow":"\u21D2","RightArrowLeftArrow":"\u21C4","rightarrowtail":"\u21A3","RightCeiling":"\u2309","RightDoubleBracket":"\u27E7","RightDownTeeVector":"\u295D","RightDownVectorBar":"\u2955","RightDownVector":"\u21C2","RightFloor":"\u230B","rightharpoondown":"\u21C1","rightharpoonup":"\u21C0","rightleftarrows":"\u21C4","rightleftharpoons":"\u21CC","rightrightarrows":"\u21C9","rightsquigarrow":"\u219D","RightTeeArrow":"\u21A6","RightTee":"\u22A2","RightTeeVector":"\u295B","rightthreetimes":"\u22CC","RightTriangleBar":"\u29D0","RightTriangle":"\u22B3","RightTriangleEqual":"\u22B5","RightUpDownVector":"\u294F","RightUpTeeVector":"\u295C","RightUpVectorBar":"\u2954","RightUpVector":"\u21BE","RightVectorBar":"\u2953","RightVector":"\u21C0","ring":"\u02DA","risingdotseq":"\u2253","rlarr":"\u21C4","rlhar":"\u21CC","rlm":"\u200F","rmoustache":"\u23B1","rmoust":"\u23B1","rnmid":"\u2AEE","roang":"\u27ED","roarr":"\u21FE","robrk":"\u27E7","ropar":"\u2986","ropf":"\uD835\uDD63","Ropf":"\u211D","roplus":"\u2A2E","rotimes":"\u2A35","RoundImplies":"\u2970","rpar":")","rpargt":"\u2994","rppolint":"\u2A12","rrarr":"\u21C9","Rrightarrow":"\u21DB","rsaquo":"\u203A","rscr":"\uD835\uDCC7","Rscr":"\u211B","rsh":"\u21B1","Rsh":"\u21B1","rsqb":"]","rsquo":"\u2019","rsquor":"\u2019","rthree":"\u22CC","rtimes":"\u22CA","rtri":"\u25B9","rtrie":"\u22B5","rtrif":"\u25B8","rtriltri":"\u29CE","RuleDelayed":"\u29F4","ruluhar":"\u2968","rx":"\u211E","Sacute":"\u015A","sacute":"\u015B","sbquo":"\u201A","scap":"\u2AB8","Scaron":"\u0160","scaron":"\u0161","Sc":"\u2ABC","sc":"\u227B","sccue":"\u227D","sce":"\u2AB0","scE":"\u2AB4","Scedil":"\u015E","scedil":"\u015F","Scirc":"\u015C","scirc":"\u015D","scnap":"\u2ABA","scnE":"\u2AB6","scnsim":"\u22E9","scpolint":"\u2A13","scsim":"\u227F","Scy":"\u0421","scy":"\u0441","sdotb":"\u22A1","sdot":"\u22C5","sdote":"\u2A66","searhk":"\u2925","searr":"\u2198","seArr":"\u21D8","searrow":"\u2198","sect":"\u00A7","semi":";","seswar":"\u2929","setminus":"\u2216","setmn":"\u2216","sext":"\u2736","Sfr":"\uD835\uDD16","sfr":"\uD835\uDD30","sfrown":"\u2322","sharp":"\u266F","SHCHcy":"\u0429","shchcy":"\u0449","SHcy":"\u0428","shcy":"\u0448","ShortDownArrow":"\u2193","ShortLeftArrow":"\u2190","shortmid":"\u2223","shortparallel":"\u2225","ShortRightArrow":"\u2192","ShortUpArrow":"\u2191","shy":"\u00AD","Sigma":"\u03A3","sigma":"\u03C3","sigmaf":"\u03C2","sigmav":"\u03C2","sim":"\u223C","simdot":"\u2A6A","sime":"\u2243","simeq":"\u2243","simg":"\u2A9E","simgE":"\u2AA0","siml":"\u2A9D","simlE":"\u2A9F","simne":"\u2246","simplus":"\u2A24","simrarr":"\u2972","slarr":"\u2190","SmallCircle":"\u2218","smallsetminus":"\u2216","smashp":"\u2A33","smeparsl":"\u29E4","smid":"\u2223","smile":"\u2323","smt":"\u2AAA","smte":"\u2AAC","smtes":"\u2AAC\uFE00","SOFTcy":"\u042C","softcy":"\u044C","solbar":"\u233F","solb":"\u29C4","sol":"/","Sopf":"\uD835\uDD4A","sopf":"\uD835\uDD64","spades":"\u2660","spadesuit":"\u2660","spar":"\u2225","sqcap":"\u2293","sqcaps":"\u2293\uFE00","sqcup":"\u2294","sqcups":"\u2294\uFE00","Sqrt":"\u221A","sqsub":"\u228F","sqsube":"\u2291","sqsubset":"\u228F","sqsubseteq":"\u2291","sqsup":"\u2290","sqsupe":"\u2292","sqsupset":"\u2290","sqsupseteq":"\u2292","square":"\u25A1","Square":"\u25A1","SquareIntersection":"\u2293","SquareSubset":"\u228F","SquareSubsetEqual":"\u2291","SquareSuperset":"\u2290","SquareSupersetEqual":"\u2292","SquareUnion":"\u2294","squarf":"\u25AA","squ":"\u25A1","squf":"\u25AA","srarr":"\u2192","Sscr":"\uD835\uDCAE","sscr":"\uD835\uDCC8","ssetmn":"\u2216","ssmile":"\u2323","sstarf":"\u22C6","Star":"\u22C6","star":"\u2606","starf":"\u2605","straightepsilon":"\u03F5","straightphi":"\u03D5","strns":"\u00AF","sub":"\u2282","Sub":"\u22D0","subdot":"\u2ABD","subE":"\u2AC5","sube":"\u2286","subedot":"\u2AC3","submult":"\u2AC1","subnE":"\u2ACB","subne":"\u228A","subplus":"\u2ABF","subrarr":"\u2979","subset":"\u2282","Subset":"\u22D0","subseteq":"\u2286","subseteqq":"\u2AC5","SubsetEqual":"\u2286","subsetneq":"\u228A","subsetneqq":"\u2ACB","subsim":"\u2AC7","subsub":"\u2AD5","subsup":"\u2AD3","succapprox":"\u2AB8","succ":"\u227B","succcurlyeq":"\u227D","Succeeds":"\u227B","SucceedsEqual":"\u2AB0","SucceedsSlantEqual":"\u227D","SucceedsTilde":"\u227F","succeq":"\u2AB0","succnapprox":"\u2ABA","succneqq":"\u2AB6","succnsim":"\u22E9","succsim":"\u227F","SuchThat":"\u220B","sum":"\u2211","Sum":"\u2211","sung":"\u266A","sup1":"\u00B9","sup2":"\u00B2","sup3":"\u00B3","sup":"\u2283","Sup":"\u22D1","supdot":"\u2ABE","supdsub":"\u2AD8","supE":"\u2AC6","supe":"\u2287","supedot":"\u2AC4","Superset":"\u2283","SupersetEqual":"\u2287","suphsol":"\u27C9","suphsub":"\u2AD7","suplarr":"\u297B","supmult":"\u2AC2","supnE":"\u2ACC","supne":"\u228B","supplus":"\u2AC0","supset":"\u2283","Supset":"\u22D1","supseteq":"\u2287","supseteqq":"\u2AC6","supsetneq":"\u228B","supsetneqq":"\u2ACC","supsim":"\u2AC8","supsub":"\u2AD4","supsup":"\u2AD6","swarhk":"\u2926","swarr":"\u2199","swArr":"\u21D9","swarrow":"\u2199","swnwar":"\u292A","szlig":"\u00DF","Tab":"\t","target":"\u2316","Tau":"\u03A4","tau":"\u03C4","tbrk":"\u23B4","Tcaron":"\u0164","tcaron":"\u0165","Tcedil":"\u0162","tcedil":"\u0163","Tcy":"\u0422","tcy":"\u0442","tdot":"\u20DB","telrec":"\u2315","Tfr":"\uD835\uDD17","tfr":"\uD835\uDD31","there4":"\u2234","therefore":"\u2234","Therefore":"\u2234","Theta":"\u0398","theta":"\u03B8","thetasym":"\u03D1","thetav":"\u03D1","thickapprox":"\u2248","thicksim":"\u223C","ThickSpace":"\u205F\u200A","ThinSpace":"\u2009","thinsp":"\u2009","thkap":"\u2248","thksim":"\u223C","THORN":"\u00DE","thorn":"\u00FE","tilde":"\u02DC","Tilde":"\u223C","TildeEqual":"\u2243","TildeFullEqual":"\u2245","TildeTilde":"\u2248","timesbar":"\u2A31","timesb":"\u22A0","times":"\u00D7","timesd":"\u2A30","tint":"\u222D","toea":"\u2928","topbot":"\u2336","topcir":"\u2AF1","top":"\u22A4","Topf":"\uD835\uDD4B","topf":"\uD835\uDD65","topfork":"\u2ADA","tosa":"\u2929","tprime":"\u2034","trade":"\u2122","TRADE":"\u2122","triangle":"\u25B5","triangledown":"\u25BF","triangleleft":"\u25C3","trianglelefteq":"\u22B4","triangleq":"\u225C","triangleright":"\u25B9","trianglerighteq":"\u22B5","tridot":"\u25EC","trie":"\u225C","triminus":"\u2A3A","TripleDot":"\u20DB","triplus":"\u2A39","trisb":"\u29CD","tritime":"\u2A3B","trpezium":"\u23E2","Tscr":"\uD835\uDCAF","tscr":"\uD835\uDCC9","TScy":"\u0426","tscy":"\u0446","TSHcy":"\u040B","tshcy":"\u045B","Tstrok":"\u0166","tstrok":"\u0167","twixt":"\u226C","twoheadleftarrow":"\u219E","twoheadrightarrow":"\u21A0","Uacute":"\u00DA","uacute":"\u00FA","uarr":"\u2191","Uarr":"\u219F","uArr":"\u21D1","Uarrocir":"\u2949","Ubrcy":"\u040E","ubrcy":"\u045E","Ubreve":"\u016C","ubreve":"\u016D","Ucirc":"\u00DB","ucirc":"\u00FB","Ucy":"\u0423","ucy":"\u0443","udarr":"\u21C5","Udblac":"\u0170","udblac":"\u0171","udhar":"\u296E","ufisht":"\u297E","Ufr":"\uD835\uDD18","ufr":"\uD835\uDD32","Ugrave":"\u00D9","ugrave":"\u00F9","uHar":"\u2963","uharl":"\u21BF","uharr":"\u21BE","uhblk":"\u2580","ulcorn":"\u231C","ulcorner":"\u231C","ulcrop":"\u230F","ultri":"\u25F8","Umacr":"\u016A","umacr":"\u016B","uml":"\u00A8","UnderBar":"_","UnderBrace":"\u23DF","UnderBracket":"\u23B5","UnderParenthesis":"\u23DD","Union":"\u22C3","UnionPlus":"\u228E","Uogon":"\u0172","uogon":"\u0173","Uopf":"\uD835\uDD4C","uopf":"\uD835\uDD66","UpArrowBar":"\u2912","uparrow":"\u2191","UpArrow":"\u2191","Uparrow":"\u21D1","UpArrowDownArrow":"\u21C5","updownarrow":"\u2195","UpDownArrow":"\u2195","Updownarrow":"\u21D5","UpEquilibrium":"\u296E","upharpoonleft":"\u21BF","upharpoonright":"\u21BE","uplus":"\u228E","UpperLeftArrow":"\u2196","UpperRightArrow":"\u2197","upsi":"\u03C5","Upsi":"\u03D2","upsih":"\u03D2","Upsilon":"\u03A5","upsilon":"\u03C5","UpTeeArrow":"\u21A5","UpTee":"\u22A5","upuparrows":"\u21C8","urcorn":"\u231D","urcorner":"\u231D","urcrop":"\u230E","Uring":"\u016E","uring":"\u016F","urtri":"\u25F9","Uscr":"\uD835\uDCB0","uscr":"\uD835\uDCCA","utdot":"\u22F0","Utilde":"\u0168","utilde":"\u0169","utri":"\u25B5","utrif":"\u25B4","uuarr":"\u21C8","Uuml":"\u00DC","uuml":"\u00FC","uwangle":"\u29A7","vangrt":"\u299C","varepsilon":"\u03F5","varkappa":"\u03F0","varnothing":"\u2205","varphi":"\u03D5","varpi":"\u03D6","varpropto":"\u221D","varr":"\u2195","vArr":"\u21D5","varrho":"\u03F1","varsigma":"\u03C2","varsubsetneq":"\u228A\uFE00","varsubsetneqq":"\u2ACB\uFE00","varsupsetneq":"\u228B\uFE00","varsupsetneqq":"\u2ACC\uFE00","vartheta":"\u03D1","vartriangleleft":"\u22B2","vartriangleright":"\u22B3","vBar":"\u2AE8","Vbar":"\u2AEB","vBarv":"\u2AE9","Vcy":"\u0412","vcy":"\u0432","vdash":"\u22A2","vDash":"\u22A8","Vdash":"\u22A9","VDash":"\u22AB","Vdashl":"\u2AE6","veebar":"\u22BB","vee":"\u2228","Vee":"\u22C1","veeeq":"\u225A","vellip":"\u22EE","verbar":"|","Verbar":"\u2016","vert":"|","Vert":"\u2016","VerticalBar":"\u2223","VerticalLine":"|","VerticalSeparator":"\u2758","VerticalTilde":"\u2240","VeryThinSpace":"\u200A","Vfr":"\uD835\uDD19","vfr":"\uD835\uDD33","vltri":"\u22B2","vnsub":"\u2282\u20D2","vnsup":"\u2283\u20D2","Vopf":"\uD835\uDD4D","vopf":"\uD835\uDD67","vprop":"\u221D","vrtri":"\u22B3","Vscr":"\uD835\uDCB1","vscr":"\uD835\uDCCB","vsubnE":"\u2ACB\uFE00","vsubne":"\u228A\uFE00","vsupnE":"\u2ACC\uFE00","vsupne":"\u228B\uFE00","Vvdash":"\u22AA","vzigzag":"\u299A","Wcirc":"\u0174","wcirc":"\u0175","wedbar":"\u2A5F","wedge":"\u2227","Wedge":"\u22C0","wedgeq":"\u2259","weierp":"\u2118","Wfr":"\uD835\uDD1A","wfr":"\uD835\uDD34","Wopf":"\uD835\uDD4E","wopf":"\uD835\uDD68","wp":"\u2118","wr":"\u2240","wreath":"\u2240","Wscr":"\uD835\uDCB2","wscr":"\uD835\uDCCC","xcap":"\u22C2","xcirc":"\u25EF","xcup":"\u22C3","xdtri":"\u25BD","Xfr":"\uD835\uDD1B","xfr":"\uD835\uDD35","xharr":"\u27F7","xhArr":"\u27FA","Xi":"\u039E","xi":"\u03BE","xlarr":"\u27F5","xlArr":"\u27F8","xmap":"\u27FC","xnis":"\u22FB","xodot":"\u2A00","Xopf":"\uD835\uDD4F","xopf":"\uD835\uDD69","xoplus":"\u2A01","xotime":"\u2A02","xrarr":"\u27F6","xrArr":"\u27F9","Xscr":"\uD835\uDCB3","xscr":"\uD835\uDCCD","xsqcup":"\u2A06","xuplus":"\u2A04","xutri":"\u25B3","xvee":"\u22C1","xwedge":"\u22C0","Yacute":"\u00DD","yacute":"\u00FD","YAcy":"\u042F","yacy":"\u044F","Ycirc":"\u0176","ycirc":"\u0177","Ycy":"\u042B","ycy":"\u044B","yen":"\u00A5","Yfr":"\uD835\uDD1C","yfr":"\uD835\uDD36","YIcy":"\u0407","yicy":"\u0457","Yopf":"\uD835\uDD50","yopf":"\uD835\uDD6A","Yscr":"\uD835\uDCB4","yscr":"\uD835\uDCCE","YUcy":"\u042E","yucy":"\u044E","yuml":"\u00FF","Yuml":"\u0178","Zacute":"\u0179","zacute":"\u017A","Zcaron":"\u017D","zcaron":"\u017E","Zcy":"\u0417","zcy":"\u0437","Zdot":"\u017B","zdot":"\u017C","zeetrf":"\u2128","ZeroWidthSpace":"\u200B","Zeta":"\u0396","zeta":"\u03B6","zfr":"\uD835\uDD37","Zfr":"\u2128","ZHcy":"\u0416","zhcy":"\u0436","zigrarr":"\u21DD","zopf":"\uD835\uDD6B","Zopf":"\u2124","Zscr":"\uD835\uDCB5","zscr":"\uD835\uDCCF","zwj":"\u200D","zwnj":"\u200C"}
-},{}],56:[function(require,module,exports){
+},{}],59:[function(require,module,exports){
 module.exports={"Aacute":"\u00C1","aacute":"\u00E1","Acirc":"\u00C2","acirc":"\u00E2","acute":"\u00B4","AElig":"\u00C6","aelig":"\u00E6","Agrave":"\u00C0","agrave":"\u00E0","amp":"&","AMP":"&","Aring":"\u00C5","aring":"\u00E5","Atilde":"\u00C3","atilde":"\u00E3","Auml":"\u00C4","auml":"\u00E4","brvbar":"\u00A6","Ccedil":"\u00C7","ccedil":"\u00E7","cedil":"\u00B8","cent":"\u00A2","copy":"\u00A9","COPY":"\u00A9","curren":"\u00A4","deg":"\u00B0","divide":"\u00F7","Eacute":"\u00C9","eacute":"\u00E9","Ecirc":"\u00CA","ecirc":"\u00EA","Egrave":"\u00C8","egrave":"\u00E8","ETH":"\u00D0","eth":"\u00F0","Euml":"\u00CB","euml":"\u00EB","frac12":"\u00BD","frac14":"\u00BC","frac34":"\u00BE","gt":">","GT":">","Iacute":"\u00CD","iacute":"\u00ED","Icirc":"\u00CE","icirc":"\u00EE","iexcl":"\u00A1","Igrave":"\u00CC","igrave":"\u00EC","iquest":"\u00BF","Iuml":"\u00CF","iuml":"\u00EF","laquo":"\u00AB","lt":"<","LT":"<","macr":"\u00AF","micro":"\u00B5","middot":"\u00B7","nbsp":"\u00A0","not":"\u00AC","Ntilde":"\u00D1","ntilde":"\u00F1","Oacute":"\u00D3","oacute":"\u00F3","Ocirc":"\u00D4","ocirc":"\u00F4","Ograve":"\u00D2","ograve":"\u00F2","ordf":"\u00AA","ordm":"\u00BA","Oslash":"\u00D8","oslash":"\u00F8","Otilde":"\u00D5","otilde":"\u00F5","Ouml":"\u00D6","ouml":"\u00F6","para":"\u00B6","plusmn":"\u00B1","pound":"\u00A3","quot":"\"","QUOT":"\"","raquo":"\u00BB","reg":"\u00AE","REG":"\u00AE","sect":"\u00A7","shy":"\u00AD","sup1":"\u00B9","sup2":"\u00B2","sup3":"\u00B3","szlig":"\u00DF","THORN":"\u00DE","thorn":"\u00FE","times":"\u00D7","Uacute":"\u00DA","uacute":"\u00FA","Ucirc":"\u00DB","ucirc":"\u00FB","Ugrave":"\u00D9","ugrave":"\u00F9","uml":"\u00A8","Uuml":"\u00DC","uuml":"\u00FC","Yacute":"\u00DD","yacute":"\u00FD","yen":"\u00A5","yuml":"\u00FF"}
-},{}],57:[function(require,module,exports){
+},{}],60:[function(require,module,exports){
 module.exports={"amp":"&","apos":"'","gt":">","lt":"<","quot":"\""}
 
-},{}],58:[function(require,module,exports){
+},{}],61:[function(require,module,exports){
 module.exports = CollectingHandler;
 
 function CollectingHandler(cbs){
@@ -16552,7 +19324,7 @@ CollectingHandler.prototype.restart = function(){
 	}
 };
 
-},{"./":65}],59:[function(require,module,exports){
+},{"./":68}],62:[function(require,module,exports){
 var index = require("./index.js"),
     DomHandler = index.DomHandler,
 	DomUtils = index.DomUtils;
@@ -16649,7 +19421,7 @@ FeedHandler.prototype.onend = function() {
 
 module.exports = FeedHandler;
 
-},{"./index.js":65,"util":181}],60:[function(require,module,exports){
+},{"./index.js":68,"util":137}],63:[function(require,module,exports){
 var Tokenizer = require("./Tokenizer.js");
 
 /*
@@ -16988,7 +19760,7 @@ Parser.prototype.done = Parser.prototype.end;
 
 module.exports = Parser;
 
-},{"./Tokenizer.js":63,"events":156,"util":181}],61:[function(require,module,exports){
+},{"./Tokenizer.js":66,"events":112,"util":137}],64:[function(require,module,exports){
 module.exports = ProxyHandler;
 
 function ProxyHandler(cbs){
@@ -17016,7 +19788,7 @@ Object.keys(EVENTS).forEach(function(name){
 		throw Error("wrong number of arguments");
 	}
 });
-},{"./":65}],62:[function(require,module,exports){
+},{"./":68}],65:[function(require,module,exports){
 module.exports = Stream;
 
 var Parser = require("./WritableStream.js");
@@ -17052,7 +19824,7 @@ Object.keys(EVENTS).forEach(function(name){
 		throw Error("wrong number of arguments!");
 	}
 });
-},{"../":65,"./WritableStream.js":64,"util":181}],63:[function(require,module,exports){
+},{"../":68,"./WritableStream.js":67,"util":137}],66:[function(require,module,exports){
 module.exports = Tokenizer;
 
 var decodeCodePoint = require("entities/lib/decode_codepoint.js"),
@@ -17951,7 +20723,7 @@ Tokenizer.prototype._emitPartial = function(value){
 	}
 };
 
-},{"entities/lib/decode_codepoint.js":77,"entities/maps/entities.json":79,"entities/maps/legacy.json":80,"entities/maps/xml.json":81}],64:[function(require,module,exports){
+},{"entities/lib/decode_codepoint.js":80,"entities/maps/entities.json":82,"entities/maps/legacy.json":83,"entities/maps/xml.json":84}],67:[function(require,module,exports){
 module.exports = Stream;
 
 var Parser = require("./Parser.js"),
@@ -17973,7 +20745,7 @@ WritableStream.prototype._write = function(chunk, encoding, cb){
 	this._parser.write(chunk);
 	cb();
 };
-},{"./Parser.js":60,"readable-stream":91,"stream":177,"util":181}],65:[function(require,module,exports){
+},{"./Parser.js":63,"readable-stream":94,"stream":133,"util":137}],68:[function(require,module,exports){
 var Parser = require("./Parser.js"),
     DomHandler = require("domhandler");
 
@@ -18043,9 +20815,9 @@ module.exports = {
 	}
 };
 
-},{"./CollectingHandler.js":58,"./FeedHandler.js":59,"./Parser.js":60,"./ProxyHandler.js":61,"./Stream.js":62,"./Tokenizer.js":63,"./WritableStream.js":64,"domelementtype":66,"domhandler":67,"domutils":70}],66:[function(require,module,exports){
-arguments[4][47][0].apply(exports,arguments)
-},{"dup":47}],67:[function(require,module,exports){
+},{"./CollectingHandler.js":61,"./FeedHandler.js":62,"./Parser.js":63,"./ProxyHandler.js":64,"./Stream.js":65,"./Tokenizer.js":66,"./WritableStream.js":67,"domelementtype":69,"domhandler":70,"domutils":73}],69:[function(require,module,exports){
+arguments[4][50][0].apply(exports,arguments)
+},{"dup":50}],70:[function(require,module,exports){
 var ElementType = require("domelementtype");
 
 var re_whitespace = /\s+/g;
@@ -18218,7 +20990,7 @@ DomHandler.prototype.onprocessinginstruction = function(name, data){
 
 module.exports = DomHandler;
 
-},{"./lib/element":68,"./lib/node":69,"domelementtype":66}],68:[function(require,module,exports){
+},{"./lib/element":71,"./lib/node":72,"domelementtype":69}],71:[function(require,module,exports){
 // DOM-Level-1-compliant structure
 var NodePrototype = require('./node');
 var ElementPrototype = module.exports = Object.create(NodePrototype);
@@ -18240,7 +21012,7 @@ Object.keys(domLvl1).forEach(function(key) {
 	});
 });
 
-},{"./node":69}],69:[function(require,module,exports){
+},{"./node":72}],72:[function(require,module,exports){
 // This object will be used as the prototype for Nodes when creating a
 // DOM-Level-1-compliant structure.
 var NodePrototype = module.exports = {
@@ -18286,9 +21058,9 @@ Object.keys(domLvl1).forEach(function(key) {
 	});
 });
 
-},{}],70:[function(require,module,exports){
-arguments[4][40][0].apply(exports,arguments)
-},{"./lib/helpers":71,"./lib/legacy":72,"./lib/manipulation":73,"./lib/querying":74,"./lib/stringify":75,"./lib/traversal":76,"dup":40}],71:[function(require,module,exports){
+},{}],73:[function(require,module,exports){
+arguments[4][43][0].apply(exports,arguments)
+},{"./lib/helpers":74,"./lib/legacy":75,"./lib/manipulation":76,"./lib/querying":77,"./lib/stringify":78,"./lib/traversal":79,"dup":43}],74:[function(require,module,exports){
 // removeSubsets
 // Given an array of nodes, remove any member that is contained by another.
 exports.removeSubsets = function(nodes) {
@@ -18431,13 +21203,13 @@ exports.uniqueSort = function(nodes) {
 	return nodes;
 };
 
-},{}],72:[function(require,module,exports){
-arguments[4][42][0].apply(exports,arguments)
-},{"domelementtype":66,"dup":42}],73:[function(require,module,exports){
-arguments[4][43][0].apply(exports,arguments)
-},{"dup":43}],74:[function(require,module,exports){
-arguments[4][44][0].apply(exports,arguments)
-},{"domelementtype":66,"dup":44}],75:[function(require,module,exports){
+},{}],75:[function(require,module,exports){
+arguments[4][45][0].apply(exports,arguments)
+},{"domelementtype":69,"dup":45}],76:[function(require,module,exports){
+arguments[4][46][0].apply(exports,arguments)
+},{"dup":46}],77:[function(require,module,exports){
+arguments[4][47][0].apply(exports,arguments)
+},{"domelementtype":69,"dup":47}],78:[function(require,module,exports){
 var ElementType = require("domelementtype"),
     getOuterHTML = require("dom-serializer"),
     isTag = ElementType.isTag;
@@ -18461,7 +21233,7 @@ function getText(elem){
 	return "";
 }
 
-},{"dom-serializer":48,"domelementtype":66}],76:[function(require,module,exports){
+},{"dom-serializer":51,"domelementtype":69}],79:[function(require,module,exports){
 var getChildren = exports.getChildren = function(elem){
 	return elem.children;
 };
@@ -18487,17 +21259,17 @@ exports.getName = function(elem){
 	return elem.name;
 };
 
-},{}],77:[function(require,module,exports){
-arguments[4][52][0].apply(exports,arguments)
-},{"../maps/decode.json":78,"dup":52}],78:[function(require,module,exports){
-arguments[4][54][0].apply(exports,arguments)
-},{"dup":54}],79:[function(require,module,exports){
+},{}],80:[function(require,module,exports){
 arguments[4][55][0].apply(exports,arguments)
-},{"dup":55}],80:[function(require,module,exports){
-arguments[4][56][0].apply(exports,arguments)
-},{"dup":56}],81:[function(require,module,exports){
+},{"../maps/decode.json":81,"dup":55}],81:[function(require,module,exports){
 arguments[4][57][0].apply(exports,arguments)
 },{"dup":57}],82:[function(require,module,exports){
+arguments[4][58][0].apply(exports,arguments)
+},{"dup":58}],83:[function(require,module,exports){
+arguments[4][59][0].apply(exports,arguments)
+},{"dup":59}],84:[function(require,module,exports){
+arguments[4][60][0].apply(exports,arguments)
+},{"dup":60}],85:[function(require,module,exports){
 (function (process){
 // Copyright Joyent, Inc. and other Node contributors.
 //
@@ -18590,7 +21362,7 @@ function forEach (xs, f) {
 }
 
 }).call(this,require('_process'))
-},{"./_stream_readable":84,"./_stream_writable":86,"_process":160,"core-util-is":87,"inherits":88}],83:[function(require,module,exports){
+},{"./_stream_readable":87,"./_stream_writable":89,"_process":116,"core-util-is":90,"inherits":91}],86:[function(require,module,exports){
 // Copyright Joyent, Inc. and other Node contributors.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a
@@ -18638,7 +21410,7 @@ PassThrough.prototype._transform = function(chunk, encoding, cb) {
   cb(null, chunk);
 };
 
-},{"./_stream_transform":85,"core-util-is":87,"inherits":88}],84:[function(require,module,exports){
+},{"./_stream_transform":88,"core-util-is":90,"inherits":91}],87:[function(require,module,exports){
 (function (process){
 // Copyright Joyent, Inc. and other Node contributors.
 //
@@ -19593,7 +22365,7 @@ function indexOf (xs, x) {
 }
 
 }).call(this,require('_process'))
-},{"./_stream_duplex":82,"_process":160,"buffer":152,"core-util-is":87,"events":156,"inherits":88,"isarray":89,"stream":177,"string_decoder/":90,"util":151}],85:[function(require,module,exports){
+},{"./_stream_duplex":85,"_process":116,"buffer":108,"core-util-is":90,"events":112,"inherits":91,"isarray":92,"stream":133,"string_decoder/":93,"util":107}],88:[function(require,module,exports){
 // Copyright Joyent, Inc. and other Node contributors.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a
@@ -19804,7 +22576,7 @@ function done(stream, er) {
   return stream.push(null);
 }
 
-},{"./_stream_duplex":82,"core-util-is":87,"inherits":88}],86:[function(require,module,exports){
+},{"./_stream_duplex":85,"core-util-is":90,"inherits":91}],89:[function(require,module,exports){
 (function (process){
 // Copyright Joyent, Inc. and other Node contributors.
 //
@@ -20285,7 +23057,7 @@ function endWritable(stream, state, cb) {
 }
 
 }).call(this,require('_process'))
-},{"./_stream_duplex":82,"_process":160,"buffer":152,"core-util-is":87,"inherits":88,"stream":177}],87:[function(require,module,exports){
+},{"./_stream_duplex":85,"_process":116,"buffer":108,"core-util-is":90,"inherits":91,"stream":133}],90:[function(require,module,exports){
 (function (Buffer){
 // Copyright Joyent, Inc. and other Node contributors.
 //
@@ -20396,7 +23168,7 @@ function objectToString(o) {
 }
 
 }).call(this,{"isBuffer":require("../../../../../../../../../../../../../../../../../../usr/local/lib/node_modules/browserify/node_modules/insert-module-globals/node_modules/is-buffer/index.js")})
-},{"../../../../../../../../../../../../../../../../../../usr/local/lib/node_modules/browserify/node_modules/insert-module-globals/node_modules/is-buffer/index.js":158}],88:[function(require,module,exports){
+},{"../../../../../../../../../../../../../../../../../../usr/local/lib/node_modules/browserify/node_modules/insert-module-globals/node_modules/is-buffer/index.js":114}],91:[function(require,module,exports){
 if (typeof Object.create === 'function') {
   // implementation from standard node.js 'util' module
   module.exports = function inherits(ctor, superCtor) {
@@ -20421,12 +23193,12 @@ if (typeof Object.create === 'function') {
   }
 }
 
-},{}],89:[function(require,module,exports){
+},{}],92:[function(require,module,exports){
 module.exports = Array.isArray || function (arr) {
   return Object.prototype.toString.call(arr) == '[object Array]';
 };
 
-},{}],90:[function(require,module,exports){
+},{}],93:[function(require,module,exports){
 // Copyright Joyent, Inc. and other Node contributors.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a
@@ -20649,7 +23421,7 @@ function base64DetectIncompleteChar(buffer) {
   this.charLength = this.charReceived ? 3 : 0;
 }
 
-},{"buffer":152}],91:[function(require,module,exports){
+},{"buffer":108}],94:[function(require,module,exports){
 (function (process){
 exports = module.exports = require('./lib/_stream_readable.js');
 exports.Stream = require('stream');
@@ -20663,7 +23435,7 @@ if (!process.browser && process.env.READABLE_STREAM === 'disable') {
 }
 
 }).call(this,require('_process'))
-},{"./lib/_stream_duplex.js":82,"./lib/_stream_passthrough.js":83,"./lib/_stream_readable.js":84,"./lib/_stream_transform.js":85,"./lib/_stream_writable.js":86,"_process":160,"stream":177}],92:[function(require,module,exports){
+},{"./lib/_stream_duplex.js":85,"./lib/_stream_passthrough.js":86,"./lib/_stream_readable.js":87,"./lib/_stream_transform.js":88,"./lib/_stream_writable.js":89,"_process":116,"stream":133}],95:[function(require,module,exports){
 module.exports={
   "name": "cheerio",
   "version": "0.17.0",
@@ -20739,7 +23511,7 @@ module.exports={
   "readme": "ERROR: No README data found!"
 }
 
-},{}],93:[function(require,module,exports){
+},{}],96:[function(require,module,exports){
 (function (global){
 /**
  * @license
@@ -27529,7 +30301,7 @@ module.exports={
 }.call(this));
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{}],94:[function(require,module,exports){
+},{}],97:[function(require,module,exports){
 
 /***** xregexp.js *****/
 
@@ -29839,2669 +32611,12 @@ XRegExp = XRegExp || (function (undef) {
 }(XRegExp));
 
 
-},{}],95:[function(require,module,exports){
-var fs = require('fs'),
-    path = require('path');
-
-var parseInput = function (input) {
-    return new Promise(function (resolve, reject) {
-        // test string
-        if (typeof input !== 'string' && !(input instanceof String)) {
-            throw new Error('Input must be a string');
-        }
-        // test file
-        if (fs.existsSync && fs.existsSync(path.normalize(input))) {
-            fs.readFile(path.normalize(input), function (err, data) {
-                if (err) throw err;
-                resolve(data.toString());
-            });
-        } else {
-            if (input.length < 64) throw new Error('Not enough text to process. At least 64 characters are expected.');
-            resolve(input);
-        }
-    });
-};
-
-var getLang = function (input) {
-    return new Promise(function (resolve, reject) {
-       require('retext').use(require('retext-language')).use(function () {
-           return function (cst) {
-               resolve(cst);
-           }
-       }).process(input)
-    });
-};
-
-var count = function(ary, classifier) {
-    return ary.reduce(function(counter, item) {
-        var p = (classifier || String)(item);
-        counter[p] = counter.hasOwnProperty(p) ? counter[p] + 1 : 1;
-        return counter;
-    }, {})
-};
-
-var parseLang = function (det) {
-    return new Promise(function (resolve, reject) {
-        var tmp = [];
-        
-        // calc each lang iteration
-        for (var i in det.children) {
-            for (var j in det.children[i].children) {
-                if (det.children[i].children[j].data && det.children[i].children[j].data.language) {
-                    tmp.push(det.children[i].children[j].data.language);
-                }
-            }
-        }
-
-        // sum up duplicates
-        tmp = count(tmp);
-
-        // find best lang
-        var topLang = 0, lang, totalLang = 0;
-        for (var k in tmp) {
-            totalLang += tmp[k];
-            if (tmp[k] > topLang) {
-                topLang = tmp[k];
-                lang = k;
-            }
-        }
-
-        resolve({
-            langcode: lang,
-            probability: ((topLang / totalLang) * 100).toFixed(2),
-            detection: tmp
-        });
-    });
-};
-
-var buildResponse = function (inc) {
-    var iso639 = require('./iso-639.json');
-    var declang = iso639[inc.langcode];
-
-    if (!declang) throw new Error('Not a recognized language');
-
-    if (declang.bibliographic) {
-        declang.terminologic = iso639[declang.bibliographic].terminologic || null;
-    } else {
-        declang.bibliographic = declang.terminologic ? iso639[declang.terminologic].bibliographic : null;
-    }
-    if (declang.bibliographic == null && declang.terminologic == null) {
-        declang.iso6392 = inc.langcode;
-    } else {
-        declang.iso6392 = null;
-    }
-
-    declang.probability = inc.probability;
-    declang.detected_langs = inc.detection;
-
-    return declang;
-}
-
-var DetectLang = module.exports = function (input) {
-    return new Promise(function (resolve, reject) {
-        parseInput(input)
-            .then(getLang)
-            .then(parseLang)
-            .then(buildResponse)
-            .then(resolve)
-            .catch(reject);
-    });
-};
-
-},{"./iso-639.json":96,"fs":150,"path":159,"retext":106,"retext-language":103}],96:[function(require,module,exports){
-module.exports={
-  "aar": {
-    "terminologic": null,
-    "iso6391": "aa",
-    "name": "Afar"
-  },
-  "abk": {
-    "terminologic": null,
-    "iso6391": "ab",
-    "name": "Abkhazian"
-  },
-  "ace": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "Achinese"
-  },
-  "ach": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "Acoli"
-  },
-  "ada": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "Adangme"
-  },
-  "ady": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "Adyghe; Adygei"
-  },
-  "afa": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "Afro-Asiatic languages"
-  },
-  "afh": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "Afrihili"
-  },
-  "afr": {
-    "terminologic": null,
-    "iso6391": "af",
-    "name": "Afrikaans"
-  },
-  "ain": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "Ainu"
-  },
-  "aka": {
-    "terminologic": null,
-    "iso6391": "ak",
-    "name": "Akan"
-  },
-  "akk": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "Akkadian"
-  },
-  "alb": {
-    "terminologic": "sqi",
-    "iso6391": "sq",
-    "name": "Albanian"
-  },
-  "ale": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "Aleut"
-  },
-  "alg": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "Algonquian languages"
-  },
-  "als": {
-    "terminologic": "sqi",
-    "iso6391": "sq",
-    "name": "Albanian"
-  },
-  "alt": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "Southern Altai"
-  },
-  "amh": {
-    "terminologic": null,
-    "iso6391": "am",
-    "name": "Amharic"
-  },
-  "ang": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "English, Old (ca.450-1100)"
-  },
-  "anp": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "Angika"
-  },
-  "apa": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "Apache languages"
-  },
-  "ara": {
-    "terminologic": null,
-    "iso6391": "ar",
-    "name": "Arabic"
-  },
-  "arb": {
-    "iso6392": "ara",
-    "iso6391": "ar",
-    "name": "Arabic"
-  },
-  "arc": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "Official Aramaic (700-300 BCE); Imperial Aramaic (700-300 BCE)"
-  },
-  "arg": {
-    "terminologic": null,
-    "iso6391": "an",
-    "name": "Aragonese"
-  },
-  "arm": {
-    "terminologic": "hye",
-    "iso6391": "hy",
-    "name": "Armenian"
-  },
-  "arn": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "Mapudungun; Mapuche"
-  },
-  "arp": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "Arapaho"
-  },
-  "art": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "Artificial languages"
-  },
-  "arw": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "Arawak"
-  },
-  "asm": {
-    "terminologic": null,
-    "iso6391": "as",
-    "name": "Assamese"
-  },
-  "ast": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "Asturian; Bable; Leonese; Asturleonese"
-  },
-  "ath": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "Athapascan languages"
-  },
-  "aus": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "Australian languages"
-  },
-  "ava": {
-    "terminologic": null,
-    "iso6391": "av",
-    "name": "Avaric"
-  },
-  "ave": {
-    "terminologic": null,
-    "iso6391": "ae",
-    "name": "Avestan"
-  },
-  "awa": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "Awadhi"
-  },
-  "aym": {
-    "terminologic": null,
-    "iso6391": "ay",
-    "name": "Aymara"
-  },
-  "aze": {
-    "terminologic": null,
-    "iso6391": "az",
-    "name": "Azerbaijani"
-  },
-  "bad": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "Banda languages"
-  },
-  "bai": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "Bamileke languages"
-  },
-  "bak": {
-    "terminologic": null,
-    "iso6391": "ba",
-    "name": "Bashkir"
-  },
-  "bal": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "Baluchi"
-  },
-  "bam": {
-    "terminologic": null,
-    "iso6391": "bm",
-    "name": "Bambara"
-  },
-  "ban": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "Balinese"
-  },
-  "baq": {
-    "terminologic": "eus",
-    "iso6391": "eu",
-    "name": "Basque"
-  },
-  "bas": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "Basa"
-  },
-  "bat": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "Baltic languages"
-  },
-  "bej": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "Beja; Bedawiyet"
-  },
-  "bel": {
-    "terminologic": null,
-    "iso6391": "be",
-    "name": "Belarusian"
-  },
-  "bem": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "Bemba"
-  },
-  "ben": {
-    "terminologic": null,
-    "iso6391": "bn",
-    "name": "Bengali"
-  },
-  "ber": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "Berber languages"
-  },
-  "bho": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "Bhojpuri"
-  },
-  "bih": {
-    "terminologic": null,
-    "iso6391": "bh",
-    "name": "Bihari languages"
-  },
-  "bik": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "Bikol"
-  },
-  "bin": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "Bini; Edo"
-  },
-  "bis": {
-    "terminologic": null,
-    "iso6391": "bi",
-    "name": "Bislama"
-  },
-  "bla": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "Siksika"
-  },
-  "bnt": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "Bantu (Other)"
-  },
-  "bod": {
-    "bibliographic": "tib",
-    "iso6391": "bo",
-    "name": "Tibetan"
-  },
-  "bos": {
-    "terminologic": null,
-    "iso6391": "bs",
-    "name": "Bosnian"
-  },
-  "bra": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "Braj"
-  },
-  "bre": {
-    "terminologic": null,
-    "iso6391": "br",
-    "name": "Breton"
-  },
-  "btk": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "Batak languages"
-  },
-  "bua": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "Buriat"
-  },
-  "bug": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "Buginese"
-  },
-  "bul": {
-    "terminologic": null,
-    "iso6391": "bg",
-    "name": "Bulgarian"
-  },
-  "bur": {
-    "terminologic": "mya",
-    "iso6391": "my",
-    "name": "Burmese"
-  },
-  "byn": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "Blin; Bilin"
-  },
-  "cad": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "Caddo"
-  },
-  "cai": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "Central American Indian languages"
-  },
-  "car": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "Galibi Carib"
-  },
-  "cat": {
-    "terminologic": null,
-    "iso6391": "ca",
-    "name": "Catalan; Valencian"
-  },
-  "cau": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "Caucasian languages"
-  },
-  "ceb": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "Cebuano"
-  },
-  "cel": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "Celtic languages"
-  },
-  "ces": {
-    "bibliographic": "cze",
-    "iso6391": "cs",
-    "name": "Czech"
-  },
-  "cha": {
-    "terminologic": null,
-    "iso6391": "ch",
-    "name": "Chamorro"
-  },
-  "chb": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "Chibcha"
-  },
-  "che": {
-    "terminologic": null,
-    "iso6391": "ce",
-    "name": "Chechen"
-  },
-  "chg": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "Chagatai"
-  },
-  "chi": {
-    "terminologic": "zho",
-    "iso6391": "zh",
-    "name": "Chinese"
-  },
-  "chk": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "Chuukese"
-  },
-  "chm": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "Mari"
-  },
-  "chn": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "Chinook jargon"
-  },
-  "cho": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "Choctaw"
-  },
-  "chp": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "Chipewyan; Dene Suline"
-  },
-  "chr": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "Cherokee"
-  },
-  "chu": {
-    "terminologic": null,
-    "iso6391": "cu",
-    "name": "Church Slavic; Old Slavonic; Church Slavonic; Old Bulgarian; Old Church Slavonic"
-  },
-  "chv": {
-    "terminologic": null,
-    "iso6391": "cv",
-    "name": "Chuvash"
-  },
-  "chy": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "Cheyenne"
-  },
-  "cmc": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "Chamic languages"
-  },
-  "cmn": {
-    "bibliographic": "chi",
-    "iso6391": "zh",
-    "name": "Chinese"
-  },
-  "cop": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "Coptic"
-  },
-  "cor": {
-    "terminologic": null,
-    "iso6391": "kw",
-    "name": "Cornish"
-  },
-  "cos": {
-    "terminologic": null,
-    "iso6391": "co",
-    "name": "Corsican"
-  },
-  "cpe": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "Creoles and pidgins, English based"
-  },
-  "cpf": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "Creoles and pidgins, French-based "
-  },
-  "cpp": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "Creoles and pidgins, Portuguese-based "
-  },
-  "cre": {
-    "terminologic": null,
-    "iso6391": "cr",
-    "name": "Cree"
-  },
-  "crh": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "Crimean Tatar; Crimean Turkish"
-  },
-  "crp": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "Creoles and pidgins "
-  },
-  "csb": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "Kashubian"
-  },
-  "cus": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "Cushitic languages"
-  },
-  "cym": {
-    "bibliographic": "wel",
-    "iso6391": "cy",
-    "name": "Welsh"
-  },
-  "cze": {
-    "terminologic": "ces",
-    "iso6391": "cs",
-    "name": "Czech"
-  },
-  "dak": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "Dakota"
-  },
-  "dan": {
-    "terminologic": null,
-    "iso6391": "da",
-    "name": "Danish"
-  },
-  "dar": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "Dargwa"
-  },
-  "day": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "Land Dayak languages"
-  },
-  "del": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "Delaware"
-  },
-  "den": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "Slave (Athapascan)"
-  },
-  "deu": {
-    "bibliographic": "ger",
-    "iso6391": "de",
-    "name": "German"
-  },
-  "dgr": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "Dogrib"
-  },
-  "din": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "Dinka"
-  },
-  "div": {
-    "terminologic": null,
-    "iso6391": "dv",
-    "name": "Divehi; Dhivehi; Maldivian"
-  },
-  "doi": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "Dogri"
-  },
-  "dra": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "Dravidian languages"
-  },
-  "dsb": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "Lower Sorbian"
-  },
-  "dua": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "Duala"
-  },
-  "dum": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "Dutch, Middle (ca.1050-1350)"
-  },
-  "dut": {
-    "terminologic": "nld",
-    "iso6391": "nl",
-    "name": "Dutch; Flemish"
-  },
-  "dyu": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "Dyula"
-  },
-  "dzo": {
-    "terminologic": null,
-    "iso6391": "dz",
-    "name": "Dzongkha"
-  },
-  "efi": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "Efik"
-  },
-  "egy": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "Egyptian (Ancient)"
-  },
-  "eka": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "Ekajuk"
-  },
-  "ell": {
-    "bibliographic": "gre",
-    "iso6391": "el",
-    "name": "Greek, Modern (1453-)"
-  },
-  "elx": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "Elamite"
-  },
-  "eng": {
-    "terminologic": null,
-    "iso6391": "en",
-    "name": "English"
-  },
-  "enm": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "English, Middle (1100-1500)"
-  },
-  "epo": {
-    "terminologic": null,
-    "iso6391": "eo",
-    "name": "Esperanto"
-  },
-  "est": {
-    "terminologic": null,
-    "iso6391": "et",
-    "name": "Estonian"
-  },
-  "eus": {
-    "bibliographic": "baq",
-    "iso6391": "eu",
-    "name": "Basque"
-  },
-  "ewe": {
-    "terminologic": null,
-    "iso6391": "ee",
-    "name": "Ewe"
-  },
-  "ewo": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "Ewondo"
-  },
-  "fan": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "Fang"
-  },
-  "fao": {
-    "terminologic": null,
-    "iso6391": "fo",
-    "name": "Faroese"
-  },
-  "fas": {
-    "bibliographic": "per",
-    "iso6391": "fa",
-    "name": "Persian"
-  },
-  "fat": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "Fanti"
-  },
-  "fij": {
-    "terminologic": null,
-    "iso6391": "fj",
-    "name": "Fijian"
-  },
-  "fil": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "Filipino; Pilipino"
-  },
-  "fin": {
-    "terminologic": null,
-    "iso6391": "fi",
-    "name": "Finnish"
-  },
-  "fiu": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "Finno-Ugrian languages"
-  },
-  "fon": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "Fon"
-  },
-  "fra": {
-    "bibliographic": "fre",
-    "iso6391": "fr",
-    "name": "French"
-  },
-  "fre": {
-    "terminologic": "fra",
-    "iso6391": "fr",
-    "name": "French"
-  },
-  "frm": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "French, Middle (ca.1400-1600)"
-  },
-  "fro": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "French, Old (842-ca.1400)"
-  },
-  "frr": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "Northern Frisian"
-  },
-  "frs": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "Eastern Frisian"
-  },
-  "fry": {
-    "terminologic": null,
-    "iso6391": "fy",
-    "name": "Western Frisian"
-  },
-  "ful": {
-    "terminologic": null,
-    "iso6391": "ff",
-    "name": "Fulah"
-  },
-  "fur": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "Friulian"
-  },
-  "gaa": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "Ga"
-  },
-  "gay": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "Gayo"
-  },
-  "gba": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "Gbaya"
-  },
-  "gem": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "Germanic languages"
-  },
-  "geo": {
-    "terminologic": "kat",
-    "iso6391": "ka",
-    "name": "Georgian"
-  },
-  "ger": {
-    "terminologic": "deu",
-    "iso6391": "de",
-    "name": "German"
-  },
-  "gez": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "Geez"
-  },
-  "gil": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "Gilbertese"
-  },
-  "gla": {
-    "terminologic": null,
-    "iso6391": "gd",
-    "name": "Gaelic; Scottish Gaelic"
-  },
-  "gle": {
-    "terminologic": null,
-    "iso6391": "ga",
-    "name": "Irish"
-  },
-  "glg": {
-    "terminologic": null,
-    "iso6391": "gl",
-    "name": "Galician"
-  },
-  "glv": {
-    "terminologic": null,
-    "iso6391": "gv",
-    "name": "Manx"
-  },
-  "gmh": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "German, Middle High (ca.1050-1500)"
-  },
-  "goh": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "German, Old High (ca.750-1050)"
-  },
-  "gon": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "Gondi"
-  },
-  "gor": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "Gorontalo"
-  },
-  "got": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "Gothic"
-  },
-  "grb": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "Grebo"
-  },
-  "grc": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "Greek, Ancient (to 1453)"
-  },
-  "gre": {
-    "terminologic": "ell",
-    "iso6391": "el",
-    "name": "Greek, Modern (1453-)"
-  },
-  "grn": {
-    "terminologic": null,
-    "iso6391": "gn",
-    "name": "Guarani"
-  },
-  "gsw": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "Swiss German; Alemannic; Alsatian"
-  },
-  "guj": {
-    "terminologic": null,
-    "iso6391": "gu",
-    "name": "Gujarati"
-  },
-  "gwi": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "Gwich'in"
-  },
-  "hai": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "Haida"
-  },
-  "hat": {
-    "terminologic": null,
-    "iso6391": "ht",
-    "name": "Haitian; Haitian Creole"
-  },
-  "hau": {
-    "terminologic": null,
-    "iso6391": "ha",
-    "name": "Hausa"
-  },
-  "haw": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "Hawaiian"
-  },
-  "heb": {
-    "terminologic": null,
-    "iso6391": "he",
-    "name": "Hebrew"
-  },
-  "her": {
-    "terminologic": null,
-    "iso6391": "hz",
-    "name": "Herero"
-  },
-  "hil": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "Hiligaynon"
-  },
-  "him": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "Himachali languages; Western Pahari languages"
-  },
-  "hin": {
-    "terminologic": null,
-    "iso6391": "hi",
-    "name": "Hindi"
-  },
-  "hit": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "Hittite"
-  },
-  "hmn": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "Hmong; Mong"
-  },
-  "hmo": {
-    "terminologic": null,
-    "iso6391": "ho",
-    "name": "Hiri Motu"
-  },
-  "hrv": {
-    "terminologic": null,
-    "iso6391": "hr",
-    "name": "Croatian"
-  },
-  "hsb": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "Upper Sorbian"
-  },
-  "hun": {
-    "terminologic": null,
-    "iso6391": "hu",
-    "name": "Hungarian"
-  },
-  "hup": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "Hupa"
-  },
-  "hye": {
-    "bibliographic": "arm",
-    "iso6391": "hy",
-    "name": "Armenian"
-  },
-  "iba": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "Iban"
-  },
-  "ibo": {
-    "terminologic": null,
-    "iso6391": "ig",
-    "name": "Igbo"
-  },
-  "ice": {
-    "terminologic": "isl",
-    "iso6391": "is",
-    "name": "Icelandic"
-  },
-  "ido": {
-    "terminologic": null,
-    "iso6391": "io",
-    "name": "Ido"
-  },
-  "iii": {
-    "terminologic": null,
-    "iso6391": "ii",
-    "name": "Sichuan Yi; Nuosu"
-  },
-  "ijo": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "Ijo languages"
-  },
-  "iku": {
-    "terminologic": null,
-    "iso6391": "iu",
-    "name": "Inuktitut"
-  },
-  "ile": {
-    "terminologic": null,
-    "iso6391": "ie",
-    "name": "Interlingue; Occidental"
-  },
-  "ilo": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "Iloko"
-  },
-  "ina": {
-    "terminologic": null,
-    "iso6391": "ia",
-    "name": "Interlingua (International Auxiliary Language Association)"
-  },
-  "inc": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "Indic languages"
-  },
-  "ind": {
-    "terminologic": null,
-    "iso6391": "id",
-    "name": "Indonesian"
-  },
-  "ine": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "Indo-European languages"
-  },
-  "inh": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "Ingush"
-  },
-  "ipk": {
-    "terminologic": null,
-    "iso6391": "ik",
-    "name": "Inupiaq"
-  },
-  "ira": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "Iranian languages"
-  },
-  "iro": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "Iroquoian languages"
-  },
-  "isl": {
-    "bibliographic": "ice",
-    "iso6391": "is",
-    "name": "Icelandic"
-  },
-  "ita": {
-    "terminologic": null,
-    "iso6391": "it",
-    "name": "Italian"
-  },
-  "jav": {
-    "terminologic": null,
-    "iso6391": "jv",
-    "name": "Javanese"
-  },
-  "jbo": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "Lojban"
-  },
-  "jpn": {
-    "terminologic": null,
-    "iso6391": "ja",
-    "name": "Japanese"
-  },
-  "jpr": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "Judeo-Persian"
-  },
-  "jrb": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "Judeo-Arabic"
-  },
-  "kaa": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "Kara-Kalpak"
-  },
-  "kab": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "Kabyle"
-  },
-  "kac": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "Kachin; Jingpho"
-  },
-  "kal": {
-    "terminologic": null,
-    "iso6391": "kl",
-    "name": "Kalaallisut; Greenlandic"
-  },
-  "kam": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "Kamba"
-  },
-  "kan": {
-    "terminologic": null,
-    "iso6391": "kn",
-    "name": "Kannada"
-  },
-  "kar": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "Karen languages"
-  },
-  "kas": {
-    "terminologic": null,
-    "iso6391": "ks",
-    "name": "Kashmiri"
-  },
-  "kat": {
-    "bibliographic": "geo",
-    "iso6391": "ka",
-    "name": "Georgian"
-  },
-  "kau": {
-    "terminologic": null,
-    "iso6391": "kr",
-    "name": "Kanuri"
-  },
-  "kaw": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "Kawi"
-  },
-  "kaz": {
-    "terminologic": null,
-    "iso6391": "kk",
-    "name": "Kazakh"
-  },
-  "kbd": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "Kabardian"
-  },
-  "kha": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "Khasi"
-  },
-  "khi": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "Khoisan languages"
-  },
-  "khm": {
-    "terminologic": null,
-    "iso6391": "km",
-    "name": "Central Khmer"
-  },
-  "kho": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "Khotanese; Sakan"
-  },
-  "kik": {
-    "terminologic": null,
-    "iso6391": "ki",
-    "name": "Kikuyu; Gikuyu"
-  },
-  "kin": {
-    "terminologic": null,
-    "iso6391": "rw",
-    "name": "Kinyarwanda"
-  },
-  "kir": {
-    "terminologic": null,
-    "iso6391": "ky",
-    "name": "Kirghiz; Kyrgyz"
-  },
-  "kmb": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "Kimbundu"
-  },
-  "kok": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "Konkani"
-  },
-  "kom": {
-    "terminologic": null,
-    "iso6391": "kv",
-    "name": "Komi"
-  },
-  "kon": {
-    "terminologic": null,
-    "iso6391": "kg",
-    "name": "Kongo"
-  },
-  "kor": {
-    "terminologic": null,
-    "iso6391": "ko",
-    "name": "Korean"
-  },
-  "kos": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "Kosraean"
-  },
-  "kpe": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "Kpelle"
-  },
-  "krc": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "Karachay-Balkar"
-  },
-  "krl": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "Karelian"
-  },
-  "kro": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "Kru languages"
-  },
-  "kru": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "Kurukh"
-  },
-  "kua": {
-    "terminologic": null,
-    "iso6391": "kj",
-    "name": "Kuanyama; Kwanyama"
-  },
-  "kum": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "Kumyk"
-  },
-  "kur": {
-    "terminologic": null,
-    "iso6391": "ku",
-    "name": "Kurdish"
-  },
-  "kut": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "Kutenai"
-  },
-  "lad": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "Ladino"
-  },
-  "lah": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "Lahnda"
-  },
-  "lam": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "Lamba"
-  },
-  "lao": {
-    "terminologic": null,
-    "iso6391": "lo",
-    "name": "Lao"
-  },
-  "lat": {
-    "terminologic": null,
-    "iso6391": "la",
-    "name": "Latin"
-  },
-  "lav": {
-    "terminologic": null,
-    "iso6391": "lv",
-    "name": "Latvian"
-  },
-  "lez": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "Lezghian"
-  },
-  "lim": {
-    "terminologic": null,
-    "iso6391": "li",
-    "name": "Limburgan; Limburger; Limburgish"
-  },
-  "lin": {
-    "terminologic": null,
-    "iso6391": "ln",
-    "name": "Lingala"
-  },
-  "lit": {
-    "terminologic": null,
-    "iso6391": "lt",
-    "name": "Lithuanian"
-  },
-  "lol": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "Mongo"
-  },
-  "loz": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "Lozi"
-  },
-  "ltz": {
-    "terminologic": null,
-    "iso6391": "lb",
-    "name": "Luxembourgish; Letzeburgesch"
-  },
-  "lua": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "Luba-Lulua"
-  },
-  "lub": {
-    "terminologic": null,
-    "iso6391": "lu",
-    "name": "Luba-Katanga"
-  },
-  "lug": {
-    "terminologic": null,
-    "iso6391": "lg",
-    "name": "Ganda"
-  },
-  "lui": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "Luiseno"
-  },
-  "lun": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "Lunda"
-  },
-  "luo": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "Luo (Kenya and Tanzania)"
-  },
-  "lus": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "Lushai"
-  },
-  "mac": {
-    "terminologic": "mkd",
-    "iso6391": "mk",
-    "name": "Macedonian"
-  },
-  "mad": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "Madurese"
-  },
-  "mag": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "Magahi"
-  },
-  "mah": {
-    "terminologic": null,
-    "iso6391": "mh",
-    "name": "Marshallese"
-  },
-  "mai": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "Maithili"
-  },
-  "mak": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "Makasar"
-  },
-  "mal": {
-    "terminologic": null,
-    "iso6391": "ml",
-    "name": "Malayalam"
-  },
-  "man": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "Mandingo"
-  },
-  "mao": {
-    "terminologic": "mri",
-    "iso6391": "mi",
-    "name": "Maori"
-  },
-  "map": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "Austronesian languages"
-  },
-  "mar": {
-    "terminologic": null,
-    "iso6391": "mr",
-    "name": "Marathi"
-  },
-  "mas": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "Masai"
-  },
-  "may": {
-    "terminologic": "msa",
-    "iso6391": "ms",
-    "name": "Malay"
-  },
-  "mdf": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "Moksha"
-  },
-  "mdr": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "Mandar"
-  },
-  "men": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "Mende"
-  },
-  "mga": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "Irish, Middle (900-1200)"
-  },
-  "mic": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "Mi'kmaq; Micmac"
-  },
-  "min": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "Minangkabau"
-  },
-  "mis": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "Uncoded languages"
-  },
-  "mkd": {
-    "bibliographic": "mac",
-    "iso6391": "mk",
-    "name": "Macedonian"
-  },
-  "mkh": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "Mon-Khmer languages"
-  },
-  "mlg": {
-    "terminologic": null,
-    "iso6391": "mg",
-    "name": "Malagasy"
-  },
-  "mlt": {
-    "terminologic": null,
-    "iso6391": "mt",
-    "name": "Maltese"
-  },
-  "mnc": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "Manchu"
-  },
-  "mni": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "Manipuri"
-  },
-  "mno": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "Manobo languages"
-  },
-  "moh": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "Mohawk"
-  },
-  "mon": {
-    "terminologic": null,
-    "iso6391": "mn",
-    "name": "Mongolian"
-  },
-  "mos": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "Mossi"
-  },
-  "mri": {
-    "bibliographic": "mao",
-    "iso6391": "mi",
-    "name": "Maori"
-  },
-  "msa": {
-    "bibliographic": "may",
-    "iso6391": "ms",
-    "name": "Malay"
-  },
-  "mul": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "Multiple languages"
-  },
-  "mun": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "Munda languages"
-  },
-  "mus": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "Creek"
-  },
-  "mwl": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "Mirandese"
-  },
-  "mwr": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "Marwari"
-  },
-  "mya": {
-    "bibliographic": "bur",
-    "iso6391": "my",
-    "name": "Burmese"
-  },
-  "myn": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "Mayan languages"
-  },
-  "myv": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "Erzya"
-  },
-  "nah": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "Nahuatl languages"
-  },
-  "nai": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "North American Indian languages"
-  },
-  "nap": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "Neapolitan"
-  },
-  "nau": {
-    "terminologic": null,
-    "iso6391": "na",
-    "name": "Nauru"
-  },
-  "nav": {
-    "terminologic": null,
-    "iso6391": "nv",
-    "name": "Navajo; Navaho"
-  },
-  "nbl": {
-    "terminologic": null,
-    "iso6391": "nr",
-    "name": "Ndebele, South; South Ndebele"
-  },
-  "nde": {
-    "terminologic": null,
-    "iso6391": "nd",
-    "name": "Ndebele, North; North Ndebele"
-  },
-  "ndo": {
-    "terminologic": null,
-    "iso6391": "ng",
-    "name": "Ndonga"
-  },
-  "nds": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "Low German; Low Saxon; German, Low; Saxon, Low"
-  },
-  "nep": {
-    "terminologic": null,
-    "iso6391": "ne",
-    "name": "Nepali"
-  },
-  "new": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "Nepal Bhasa; Newari"
-  },
-  "nia": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "Nias"
-  },
-  "nic": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "Niger-Kordofanian languages"
-  },
-  "niu": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "Niuean"
-  },
-  "nld": {
-    "bibliographic": "dut",
-    "iso6391": "nl",
-    "name": "Dutch; Flemish"
-  },
-  "nno": {
-    "terminologic": null,
-    "iso6391": "nn",
-    "name": "Norwegian Nynorsk; Nynorsk, Norwegian"
-  },
-  "nob": {
-    "terminologic": null,
-    "iso6391": "nb",
-    "name": "Bokmål, Norwegian; Norwegian Bokmål"
-  },
-  "nog": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "Nogai"
-  },
-  "non": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "Norse, Old"
-  },
-  "nor": {
-    "terminologic": null,
-    "iso6391": "no",
-    "name": "Norwegian"
-  },
-  "nqo": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "N'Ko"
-  },
-  "nso": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "Pedi; Sepedi; Northern Sotho"
-  },
-  "nub": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "Nubian languages"
-  },
-  "nwc": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "Classical Newari; Old Newari; Classical Nepal Bhasa"
-  },
-  "nya": {
-    "terminologic": null,
-    "iso6391": "ny",
-    "name": "Chichewa; Chewa; Nyanja"
-  },
-  "nym": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "Nyamwezi"
-  },
-  "nyn": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "Nyankole"
-  },
-  "nyo": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "Nyoro"
-  },
-  "nzi": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "Nzima"
-  },
-  "oci": {
-    "terminologic": null,
-    "iso6391": "oc",
-    "name": "Occitan (post 1500); Provençal"
-  },
-  "oji": {
-    "terminologic": null,
-    "iso6391": "oj",
-    "name": "Ojibwa"
-  },
-  "ori": {
-    "terminologic": null,
-    "iso6391": "or",
-    "name": "Oriya"
-  },
-  "orm": {
-    "terminologic": null,
-    "iso6391": "om",
-    "name": "Oromo"
-  },
-  "osa": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "Osage"
-  },
-  "oss": {
-    "terminologic": null,
-    "iso6391": "os",
-    "name": "Ossetian; Ossetic"
-  },
-  "ota": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "Turkish, Ottoman (1500-1928)"
-  },
-  "oto": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "Otomian languages"
-  },
-  "paa": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "Papuan languages"
-  },
-  "pag": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "Pangasinan"
-  },
-  "pal": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "Pahlavi"
-  },
-  "pam": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "Pampanga; Kapampangan"
-  },
-  "pan": {
-    "terminologic": null,
-    "iso6391": "pa",
-    "name": "Panjabi; Punjabi"
-  },
-  "pap": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "Papiamento"
-  },
-  "pau": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "Palauan"
-  },
-  "peo": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "Persian, Old (ca.600-400 B.C.)"
-  },
-  "per": {
-    "terminologic": "fas",
-    "iso6391": "fa",
-    "name": "Persian"
-  },
-  "phi": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "Philippine languages"
-  },
-  "phn": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "Phoenician"
-  },
-  "pli": {
-    "terminologic": null,
-    "iso6391": "pi",
-    "name": "Pali"
-  },
-  "pol": {
-    "terminologic": null,
-    "iso6391": "pl",
-    "name": "Polish"
-  },
-  "pon": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "Pohnpeian"
-  },
-  "por": {
-    "terminologic": null,
-    "iso6391": "pt",
-    "name": "Portuguese"
-  },
-  "pra": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "Prakrit languages"
-  },
-  "pro": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "Provençal, Old (to 1500)"
-  },
-  "pus": {
-    "terminologic": null,
-    "iso6391": "ps",
-    "name": "Pushto; Pashto"
-  },
-  "qaa-qtz": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "Reserved for local use"
-  },
-  "que": {
-    "terminologic": null,
-    "iso6391": "qu",
-    "name": "Quechua"
-  },
-  "raj": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "Rajasthani"
-  },
-  "rap": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "Rapanui"
-  },
-  "rar": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "Rarotongan; Cook Islands Maori"
-  },
-  "roa": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "Romance languages"
-  },
-  "roh": {
-    "terminologic": null,
-    "iso6391": "rm",
-    "name": "Romansh"
-  },
-  "rom": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "Romany"
-  },
-  "ron": {
-    "bibliographic": "rum",
-    "iso6391": "ro",
-    "name": "Romanian; Moldavian; Moldovan"
-  },
-  "rum": {
-    "terminologic": "ron",
-    "iso6391": "ro",
-    "name": "Romanian; Moldavian; Moldovan"
-  },
-  "run": {
-    "terminologic": null,
-    "iso6391": "rn",
-    "name": "Rundi"
-  },
-  "rup": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "Aromanian; Arumanian; Macedo-Romanian"
-  },
-  "rus": {
-    "terminologic": null,
-    "iso6391": "ru",
-    "name": "Russian"
-  },
-  "sad": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "Sandawe"
-  },
-  "sag": {
-    "terminologic": null,
-    "iso6391": "sg",
-    "name": "Sango"
-  },
-  "sah": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "Yakut"
-  },
-  "sai": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "South American Indian (Other)"
-  },
-  "sal": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "Salishan languages"
-  },
-  "sam": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "Samaritan Aramaic"
-  },
-  "san": {
-    "terminologic": null,
-    "iso6391": "sa",
-    "name": "Sanskrit"
-  },
-  "sas": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "Sasak"
-  },
-  "sat": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "Santali"
-  },
-  "scn": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "Sicilian"
-  },
-  "sco": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "Scots"
-  },
-  "sel": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "Selkup"
-  },
-  "sem": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "Semitic languages"
-  },
-  "sga": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "Irish, Old (to 900)"
-  },
-  "sgn": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "Sign Languages"
-  },
-  "shn": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "Shan"
-  },
-  "sid": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "Sidamo"
-  },
-  "sin": {
-    "terminologic": null,
-    "iso6391": "si",
-    "name": "Sinhala; Sinhalese"
-  },
-  "sio": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "Siouan languages"
-  },
-  "sit": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "Sino-Tibetan languages"
-  },
-  "sla": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "Slavic languages"
-  },
-  "slo": {
-    "terminologic": "slk",
-    "iso6391": "sk",
-    "name": "Slovak"
-  },
-  "slk": {
-    "bibliographic": "slo",
-    "iso6391": "sk",
-    "name": "Slovak"
-  },
-  "slv": {
-    "terminologic": null,
-    "iso6391": "sl",
-    "name": "Slovenian"
-  },
-  "sma": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "Southern Sami"
-  },
-  "sme": {
-    "terminologic": null,
-    "iso6391": "se",
-    "name": "Northern Sami"
-  },
-  "smi": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "Sami languages"
-  },
-  "smj": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "Lule Sami"
-  },
-  "smn": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "Inari Sami"
-  },
-  "smo": {
-    "terminologic": null,
-    "iso6391": "sm",
-    "name": "Samoan"
-  },
-  "sms": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "Skolt Sami"
-  },
-  "sna": {
-    "terminologic": null,
-    "iso6391": "sn",
-    "name": "Shona"
-  },
-  "snd": {
-    "terminologic": null,
-    "iso6391": "sd",
-    "name": "Sindhi"
-  },
-  "snk": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "Soninke"
-  },
-  "sog": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "Sogdian"
-  },
-  "som": {
-    "terminologic": null,
-    "iso6391": "so",
-    "name": "Somali"
-  },
-  "son": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "Songhai languages"
-  },
-  "sot": {
-    "terminologic": null,
-    "iso6391": "st",
-    "name": "Sotho, Southern"
-  },
-  "spa": {
-    "terminologic": null,
-    "iso6391": "es",
-    "name": "Spanish; Castilian"
-  },
-  "sqi": {
-    "bibliographic": "alb",
-    "iso6391": "sq",
-    "name": "Albanian"
-  },
-  "srd": {
-    "terminologic": null,
-    "iso6391": "sc",
-    "name": "Sardinian"
-  },
-  "srn": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "Sranan Tongo"
-  },
-  "srp": {
-    "terminologic": null,
-    "iso6391": "sr",
-    "name": "Serbian"
-  },
-  "srr": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "Serer"
-  },
-  "ssa": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "Nilo-Saharan languages"
-  },
-  "ssw": {
-    "terminologic": null,
-    "iso6391": "ss",
-    "name": "Swati"
-  },
-  "suk": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "Sukuma"
-  },
-  "sun": {
-    "terminologic": null,
-    "iso6391": "su",
-    "name": "Sundanese"
-  },
-  "sus": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "Susu"
-  },
-  "sux": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "Sumerian"
-  },
-  "swa": {
-    "terminologic": null,
-    "iso6391": "sw",
-    "name": "Swahili"
-  },
-  "swe": {
-    "terminologic": null,
-    "iso6391": "sv",
-    "name": "Swedish"
-  },
-  "syc": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "Classical Syriac"
-  },
-  "syr": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "Syriac"
-  },
-  "tah": {
-    "terminologic": null,
-    "iso6391": "ty",
-    "name": "Tahitian"
-  },
-  "tai": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "Tai languages"
-  },
-  "tam": {
-    "terminologic": null,
-    "iso6391": "ta",
-    "name": "Tamil"
-  },
-  "tat": {
-    "terminologic": null,
-    "iso6391": "tt",
-    "name": "Tatar"
-  },
-  "tel": {
-    "terminologic": null,
-    "iso6391": "te",
-    "name": "Telugu"
-  },
-  "tem": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "Timne"
-  },
-  "ter": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "Tereno"
-  },
-  "tet": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "Tetum"
-  },
-  "tgk": {
-    "terminologic": null,
-    "iso6391": "tg",
-    "name": "Tajik"
-  },
-  "tgl": {
-    "terminologic": null,
-    "iso6391": "tl",
-    "name": "Tagalog"
-  },
-  "tha": {
-    "terminologic": null,
-    "iso6391": "th",
-    "name": "Thai"
-  },
-  "tib": {
-    "terminologic": "bod",
-    "iso6391": "bo",
-    "name": "Tibetan"
-  },
-  "tig": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "Tigre"
-  },
-  "tir": {
-    "terminologic": null,
-    "iso6391": "ti",
-    "name": "Tigrinya"
-  },
-  "tiv": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "Tiv"
-  },
-  "tkl": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "Tokelau"
-  },
-  "tlh": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "Klingon; tlhIngan-Hol"
-  },
-  "tli": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "Tlingit"
-  },
-  "tmh": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "Tamashek"
-  },
-  "tog": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "Tonga (Nyasa)"
-  },
-  "ton": {
-    "terminologic": null,
-    "iso6391": "to",
-    "name": "Tonga (Tonga Islands)"
-  },
-  "tpi": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "Tok Pisin"
-  },
-  "tsi": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "Tsimshian"
-  },
-  "tsn": {
-    "terminologic": null,
-    "iso6391": "tn",
-    "name": "Tswana"
-  },
-  "tso": {
-    "terminologic": null,
-    "iso6391": "ts",
-    "name": "Tsonga"
-  },
-  "tuk": {
-    "terminologic": null,
-    "iso6391": "tk",
-    "name": "Turkmen"
-  },
-  "tum": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "Tumbuka"
-  },
-  "tup": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "Tupi languages"
-  },
-  "tur": {
-    "terminologic": null,
-    "iso6391": "tr",
-    "name": "Turkish"
-  },
-  "tut": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "Altaic languages"
-  },
-  "tvl": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "Tuvalu"
-  },
-  "twi": {
-    "terminologic": null,
-    "iso6391": "tw",
-    "name": "Twi"
-  },
-  "tyv": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "Tuvinian"
-  },
-  "udm": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "Udmurt"
-  },
-  "uga": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "Ugaritic"
-  },
-  "uig": {
-    "terminologic": null,
-    "iso6391": "ug",
-    "name": "Uighur; Uyghur"
-  },
-  "ukr": {
-    "terminologic": null,
-    "iso6391": "uk",
-    "name": "Ukrainian"
-  },
-  "umb": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "Umbundu"
-  },
-  "und": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "Undetermined"
-  },
-  "urd": {
-    "terminologic": null,
-    "iso6391": "ur",
-    "name": "Urdu"
-  },
-  "uzb": {
-    "terminologic": null,
-    "iso6391": "uz",
-    "name": "Uzbek"
-  },
-  "vai": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "Vai"
-  },
-  "ven": {
-    "terminologic": null,
-    "iso6391": "ve",
-    "name": "Venda"
-  },
-  "vie": {
-    "terminologic": null,
-    "iso6391": "vi",
-    "name": "Vietnamese"
-  },
-  "vol": {
-    "terminologic": null,
-    "iso6391": "vo",
-    "name": "Volapük"
-  },
-  "vot": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "Votic"
-  },
-  "wak": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "Wakashan languages"
-  },
-  "wal": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "Walamo"
-  },
-  "war": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "Waray"
-  },
-  "was": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "Washo"
-  },
-  "wel": {
-    "terminologic": "cym",
-    "iso6391": "cy",
-    "name": "Welsh"
-  },
-  "wen": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "Sorbian languages"
-  },
-  "wln": {
-    "terminologic": null,
-    "iso6391": "wa",
-    "name": "Walloon"
-  },
-  "wol": {
-    "terminologic": null,
-    "iso6391": "wo",
-    "name": "Wolof"
-  },
-  "xal": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "Kalmyk; Oirat"
-  },
-  "xho": {
-    "terminologic": null,
-    "iso6391": "xh",
-    "name": "Xhosa"
-  },
-  "yao": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "Yao"
-  },
-  "yap": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "Yapese"
-  },
-  "yid": {
-    "terminologic": null,
-    "iso6391": "yi",
-    "name": "Yiddish"
-  },
-  "yor": {
-    "terminologic": null,
-    "iso6391": "yo",
-    "name": "Yoruba"
-  },
-  "ypk": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "Yupik languages"
-  },
-  "zap": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "Zapotec"
-  },
-  "zbl": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "Blissymbols; Blissymbolics; Bliss"
-  },
-  "zen": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "Zenaga"
-  },
-  "zgh": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "Standard Moroccan Tamazight"
-  },
-  "zha": {
-    "terminologic": null,
-    "iso6391": "za",
-    "name": "Zhuang; Chuang"
-  },
-  "zho": {
-    "bibliographic": "chi",
-    "iso6391": "zh",
-    "name": "Chinese"
-  },
-  "znd": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "Zande languages"
-  },
-  "zul": {
-    "terminologic": null,
-    "iso6391": "zu",
-    "name": "Zulu"
-  },
-  "zun": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "Zuni"
-  },
-  "zxx": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "No linguistic content; Not applicable"
-  },
-  "zza": {
-    "terminologic": null,
-    "iso6391": null,
-    "name": "Zaza; Dimili; Dimli; Kirdki; Kirmanjki; Zazaki"
-  }
-}
-},{}],97:[function(require,module,exports){
+},{}],98:[function(require,module,exports){
 'use strict';
 
 module.exports = require('./lib/franc');
 
-},{"./lib/franc":100}],98:[function(require,module,exports){
+},{"./lib/franc":101}],99:[function(require,module,exports){
 module.exports={
   "Latin": {
     "spa": " de|os |de | la|la | y | a |es |ón |ión|rec|ere|der| co|e l|el |en |ien|cho|ent|ech|ció|aci|o a|a p| el|a l|al |as |e d| en|na |ona|s d|da |nte| to|ad |ene|con| pr| su|tod| se|ho |los| pe|per|ers| lo|o d| ti|cia|n d|cio| es|ida|res|a t|tie|ion|rso|te |do | in|son| re| li|to |dad|tad|e s|est|pro|que|men| po|a e|oda|nci| qu| un|ue |ne |n e|s y|lib|su | na|s e|nac|ia |e e|tra| pa|or |ado|a d|nes|ra |se |ual|a c|er |por|com|nal|rta|a s|ber| o |one|s p|dos|rá |sta|les|des|ibe|ser|era|ar |ert|ter| di|ale|l d|nto|hos|del|ica|a a|s n|n c|oci|imi|io |o e|re |y l|e c|ant|cci| as|las|par|ame| cu|ici|ara|enc|s t|ndi| so|o s|mie|tos|una|bre|dic|cla|s l|e a|l p|pre|ntr|o t|ial|y a|nid|n p|a y|man|omo|so |n l| al|ali|s a|no | ig|s s|e p|nta|uma|ten|gua|ade|y e|soc|mo | fu|igu|o p|n t|hum|d d|ran|ria|y d|ada|tiv|l e|cas| ca|vid|l t|s c|ido|das|dis|s i| hu|s o|nad|fun| ma|rac|nda|eli|sar|und| ac|uni|mbr|a u|die|e i|qui|a i| ha|lar| tr|odo|ca |tic|o y|cti|lid|ori|ndo|ari| me|ta |ind|esa|cua|un |ier|tal|esp|seg|ele|ons|ito|ont|iva|s h|d y|nos|ist|rse| le|cie|ide|edi|ecc|ios|l m|r e|med|tor|sti|n a|rim|uie|ple|tri|ibr|sus|lo |ect|pen|y c|an |e h|n s|ern|tar|l y|egu|gur|ura|int|ond|mat|l r|r a|isf|ote",
@@ -32519,7 +32634,6 @@ module.exports={
     "swh": "a k|wa |na | ya| ku|ya | na| wa|a m| ha|i y|a h|a n|ana|ki |aki|kwa| kw|hak| ka| ma|la |a w|tu |li |a u|ni |i k|a a|ila| ki|ali|a y|ati|za |ili|ifa| mt|ke | an|kil|kat|mtu|ake|ote|te |ka |ika|ma |we |a s|yo |fa |i n|ata|e k|ama|zi |amb|u a|ia |u w| yo|azi|kut|ina|i z|asi| za|o y|uhu|yak|au |ish|mba|e a|u k|hur|ha |tik|wat| au|uru| bi|sha|mu |ara|u n| as|hi | hi|ru |aif|tai|cha|ayo|a b|hal| uh| ch|yot|i h| zi|awa|chi|atu|e n|ngi|u y|mat|shi|ani|eri| am|uli|ele|sa |ja |e y|a t|oja|o k|nch|i a|a j| nc|ima| sh|ami| ta|end|any|moj|i w|ari|ham|uta|ii |iki|ra |ada|wan|wak|nay|ye |uwa| la|ti |eza|o h|iri|iwa|kuw|iwe| wo|fan| sa|she|bu |kan|ao |jam|wen|lim|i m|her|uto|ria| ja| ni|kam|di | hu|zo |a l|da |kaz|ahi|amu|wot|o w|si |dha|bin|ing|adh|a z|bil|e w|nya|kup|har|ri |ang|aka|sta|aji|ne |kus|e m|zim|ini|ind|lin|kul|agu|kuf|ita|bar|o n|uu |iyo|u h|nad|maa|mwe|ine|gin|nye|nde|dam|ta | nd|ndi|rik|asa| ba|rif|uni|nga|hii|lez|bo |azo|uzi|mbo|sil|ush|tah|wam|ibu|uba|imu| ye|esh| ut|taa|aar|wez|i s|e b| si|ala|dhi|eng|aza|tak|hir|saw|izo|kos|tok|oka|yan|a c|wal|del|i b|pat| um|ndo|zwa|mam|a i|guz|ais|eli|mai|laz|ian|aba|man|ten|zin|ba |nda|oa |u m|uku|ufu| mw|liw|aha|ndw|kuh|ua |upa| el|umi|sia",
     "sun": "an |na |eun| ka|ng | sa|ana|ang| di|ak | ha|nga|hak|un |ung|keu|anu| ba| an|nu |a b| bo| je|a h|ata|asa|jeu|ina| ng|ara|nan|awa|gan|ah |sa |a k| na|n k|kan|aha|a p|a s|ga |ban| ma|a n|ing|oga|bog|sar| pa| ku|man|a a|ha |san|ae |bae|din|g s|aga|sah|ra |tan|n s| pe|ala| si|kat|ma |per| ti|aya|sin| at| pi| te|n a|aan|lah|pan|gar|n n|u d|ta |eu |ari|kum|ngs|a m|n b|n d|ran|a d|gsa|wa |taw|k h|ama|ku |ike|n p|eba|bas| ja|al |a t|ika|at |beb|kab|pik|asi|atu|nda|una|a j|nag|e b|n h|en |g k|oh |aba|ila|rta|aku|boh|ngg|abe|art|ar |n j|di |ima|um |ola|geu|usa|aca|sak|adi|k a|udu|teu|car|tin| me| ay|h k| po|eh |u s|aka|rim|ti |sac|k n|ngt|jen|awe|ent|u a|uma|teh|law|ur |h s|dan|bar|uku|gaw|aru|ate|iba|dil|pol|aja|ieu|ere|jal|nar| hu|n t|nya|pa |are|upa|mas|ake|ut |wan| ge|kal|nus| so|ngk|ya |yan|huk| du|tun| mi|mpa|isa|lan|ura|u m|uan|ern|ena|nte|rup|tay|n m| ke|ka |han|und|us |h b|kud|ula|tut| tu| ie|hna|kaw|u k|lak|gam|mna|umn|g d| nu|yun|ri |ayu|wat| wa|eri|g n|a u|i m|u p| ta|du |dit|umu|k k|ren|mba|rik|gta| be|ali|h p|h a|eus|u n|alm|il | da|sas|ami|min|lma|ngu|nas|yat|rak|amp|mer|k j|sab|mum| ra|rua|ame|ua |ter|sal|ksa|men|kas|nge|k d|ona| bi|bis|sio|ion|nal|taa| de|uh |gal|dip|we |bad",
     "ron": " de|și | și|re | în|are|te |de |ea |ul |rep|le |ept|dre|e d| dr|ie |în |e a|ate|ptu| sa|tul| pr|or |e p| pe|la |e s|ori| la| co|lor| or|ii |rea|ce |au |tat|ați| a | ca|ent| fi|ale|ă a|a s| ar|ers|per|ice| li|uri|a d|al | re|e c|ric|nă |i s|e o|ei |tur| să|lib|con|men|ibe|ber|rso|să |tăț|sau| ac|ilo|pri|ăți|i a|i l|car|l l|ter| in|ție|că |soa|oan|ții|lă |tea|ri |a p| al|ril|e ș|ană|in |nal|pre|i î|uni|ui |se |e f|ere|i d|e î|ita| un|ert|ile|tă |a o| se|i ș|pen|ia |ele|fie|i c|a l|ace|nte|ntr|eni| că|ală| ni|ire|ă d|pro|est|a c| cu| nu|n c|lui|eri|ona| as|sal|ând|naț|ecu|i p|rin|inț| su|ră |e n| om|ici|nu |i n|oat|ări|l d| to|tor| di| na|iun| po|oci|tre|ni |ste|soc|ega|i o|gal| so| tr|ă p|a a|n m|sta|va |ă î|fi |res|rec|ulu|nic|din|sa |cla|nd | mo| ce| au|ara|lit|int|i e|ces|uie|at |rar|rel|iei|ons|e e|leg|nit|ă f| îm|a î|act|e l|ru |u d|nta|a f|ial|ra |ă c| eg|ță | fa|i f|rtă|tru|tar|ți |ă ș|ion|ntu|dep|ame|i i|reb|ect|ali|l c|eme|nde|n a|ite|ebu|bui|ât |ili|toa|dec| o |pli|văț|nt |e r|u c|ța |t î|l ș|cu |rta|cia|ane|țio|ca |ită|poa|cți|împ|bil|r ș| st|omu|ăță|țiu|rie|uma|mân| ma|ani|nța|cur|era|u a|tra|oar| ex|t s|iil|ta |rit|rot|mod|tri|riv|od |lic|rii|eze|man|înv|ne |nvă|a ș|cti",
-    "fuc": "de | e |e n|nde| ha|la |e e|akk| ka| nd|ina| wa|al |hak|na |ndi| in|kke|ɗo |di |ii |aad|ade|um |ko |i h|ala| mu|lla| ne| jo|mum|wal|ji | fo|all|eɗɗ|neɗ| le|kal|e h| ko|taa|re | ng|aaw|aa |e k|e w|ee |jog|ley|e m|laa|ke |ɗɗo|e l|eed|nnd|aag|ol | ta|kee|gu |o k|ogi|ond|le |eji|waa|am |dee|nga|a j|ti |gal|m e|awa|e d|ɗe | wo|ɓe |eej|gii|ede|gol| re|aan|i e| go|agu|e t|ann|eyd|fot|oti|ɗee|naa| de| po|pot|maa|oto|ydi|enn|i n| he|ni |een|taw|e j|goo|a k|to |dim|e f|a i|der| aa|ele| fa|o n|ngu|oot|dir| ba|er |a f|ndo|ima|ay | sa|ota|ka |oor|a n|won|ngo|i k|tee|a e| ja|e ɓ|o f|i w| to|wa |i f|ren|hay|and|a w|awi|ore|o t|eyɗ|ma |nan|yɗe|o e|kam|i m|too|fof|e y|hee|aak| do|eel|of |nka|ñaa|e g|e s|l e|ira| la|e i|tin|e r|aar|ani| ɓe| te|are|ral|a t| so|dii|e p| na|o w| ho|oo |ooj| ña|en |gaa|kaa| yi|so | mo|und|nng|faw|nge| ma|aam|woo|awo| ya|dow|u m|i l|e b| mb|ita|ude|o h|igg|ɗi |o i| li|nda|e a|lig| o | nj|baa|haa|tal|tuu|tii| tu|aaɗ|a h| no| di| fe|iiɗ|ama|inn|iin|iti|den|yan| da|go | hu|ank|guu|do |mii| ke|l n|a d|bel|imɓ|je |jey|yim|no |ugn|uug|ano|ine|non|nee|lit|lli|njo|edd| je|ŋde|aŋd|jaŋ|mɓe|ow | su|ent|wit|alt|i a|ago| ɗe|l h| ɗu|y g|gna|m t|nna|a a| ɓa|ɓam|amt|ind|ɗɗa|tde|aga|eɗe",
     "hau": "da | da|in |a k|ya |an |a d|a a| ya| ko| wa| a |sa |na | ha|a s|ta |kin|wan|wa | ta| ba|a y|a h|n d|n a|iya|ko |a t|ma |ar | na|yan|ba | sa|asa| za| ma|a w|hak|ata| ka|ama|akk|i d|a m| mu|su |owa|a z|iki|a b|nci| ƙa| ci| sh|ai |kow|anc|nsa|a ƙ|a c| su|shi|ka | ku| ga|ci |ne |ani|e d|uma|‘ya|cik|kum|uwa|ana| du| ‘y|ɗan|ali|i k| yi|ada|ƙas|aka|kki|utu|n y|a n|hi | ra|mut| do| ad|tar| ɗa|nda| ab|man|a g|nan|ars|and|cin|ane|i a|yi |n k|min|sam|ke |a i|ins|yin|ki |nin|aɗa|ann|ni |tum|za |e m|ami|dam|kan|yar|en |um |n h|oka|duk|mi | ja|ewa|abi|kam|i y|dai|mat|nna|waɗ|n s|ash|ga |kok|oki|re |am |ida|sar|awa|mas|abu|uni|n j|una|ra |i b| ƙu|dun|a ‘|cew|a r|aba|ƙun|ce |e s|a ɗ|san|she|ara|li |kko|ari|n w|m n|buw|aik|u d|kar| ai|niy| ne|hal|rin|bub|zam|omi| la|rsa|ubu|han|are|aya|a l|i m|zai|ban|o n|add|n m|i s| fa|bin|r d|ake|n ‘|uns|sas|tsa|dom| ce|ans| hu|me |kiy|ƙar| am|ɗin| an|ika|jam|i w|wat|n t|yya|ame|n ƙ|abb|bay|har|din|hen|dok|yak|n b|nce|ray|gan|fa |on | ki|aid| ts|rsu| al|aye| id|n r|u k|ili|nsu|bba|aur|kka|ayu|ant|aci|dan|ukk|ayi|tun|aga|fan|unc| lo|o d|lok|sha|un |lin|kac|aɗi|fi |gam|i i|yuw|sun|aif|aja| ir|yay|imi|war| iy|riy|ace|nta|uka|o a|bat|mar|bi |sak|n i| ak|tab|afi|sab",
     "bos": " pr| i |je |rav| na|pra|na |da |ma |ima| sv|a s|nje|a p| da| po|anj|a i|vo |va |ko |ja | u |ako|o i|no | za|e s|ju |avo| im|ti |sva|ava|i p|o n|li |ili|i s|van|ost| ko|vak|ih |ne |a u| sl|nja|koj| dr| ne|jed| bi|i d|ije|stv|u s|lob|im |slo| il|bod|obo| ra|sti|pri| je| su|vje|om |a d|se |e i| ob|a n|i i| se|dru|enj| os|voj|cij|e p|a b|su |o d|uje|u p|raz|i n|a o| od|lo |u o|ova|u i|edn|i u| nj|ovo|jen|lju|ni |oje|nos|a k|ran|dje|iti|o p|aci|žav|a j|i o|e o|pre|pro|bra|nih|ji | ka|e d|jeg|og |sta| tr|tre|bud|u n|drž|u z|rža|bit|svo|ija|elj|reb|e b|mij|jem|avn|pos| bu|ka |aju| iz|ba |ve |rod|de |aro|e u|iva|a z|em |šti|ilo|eni|lje|ći |red|bil|jel|jer| ni|odn|m i|du |tva|nar|gov| sa|oji| do|tu |vim|u d| st|o k|e n|a t|za |nim| dj| sm|ući|ičn|dna|i m|oda|vno|eba|ist|nac|e k|čno|nak|ave|tiv|eđu|nov|olj|sno|ani|aln|an |nom|i b|stu|nst|eno|oj |osn|a r|ovj|nap|smi|nog|čov|oja|nju|ara|nu |dno|ans|ovi|jan|edi|m s| kr|h p|tup| op| čo|iko|jek|tvo| vj| mi|tel|vu |obr|živ|tit|o o|una|odu| mo| ov|kri|ego|din|rug|nik|rad|pod|nji|sam|sto|lja|dst|rim|ite|riv| te|m n|vol|i v|e t|vni|akv|itu|g p| ta|ašt|zaš|svi|ao |te |o s|ak |mje|a č|odr|udu|kla|i t|avi|tno|nič| vr|nic|dni|u u|ina| de|oba|od |jih|st ",
     "hrv": " pr| i |je |rav|pra|ma | na|ima| sv|na |ti |a p|nje| po|a s|anj|a i|vo |ko |da |vat|va |no | za|i s|o i|ja |avo| u | im|sva|i p| bi|e s|ju |tko|o n|li |ili|van|ava| sl|ih |ne |ost| dr|ije| ne|jed|slo| ra|u s|lob|obo| os|bod| da| ko|ova|nja|koj|i d|atk|iti| il|stv|pri|om |im | je| ob| su| ka|i i|i n|e i|vje|i u|se |dru|bit|voj|ati|i o|ćen|a o|o p|a b|a n|ući| se|enj|sti|a u|edn|dje|lo |ćav| mo|raz|u p| od|ran|ni |rod|a k|su |aro|drć|svo|ako|u i|rća|a j|mij|ji |nih|eni|e n|e o| nj|pre|pos|ćiv|oje|eno|e p|nar|oda|nim|ovo|aju|ra |ći |og |nov|iva|a d|nos|bra|bil|i b|avn|a z|jen|e d|ve |ora|tva|jel|sta|mor|u o|cij|pro|ovi|za |jer|ka |sno|ilo|jem|red|em |lju|osn|oji| iz|aci| do|lje|i m| ni|odn|nom|jeg| dj|vno|vim|elj|u z|o d|rad|o o|m i|du |uje| sa|nit|e b| st|oj |tit|a ć|dno|e u|o s|u d|eću|ani|dna|nak|nst|stu| sm|e k|u u|an |gov|nju|juć|aln|m s|tu |a r|ćov|jan|u n|o k|ist|ću |te |tvo|ans|šti|nu |ara|nap|m p|nić|olj|bud| bu|edi|ovj|i v|pod|sam|obr|tel| mi|ina|zaš|e m|ašt| vj|ona|nji|jek| ta|duć|ija| ćo|tup|h p|oja|smi|ada| op|oso|una|sob|odu|dni|rug|udu|ao |di |avi|tno|jim|itu|itk|će |odr|ave|meć|nog|din|svi| ći|kak|kla|rim|akv|elo|štv|ite|vol|jet|opć|pot|tan|ak |nic|nac|uće| sk| me|ven",
@@ -32547,7 +32661,7 @@ module.exports={
     "ilo": "ti |iti|an |nga|ga | ng| pa| it|en | ka| ke| ma|ana| a | ti|pan|ken|agi|ang|a n|a k|aya|gan|n a|int|lin|ali|n t|a m|dag|git|a a|i p|teg|a p| na|nte|man|awa|kal|da |ng |ega|ada|way|nag|n i| da|na |i k|sa |n k|ysa|n n|no |a i|al |add|aba| me|i a|eys|nna|dda|ngg|mey| sa|pag|ann|ya |gal| ba|mai| tu|gga|kad|i s|yan|ung|nak|tun|wen|aan|nan|aka| ad|enn| ag|asa| we|yaw|i n|wan|nno|ata| ta|l m|i t|ami|a t| si|ong|apa|kas|li |i m|ina| an|aki|ay |n d|ala|gpa|a s|g k|ara|et |n p|at |ili|eng|mak|ika|ama|dad|nai|g i|ipa|in | aw|toy|oy |ao |yon|ag |on |aen|ta |ani|ily|bab|tao|ket|lya|sin|aik| ki|bal|oma|agp|ngi|a d|y n|iwa|o k|kin|naa|uma|daa|o t|gil|bae|i i|g a|mil| am| um|aga|kab|pad|ram|ags|syo|ar |ida|yto|i b|gim|sab|ino|n w| wa| de|a b|nia|dey|n m|o n|min|nom|asi|tan|aar|eg |agt|san|pap|eyt|iam|i e|saa|sal|pam|bag|nat|ak |sap|ed |gsa|lak|t n|ari|i u| gi|o p|nay|kan|t k|sia|aw |g n|day|i l|kit|uka|lan|i d|aib|pak|imo|y a|ias|mon|ma | li|den|i g|to |dum|sta|apu|o i|ubo|ged|lub|agb|pul|bia|i w|ita|asy|mid|umi|abi|akd|kar|kap|kai| ar|gin|kni| id|ban|bas|ad |bon|agk|nib|o m|ibi|ing|ran|kda|din|abs|iba|akn|nnu|t i|isu|o a|aip|as |inn|sar| la|maa|nto|amm|idi|g t|ulo|lal|bsa|waw|kip|w k|ura|d n|y i",
     "uig": "ish| he|ini|ing|nin|gha|ng |ili| we|we |sh |in | bo|quq|oqu|ni |hoq| ho|ush|shi|lik|qil|bol|shq|en |lis|qa |hqa|n b|hem| qi|ki |dem|iy | ad|ade|igh|e a|em |han|liq|et |ge |uq |nda|din| te| bi|idi|let|qan|nli|ige|ash|tin|ha |kin|iki|her|de | er| ba|and|iti|olu|an | dö|döl|aq |luq| ya|me |lus|öle|mme|emm| qa|daq|rki|lgh|erq|erk|shk|esh|rqa|iq |uqi|ile|rim|i w|er |ik |yak|aki|ara|a h| be|men| ar|du |shu|uql|hri|hi |qlu|q h|inl|lar|da |i b|ime| as|ler|etl|nis| öz|ehr|lin|e q|ar |ila| mu|len| me|qi |asi|beh|a b|ayd|q a|bir|bil| sh|che|rli|ke |bar|hke|yet|éli|shl|tni|u h|ek |may|e b| ké|h h| ig|ydu|isi|ali|hli|k h| qo|iri|emd|ari|e h|ida|e t|tle|rni| al|siy|lid|olm|iye|anl| tu|iqi|lma|ip |mde|e e|tur|a i|uru|i k|raw|hu |mus|kil| is|i a|ir |éti|r b|özi|ris|asa|i h|sas| je|he | ch|qig|bas|n q|alg|ett|les| xi|tid| él|tes|ti |awa|ima|nun|a a| xe| bu|hil|n h| xa|adi|dig|anu|uni|mni| sa|arl|rek|ére| hö|kér| ji|min|i q|tis|rqi| iy|elq|xel|p q| qe|y i|i s|lig| ma|iya|i y|siz|ani| ki|qti| de|q w|emn|met|jin|niy|i i|tim|irl| ti|rin|éri|i d|ati|si |tew|i t|tli|eli|e m|rus|oli|ami|gen|ide|ina|chi|dil|nay|ken|ern|n w| to|ayi| ij|elg|she|tti|arq|hek|e i|n a|zin|r a|ijt|g b|atn|qar|his|uch|lim|hki|dik",
     "hat": "ou |an | li|on |wa |yon| po|li |pou|te | yo|oun| mo|un |mou|ak | na|en |n p|nan|tou|syo| dw| to|yo | fè|dwa| ak| ki|ki | pa| sa|out| la| ko| ge|ut |n s|gen| de|se |asy|èt |i p|n d| a | so|n l|a a|fè |n k| se|pa |e d|u l| re|ite|sa | ch|kon|n n|e l|t p|ni |cha|a p|nn |ans|pi |t m| ka| an|nm |fèt|i s|son|man| me|n m|n a|e p|swa|sou|e k|hak|òt |n y|men|i l|epi| pe|ote|san| ep|i k| si|yen|eyi|a l| ap|i a|yi |pey|je |n t|e a|k m|e s| ni|lib|e n|i t|lit|ran|lè |enn|al |a s| pr|a f|ns | lò|ap |lòt|enm|k l|n e|t l|kla|anm|e y|a k| ma|e t|ay |i m|ali| lè|è a|ye |a y|ant| os| ba|i g| tè|aso|u t|a n| pw|ras| pè|n f|nas|ka |n g|osw| ta|dek|i d|pwo|e m| di| vi|la |i n|u s|sos|bli| te|o t| tr|lwa|ète|a t|le |u y|i f|tan|a c|lar|a m|ete|ara|t k| pi|ibè|bèt|re |osy|de |ati|ke |res|tis|i y|tè |nen| fa|ekl|ze |nal|ons|ksy|ini|che| le|e r|a d| en|aye|he |o p|alw| kò|lal| no|esp|a g|ava|kou|las|way|u f|isy| za| ok|oke|kal|ken|sye|ta |onn|k k|nje|pra|van|esi|pès|kot|ret|sya|n v|lek|jan|ik |a b|eks|wot|è n|di |òl |tra|u k|i r|nou| as|k a|u d|ist|èso|ib | ne|iti|ti |is |y a|des|è l|a r|ont| ke|nsa|pat|rit|sit|pòt|ona|ab |è s| sw|ond|ide| ja|rav|t a|ri |bon|viv| sè|pre|vay|k p|l l|kòm|i o| ra|era|fan|dev",
-    "aka": "a n| wɔ| no|no | dɛ|dɛ |na |dzi|mu | a |nyi|ra |a ɔ|wɔ |ara|a a| ny|yɛ | mu| na|bia|iar|a w|an |ndz|ma | bi|ho |dze|e n| ho| nd|oa |noa|man|ino|zi | ob|yi |zin|obi| ne|ne |a d|u n|a m|yim|ana|ama|tse|n n|o n|ze | an|ɔ n| mb| am| hɔ|ɛ ɔ|ɔn | ɔy|ɔyɛ|ɛ o|n a|aa |nya|ɔma|yin|bi | as| n |hɔn|naa|ɛ n|a o|ɛ w|ye |o a|mpa|i n|o m| on|do |ina|imp|bɔ | ma|ɛ a| do|e a|tsi|pa |nny|se |a h| ɔm|i a|ua |i m|ɔwɔ|aho|o b|ase|n e|i d|ɔ d|nye| ba|edz|eny|o d|u a| wo|uw |kuw| ad|ɛm |kwa|wan|abɔ|ɔdz|ets| ɔw|m n|mba|uma| nk| ed|ya |sen|nam|odz|mbr|o h| fa|adz| kw|o k| yi|a b|am | en|dwu|wum| ɔn|ɛ m|o w|gye|asa| ts|ɛ d|ba |nko|ia |hyɛ|w n| dz|ena|som|onn| so| da|kor| nh|fo |amb|w a|so |ɔts|bra|sua|i h|hod|ɔ a| ab|fa |o e|sa |m a|wɔm|set| ku|om |fah|ban|wɔa|a k|sia|yam|ee |er |any|e m|a e|ayɛ| gy|ow |o o|ɛɛ | bɔ|fi | nw|nhy|r n|sɛm|ony|ada| ns|nwo|oma|ɛ b| pɛ| nt| aw| yɛ|wom|en |ber| be| nn|yɛɛ|rɛ |mam|dɛm|n b|u k|ɔ h|e b|n m|das|a f|n d|u b|e d|or |pɛ |i w|u o|ɔna|hwe| ah|m d|aso|a y|ea | mp|hwɛ| ɔd|wur|hye|yeh|adɛ|nts|aad|ehy|ɔfa|gyi|iyi|kã |amu|dwe| ɔt|otu| ak|i b|mbo|r a|edw|pɛr|e f|asu|mas|ar | ɔs|wɔw|awu|daw| fi|bu |wɔd|ata|ɛ h|yer|asɛ|ɔ m|tum|in |nsa| ɔf| ky|da |gua|row|eyi|yie|oro|rbɔ|imn|urb|mny",
+    "aka": "sɛ |a a| sɛ|ne |ra |a n| wɔ| a |ara|an |eɛ |no | ne| bi| no| as|iar|bia|yɛ |mu |aa | an|ɛ s|e a|ma | ho|bi |man|deɛ| mu|ho |ɛ a|na |a ɛ| ob|obi|e n|a b|n a|so |o n|pa |ama|ɛ o|o a|ipa|nip|ɛ n|naa| na|a w|ana| so| ad| nn|ɛ ɔ|ɛde|asɛ|kwa| on|oni|wan| am|a ɔ|sɛd|wɔ | ah|ɛyɛ| ny|oɔ | n |mma|i a| mm|nni| kw|ie |wɔn|ɛ w|de | ɛy| ba|ase|ɔ n|o b|i m|ɔ a|uo |n n|a m|o s|iri| yi|ni |e s|nyi|di |u n|a o|aho| de|tum| ɛn|ɔn |nya|i n|ɔma|e m|adw| yɛ|umi|die|mi |ɛ ɛ|o k| ab|ɛm |a s| ma|nam| ɔm| ɛs|yin| at| bɔ|o d|ina|pɛ |sɛm|ua |n s|bɔ |adi|ya |e h|aso|mar|ani|kuo|rɛ |fa |a k|ɔde|a h|ba |n b|re |uma|wum|om |ɔ h|m n|yi |u a| sa|se |dwu|ɔ b| nt|m a|erɛ| kɔ|a y|orɔ| nk| bɛ| ɔd|ten|rɔ |hyɛ|saa|ka |ɛ b|e b|i s|ade|am |nka|kor|i ɛ|ene|ena| ns|ban|ɛns| ku|ɛsɛ|ane|nsɛ|fof|ɛɛ | fi|gye|ɔtu| di|ano|i k|o m| ɔt| ko|yɛɛ|bir| ak|im |kye| pɛ|a d|yie|ko |nti|i b|ete|ofo|amm|ye |ri |foɔ|kɔ |bom|abo|ɔ s|ɔne| ɛb|soɔ|for|isɛ|m k|asa|nod|ɛ m|fir|ti | da|e y|sua| be|nii|seɛ|wa |ber| aw|dwe|n f| fo|o ɛ|i h|u b|ɔ m| mf|hɔ |kab|wɛ |to |rib|hwɛ|ibi| dw|dis|nso|ans|tir|u ɛ| ti| hɔ|sa |e o| tu|odi|ɛ y|ia |ofa| ɔn|o w|ɛbɛ|aba| ka|ii |wen|ɛsi|m m|sia|ada|yer|ian|da |set| gy|dua|i d|som|mfa|ɔ w| af|i y|any|ora|rim|wɔd|dwa|nsi",
     "hil": "nga|ang| ka|ga |ng | sa|an |sa | ng| pa| ma|ag |on |san|pag| an|ung|kag|a p|n s|a k|n n|a m|ata|kat| ta|gan|g p|ay |tar|g k|ags|run|ala|aru|gsa|tag|a s|g m| mg|mga|n k|a t|od |kon|g s|a n|ing|a i|man|g t|agp|tan| si|n a|y k|mag|gpa|may|hil|pan|ya |ahi|la |g a|sin|gin|ina|aya|ana|ili| pu|han|g i|yon|nan| in|way|uko|gka| gi|aha| uk|ilw|lwa|asa|apa|kas|syo|at |ban|lin|iya|kah|n p| na|o n|lan|a a|in |ngk|g n|ini|aba|pat|pun|a g|ali|o s| iy|yan|agt|tao|ngs|gba|kab|wal|ngo|al |nag|agk|o m|ni |i s|aga|ano| wa|isa|abu|kal|a h|dap|ong|a d|mat| tu|gso|no |aho|aki|sod|agb| da|asy|ila|d k|pas| hi|agh|d s|n m|na |lal|yo |di |til| la|o k|s n|non|gay|sal|a b|god|ao |ati|aan|uha| is|ka |aka|asu|ngb|o a|ama|ato|atu|uga|paa|but|una|n u|bah|uan|iba| di| ba|pah|bat| du|ulo|os |y s|nah| ko|aag|agi|sil|gi |i m|hay|yag|gon|y n|sta|n d|ot |oha|tun|ida| pr| su|a l|uta|m s| al|do |uli|sug|n t|as |lon|sul|og |pam|pro|him|gua|alo|lig| bi|bis|asi|ula|ton|ksy|gtu|a e|k s| ib|n b|maa|ugu|ko |lib|ron|i a|hi |hin|tek|lab|abi|ika|mak|bot|aoh|ok | hu|ghi|ind|ote|tok|i n|t n|g e|eks|dal|uma|ubo|tum|hat|to |ado|kin| ed|rot|ho |ndi|inu|ibu|y a|nta|ad |gko|lah|duk|abo|iko|nda|aro|gal|mo |g o| bu|int| o |n o|aay|da |gsu",
     "sna": "wa |a k|ana|ro |na | ku| mu|nhu|dze|hu |a m| zv|mun|oku|chi|a n|aka|dzi|ka |zer|ero| ch|che|se |unh|odz|rwa|ra |kod|zvi| ne| pa|kan| we| dz| no|ika|va |iri| an|kut|nyi|o y|yik|van|nek|ese|eko|zva|idz|e a| ka|ane|ano|ngu|eku|cha|ung| yo|ri |ake|ke |ach|udz|iro|a z|u w| va|ira|wes|ang|ech|nge|i p|eng|yok|nok|edz|o i|irw|ani|ino|uva|ich|nga|ti |zir|anh|rir|ko |dza|o n|wan|wo |tan|sun|ipi|dzw|eny|asi|hen|zve|kur|vak|a p|sha|unu|zwa|ita|kwa|e k|rud|nun|uru|guk|a c|a d| ya|a y|bat|pas|ezv|ta |e n|uti| kw|o k|o c|o m|ara| ma|si |ga |uko|ata|ose|ema|dzo|uch|hip|kuv|no |rus|hec|omu|i z|wak|o r|kus|kwe|ere|re | rw| po|o a|mwe|yak|mo |usu|isi|za |sa |e z|uta|gar| in|hin|nem|pac|kuc|we |ete| ye|twa|pos|o d|a i|hur|get|ari|ong|pan|erw|uka|rwo|vo | ak|tem|zo |emu|emo|oru| ha|uit|wen|uye|kui| uy|vin|hak|kub|i m|a a|kud| se| ko|yo |and|da |nor|sin|uba|a s|a u| ic|zvo|mut|mat|nez|e m|a w|adz|ura|eva|ava|pi |a r|era|ute|oko|vis| iy|ha |u a|han|cho|aru|asa|fan|aan|pir|ina|guv|ush|ton| hu|uny|enz|ran|yor|ted|ait|hek| ny|uri|hok|nen|osh| ac|ngi|muk|ngo|o z|azv|kun|nid|uma|i h|vem|a h|mir|usa|o p|i n|a v|i k|amb|zan|nza|kuz|zi |kak|ing|u v|ngw|mum|mba|nir|sar|ewo|e p|uwa|vic|i i|gwa|aga|ama|go |yew|pam",
     "xho": "lo |lun|oku|nge|elo|ntu|tu |e n|ele| ku|nye|ye |nga|ung|la | ng|lek|a n|o n|yo |o l|e u|nel|gel|a k|ko |ho |ulu|ke | ne| na|lul|we |le |wa |ngo| kw|ule|kub| no|a u|onk| um|nke|o e| lo|ela|kun|ama|any|unt|ang|eko|uba|elu|ezi|mnt| wo|a i|eyo|alu|lel|umn|lwa|kwe|olu|ba | uk|kuk|won|ukh|une|uku|gok|nok|enz| un|khu| ok|the|e k|zwe|kan|eki|aph|ane|uny|ile|o z|aku|ley|lok| ez|het|eth|ath|oka|pha|sel|ala|o y|kul|akh|kil|enk| in|esi|o k| yo|use|hul|u u|tho|obu|wen|ana|nku|khe|o o|e a|na |kho|ban|a e|ise|ent|gan|uth|ni |kel| zo|he |izw|o w|hi |elw|nam|ing|eli|fun|za |lwe|eng|ya |kwa|fan|isa|o a|ndl|ntl|ayo|eni|gen|hus|uhl|iph|tha|nzi|isw|sa |phi|aba|ben|und|ume|thi|ha |alo|ka |ink|hla|lal|wan|i k| lw|i n|bel| ba|o u|azi|e o|swa|ngu|bal|pho| ab|man|kut|emf|e i|mfa|a a|e e|een|int|uph|eka|ebe|seb|lan|nee|zi |o i|mal|sha|sek|dle|ziz|mth|nen|zel| se|okw|tya|ike|lin|tla|ene|sis|ima|ase|yal|ubu| ak|ant|sen|olo|wak| ko|a o|mfu|ezo|sid|nay|oko| ub|ulo|zo |do |isi|wez|iso|han|nte| ph|zim| ya|ga |li | le|iba|ham|ube|kup|aza|jik| ul| en|eem|phu| ol|and|imf| es|o s| im|kuf|u k|kwi|nak|ma |nan|ety|kuh|kus|yol| am|hel|idi| so|lis| nj|nje|jen|tsh|aka|zin|kuz|‐ji|no |ufu|ale|ong| el|bo |a y|e l|men|yen|lum",
@@ -32584,6 +32698,7 @@ module.exports={
     "lun": "la | mu|ng | ku|a k|tu |ntu|chi| ch|a n|aku|di |mun|ma |unt|a m|g a| a | na|ela|ndi|aka| we|ima|jim|shi|eji|u w|i k| ni|ind|wu |i m|a w| in|a i|u m|hi |awu|na |kul|wej|lon|cha| ja|sha| kw|a c|i n|nak|ala|mu |wa |ing|ka |ung|kum|a h|ulo|him|mbi|muk|u c| wa|hak|iku|nsh|yi | ha|bi |amu|imb|ewa|wen|kwa|ang|adi|idi|kut|esh|ana|g o|ila|ha |tun|u j|ong|nik|kuk|tel|ovu| ov|u n|han| an|ate|vu |a a|kal|ula|kwi|jak|u a| ya|a y|ilu|u k| he|ham|and|uch|kus|ond|eka|hel|kew|zat|del|hin|uku|nde|i j|enk|i a|uka|eng|ach|lu |nat|nji|ona|mon|awa|nke|umo|ins| yi|a d|ama|udi|wak|i h|ati|i c|wan|ta |bul|mwi|ata|ayi| ak|uma|i y|ina|ich|itu|uza|kuz|nin| mw|ku |kin|wun|sak|naw|nyi|ni |ant|muc|wal|ish|u y|mul|kud|waw|uke|wes|uki|i i|kam|yid|wit|da |akw|kad|yan| di|ken|uta|ika|imu|iya|nda| ns|mbu|ya |ule|dil|iha|kuy| ko|hik|eni|ahi|kuh|si |kun|ush|umu|atw|g e|his|dik|ji |any|li | ye|dim|kos|osi|hih|wat|eyi|ney| ne|amb|twe|til|wil|nu |kwe|u h|etu|tiy|ja |nan|ash|mwe|win|was|hit|iti| wu|iwa|wah|lem|g i|tam|din|hu |haw|nga|kay| ka|hid|yin|isa|iki| ma|jaw|jil|che|mpe|omp|eta|tan|jin|hiw|usa|umb|eme|inj| hi|ulu|ubu|nam|wik|mpi| da|ale|ite|tal|twa|ahu|end|nka|mba| at|ga |mes|dic|iwu|yej|kan|kuc|iyi|sem|emb|lun|una",
     "tzm": "en |an | ye| d | n |ad |ur | ad|n i| s |agh|ḥe|n t| i |dan| ta| lh|lḥ|d y| gh|ell|n a|ra |̣eq|i t|eqq|s l|mda|ett|n d|d t|akk|la | ti|qq |hur|di | di| am|gh |ghu| is|t i|r s|in |nag| na|a y|is | te|a d|n n|yet|n g|ll |ara|ghe|ma | we| ar| wa|n s|l a|n l|sen|edd| ak|it |li | le|dd |ull|lla| id|d a| ur|rfa|erf|kul| yi| ku|as | se| ma|zer|amd|a n|lli|lel|men|t a|kw | de|t t|nt |kkw| im|fan|a i|a t|eg |n w|i d|q a|rt |ar |gar| ag|es | tl|ize|emd|i w|i l|deg| as|ken| dd|n u|lan|d i|a a|wak|tta| tm|d u|er | tu|wem|at |ddu|tle|w d|n y|t n|sse|r a|mur|s t|tam|gi | tt|yes|wan|r i|tim|na |wen|twa|d l|ttu|kke|wa |nen| iz|iḥ| u |win|d n|ame|s d|ent|ḍe|hel|a l|hed|ess|t d|mga|arw|i n|ḥu|mi |mad|agi|i g|der|udd|s n|rwa|̣en|awa|i i|ya |h d|iya|s y|msa|uḥ|idd|urt|un |n m|ane|em |sef|lsa|ili|q i|qan|leq|siy| ik|el |err| in|yed| la|ant|den|tag|man|g w|mma|yen|len|tmu|i u|aw |taw|r y|wad|edm|ṣe|hla|t l|̣er|ala|asi|ef |u a|tte|ddi|ttw| lâ|imi|l n|til|al | ne|am |̣ud| lq|iḍ| ya|dda|̣ṛ|med|ren| ss|gra|m a|ghl| il|chu|tem| ll|khe|way|eln|lna|ana|ukl|duk|gha|lt |ni |all|i a|tal|ray|nes|s k|tes|naw|ert|ila|awi|lqa|kra|anu|nun| kr|ikh|ezm|n k|iwe|iwi|ima|net|ser|s u|ir |yeh| an|aya|ehw|hwa|esk|dde",
     "war": "an |ga |nga| ka| ng| pa| ha|han|pag|in |ata| hi| an|mga| mg| ma|kat|hin|a m|ay |a p|ya |ung|a k|gan|on |n h|n n|ug |n p|n k| ug|n m|da |a h|n i|ha |iya|adu|dun|tad|a n| ta|ada|sa | iy|ara| na| di| o |pan|may|a t|ang|ud |ana|n a|o h|o n|taw|n u|ags|yon|y k|al |tag|asa|kad|o p|man| ba|awo|gsa|wo |ag |gad| in|a a|a u|ina|syo|a i|a s|od |ing|agp|ala|asy|ngo|n b|ali|nas|san|aka|a d|ra |g a|was|g h|aha|gpa|agt|to |ad |n t|tun|ng |usa| wa| tu|ini|iri|tan|ahi|kan|ray|nal|war|dir|i h|gka| us|god|g p|ri |a b|nan|ida|o a|i n|bal|y h|kas|uga|hat|tal|nah|awa|ni |pin|uha|buh|o m| bu|gud|aba|at |no | pi|bah|g m|ili|him|aya|atu|d h|agi| su|agk|lwa|mo |d a|alw|sya|uma|ano|int|kal|upa|mag|yo |o u|agb|n d|asu|lin|a o| ko|ona|did|hiy| bi|as | ki|l n|sud|iba|hi |o k|kon|ira| la|gba|pam|amo|g i|ton|gin|n o|uro|ho |os |la |g k|gtu|d m|aud|aag|t h|gi | gu| ig| ir|n g|abu|aho|ami| sa|ati|par|kau|ern|ban|tra|gar|ama|ras|yan|adt|tum| un|ka |aga|aso|api|dto|kin|tik|mil|iko|rin|sal|ika|a g|ila|mah|lip|rab|non|agu|ak |dad|lau|d n|ko |it |pak|n e| ti|una|i m|lig|s h|bay|ro |sug|mak|n w|naa|g n| so| ag|yal|nte|lal|ba |aup|lan|ihi|y b|kah|tub|bye| am|ari|yer|uka|ani|uyo|oha|ito|n s|upo|ent| pu|sam|iin|til|mat|ato",
+    "dyu": "a’ | kà| ká|kà |ye | ye| à |ya’|ni | bɛ|kán|la |án |ya |ɔgɔ| ni| la|ɛɛ |ká |na |a k| mɔ|bɛɛ|mɔg| i |nya|á k|n k|ɔrɔ|’ k| mí|’ l| kɛ|mín|’ y|ín | mà|à k|ɛ k|’ m|ma | ya|à m| wá| jà| ní| be|be | ò |i y|ní |i’ | lá|ra |iya|ɛrɛ|n’ |n n| há| kɔ|te |wál|àma|jàm| te|áli|a b|ima|man|à à|hák|e k|lim| kó|ɔnɔ|mà |n b|i k|ɛn |gɔ |e b|n y|ɔ’ |ana|’ n|o’ | sà|ɛ y|’ s|kɛ |à l|rɔ |e à|kɔn|li’|àni|a m| dí|aw |rɛ |ɔ k|’ b| bá|à b|a à|ákɛ|riy|e s|gbɛ|nɔ |a j| bɔ| ù | sɔ|bɛn| sí|à y|sàr|e m|ara|kó | fà|à s| àn|dún| là|en | sì|an’| fɛ|úny| dú|a n|a y|ɛya|àri| gb|in |kɛr|kan|’ t|dí | cɛ|nin|yaw| tá|na’|e w|mìn|ìna|lá |ɔn | mì| ɲá|à d|ali|n m|yɛr| yɛ|sɔr|gɔ’| tɔ|ama|báa|nga| dà|i m|i à|sìg|ìgi|yɔr|gɔn|w n|áar|a d| sé|ána|àng|len|à i|si |ɛra|á d|bɛr|a s|bɔ |ólo|a h|i b|ɔ s|ɛ l|den|ɛ’ |à t|àra|ɔya|gɔy|kɛy|ógo|u’ |aya|’ d| má| dɔ|ra’|a f|ɔny|’ f| ó |ili|sí | se|se |ko |cóg|a t| có|dén|hɔr|ɔɔn| hɔ|ma’|lan|ika|ina|kàl| a |àla|n s|ɛ m|i t|rɔn|tig|ànt|a w|tá |e n|i s|à n|nna| í |’à |ò k|a g|n d|an |ga |fɛn|ɔ à|li |e i|ɛɛɛ|kél|ati|so’| yé|i f|áki|dàn| k’|i n|k’à| nà|í i|í à|lik|yé |igɛ|e’ |e ò|go | lɔ| na|ɔ b|w l|í t|rɔ’| dò|ò b|min|ti |àga|ow |n t|mad| mi|ò l|éle|gi |ɲán|í y|kil|dɔ |nba|i ɲ|gu | wó|ɛli|i l|úru",
     "wol": " ci|ci | sa|am |sañ|añ | na| ak|ak |lu |it | mb| am|aa |na |al |ñ s|ñu |ne |mu |te |pp | ne| ko|m n|i a| ku| ñu| te| mu|baa|u n|ko |u a|mba|a s|e a|ay | wa| lu| do|ar | ni|u m|nit|oo |épp| ta|oom|gu |t k|i b|ku |u k| it|éew|rée| ré|u y|xal| aa|kk |i d| bu|doo|i w| bi|war|u c| yi|aay|llu| li|fee|loo| xe| xa| ya|taa| di|yi |ama|on |u j|yu |eex|ew | yo|boo|xee| bo| wà|àll|wàl|mi |o c|ir |mën| më|yoo|ul | gu|nn |en |oot| du| so|oon|e m|dam|een|u d|i n|uy |eet|i m|ara| ba|bu |a a|ata|okk|aad| lé| ay|ju |ada| nj|nam|und|axa|dun|m a|enn|r n|aar|ex |taw|ala| jà| pa|et |di |ën |ana|ral|ota|k s|awf|naa|wfe| gi|u l|igg|aju| dë|ma | aj|ti |u t| se|ax |gée|mbo| ja|ool|bii|li |a m| ke|see|m c| ye|i l| ng|yam|ngu| yu|w m|an |ken|n w| lo|i s| me| de|m m|i t|om |u x|n t| an| mi|jaa|laa|ee |bok|lig|p l|n m|t y|ggé|k l|a l|lép|àpp|jàp|aam| jë|aax|ekk|nd |góo|ewa|ndi|tax|a d| da|amu|éey|gi | su|k c|n n|l b|o n|k t|p n|jàn|àng|gir| jo|a c|n a|n c|ñoo|i ñ|a n|kaa|ba |m g|le |une|kan|e b|la |nda|lee|i j|ang|aat|k n|ey |ant|iir|a y|l a|e n|nan|añu|men|j a|ok |k i|nee|l x|omi|i c|oxa|aw |g m|dox|nte|opp|u w|ngi| mo|omu|y d|are|i k|aan|em |du |a b|njà|ñ ñ| ti|m r|kun|ddu|ali| së| la|eg | ma|ëra|ng |xam|mul",
     "nds": "en |un |at |n d| da| de| un|een|dat|de |t d|sch|cht| ee| he|n s| wa|n e| vu|vun|ech|rec|ht |er |ten| to|tt | si| re|ver| ge|nne|t w|n w|ett|n h|n v|k u|n u| el|gen|elk|lk |t u|ien|to |ch | ve|wat|sie|war|het|it | an|n f|ner| mi| in|ann|rn | fö|ör |r d| fr|t r|hte|orr|ich|för| sc|rie|eit| or|den|nsc|ege|fri|rer| st|t g| up|aar|t a|nd | is|ll |rre|is |up |t e|chu|rt |se |ins|daa|lt |on |t h|oon|che|all|n g| ma|rrn|min| se|ell|hei| na|t s|n i|n a|nn |len| sü|in |rd |nen| we| bi|n m|e s|ven|ken|doo|sse|ren|aat|e m|ers|n t|s d|n b|lle|ünn|t t|n o|ik |kee|e g|t v|n k|hen|arr| dr|heb|lie|ebb|e v| al|e a|llt| ke|hn |he | wi|cho|ehe|ok |ard|sta|men|ill|gel|tsc| ok| do|an |düs|ene|erk| gr| dü|weg|ie |ede|ieh|r s|sün|üss|und|raa| dö|röf|drö|t m|ats|öff|e f|ünd|e w|dör|ens| gl|rch|sik|ig |kt |örc|ere|gru| ün|ff |ahn|nre|mit|st |al |aal|hon|ert|kan|nat|der|dee|enn|run| so|eih|lic|ehr|upp|iht|nwe| fa|pp |eke|e r|unw|t n|taa|hup| ka| be|bbt| wo|p s|el |as |t f|bt |e e|nee|maa|huu|eve|nst|ste|mee| ni|inn|n n|ern|iet| me|hör|dde|ent|n r|t o|öve|are|arb|ite|ter|l d|ach|nic|bei| as|lan|t b|d d|t i|ang|ame|rbe|utt| ut|pen| eh|uul|iek|hr | ar|r t|ul |e d|art|n ü|one|eer|na |nte|mut|ete|üd | mu|üüd|lüü",
     "vmw": "tth|la |thu|a e|na |hu |kha|a m|we |ana| mu|a o|awe|ela|ni |ala|hal|edi|to | ed|ire|dir|eit|ito|rei|ya |a n|wa |mut|a w| wa| ni|akh|aan|u o| on|o y|okh|utt|a a|haa| n’|wak|nla| wi|ari| yo| si| ok| ot|iwa|ka |iya| sa|ne |apo|lap|ale|le | oh|oth|att|the|mul|aka|oha|kun| el|aku|oni|mwa|ha |e s|unl|tha|ott|ele|ett|e m|o s| va|ene|e n|e o| ya|oot|hav|ade|ihi|iha|ihe|de |o o|e a|eli|hen|amu|e w| aw|hel|dad|ra | at|po |i m|lel|wi |o n|owa|e e|ula| en|ta |o a|i a|moo|waw|ina| ak|ota| mo|sa |a s| so|han|ara|var| kh|a i|ri |aya|itt|anl|row| mw| et|i o|ika|’we|nro|i e|n’a|her|lan|nak|sin|lo |elo|vo |u e|eri|n’e|oli|thi|u a|a’w|ida| ah|a v|liw|kan|him|lib|yar|riy|ona|onr|erd|wal|hiy|aa |ibe|rda|wan|ber|era|avi|hiw|nna|i v|hwa|lei|mih|vih| ep|khw|ntt| na|ko |ia |sik|aha|iwe|e k|hun|una|mu |avo|ikh|laa|riw| ma| an|e y|kel|’el|huk|u y|phe|kho|pon|i s|nid|upa|ath|ila|yot|eko|ali|tek| es| it|o e|uku|wih|nan|tte| a |mur|’at|i w|ani|ulu|nih|wel|lik|ira|ane|a y|nkh|saa|ro |n’h|wir|i n|ile|som|u s|hop|inn|ei |ont|kum|yaw|saw|iri| eh|tel|tti|ola|aki|mak|ret|uth|nnu|a k|nuw|ahi|enk| il| nn|ena|va |yok|ute|soo| pi|lal|ohi|hik|mpa|uwi|lih|har|kin|aph|ma |ope|man|ole|uma| oo|mpw| v’|nal|ehi|nin|uni| ek|khu",
@@ -32633,6 +32748,7 @@ module.exports={
     "srp": " пр| и |рав|пра| на|на | по|ма | св|да |има|а п|а и|во |ко |ва |ти |и п| у |ако| да|а с|аво|и с|ост| за|о и|сва| им|вак|ава|је |е с| сл| ко|о н|ња |но |не | не|ом |ли | др|или|у с|сло|обо|кој|их |лоб|бод|им |а н|ју | ил|ств| би|сти|а о|при|а у| ра|јед|ог | је|е п|ње |ни |у п|а д|едн|ити|а к|нос|и у|о д|про| су|ање|ова|е и|вањ|и и|циј| ос|се |дру|ста|ају|ања|и о| об|род|ове| ка| де|е о|аци|ја |ово| ни| од|и д| се|ве |ује|ени|ија|авн|жав| ст|у и|м и|дна|су |ред|и н|оја|е б|ара|што|нов|ржа|вој|држ|тва|оди|у о|а б|одн|пош|ошт|ним|а ј|ка |ран|у у| ов|аро|е д|сно|ења|у з|раз| из|осн|а з|о п|аве|пре|де |бит|них|шти|ву |у д|ду |ту | тр|нар| са|гов|за |без|оји|у н|вно|ичн|еђу|ло |ан |чно|ји |нак|ода| ме|вим|то |сво|ани|нац| ње|ник|њег|тит|ој |ме |ном|м с|е у|о к|ку | до|ика|ико|е к|пос|ашт|тре|алн|ног| вр|реб|нст| кр|сту|дно|ем |вар|е н|рив|туп|жив|те |чов|ст |ови|дни|ао |сме|бра|ави| ли|као|вољ|ило|о с|штв|и м|заш|њу |руг|тав|анс|ено|пор|кри|и б|оду|а р|ла | чо|а т|руш|ушт| бу|буд|ављ|уги|м п|ком|оје|вер| ве|под|и в|међ|его|вре|акв|еди|тво| см|од |дел|ена|рад|ба | мо|ну |о ј|дст|кла| оп|как|сам|ере|рим|вич|ива|о о| он|вни|тер|збе|х п|ниц|еба|е р|у в|ист|век|рем|сви|бил|ште|езб|јућ|њен|гла",
     "uzn": "лар|ан |га |ар | ва| би|да |ва |ир | ҳу|ига|уқу|бир|ҳуқ|қуқ|ган| ҳа|ини|нг |р б|иш | та|ни |инг|лик|а э|ида|или|лиш|нин|ари|иши| ин|ади|он |инс|нсо|сон|ий |лан|дир| ма|кин|и б|ши |ҳар| бў|бўл| му|дан|уқи|ила|қла|р и|қиг|эга| эг| ўз|ки |эрк|қил|а б|оли|кла| эр|гад|лга|нли| ол|рки|и ҳ| ёк|ёки| қа|иб |иги|лиг|н б|н м| қи| ба|ара|атл|ри | бо|лат|бил|ин |ҳам|а т|лаш|р ҳ|ала| эт|инл|ик |бош|ниш|ш ҳ|мас|и в|эти|тил|тла|а ҳ|и м|а қ|уқл|қар|ани|арн|рни|им |ат |оси|ўли|ги | да|а и|н ҳ|риш|и т|мла|ли | ха|а м|ият| бу|рла|а а|рча|бар|аси|ўз |арч|ати|лин|ча |либ|мум| ас|аро|а о|ун |таъ| бе| ту|икл|р в|тга|тиб| ке|н э|ш в|мда|амд|али|н қ|мат|шга| те|сид|лла|иро| шу| қо|дам|а ш|ирл|илл|хал|рга| де|ири|тиш|умк|ола|амл|мки|тен|гин|ур |а ў|рак|а ё|имо| эъ|алқ| са|енг|тар|рда|ода| ша|шқа|ўлг|кат|сий|ак |н о|зар|и қ|ор | ми|нда|н в| си|аза|ера|а к|тни|р т|мил| ки|к б|ана|ам |ошқ|рин|сос|ас | со|сиз|асо|нид|асл|н ў|н т|илг|бу |й т|ти |син|дав|шла|на |лим|қон|и а|лак|эма|муҳ|ъти|си |бор|аш |и э|ака|нга|а в|дек|уни|екл|ино|ами| жа|риг|а д| эм|вла|лма|кер| то|лли|авл| ка|ят |н и|аъл|чун|анл|учу| уч|и с|аёт| иш|а у|тда|мия|а с|ра |ўзи|оий|ай |диг|эът|сла|ага|ник|р д|ция| ни|и ў|ада|рор|лад|сит|кда|икд|ким",
     "azj": " вә|вә |әр |лар| һә|ин |ир | ол| һү| би|һүг|үгу|гуг|на |ләр|дә |һәр| шә|бир|ан | тә|лик|р б|мал|лма|асы|ини|р һ|шәх|ән |әхс|ары|гла|дир|а м|али|угу|аг | ма|ын |илә|уна|јәт| ја|икд|ара|ар |әри|әси|рин|әти|р ш|нин|дән|јјә|н һ| аз|ни |әрә| мә|зад|мәк|ијј| мү|син|тин|үн |олу|и в|ндә|гун|рын|аза|нда|ә а|әт |ыны|нын|лыг|илм| га| ет|ә ј|кди|әк |лә |лмә|олм|ына|инд|лун| ин|мас|хс |сын|ә б|г в|н м|адл|ја |тмә|н т|әми|нә |длы|да | бә|нун|бәр|сы | он|әја|ә һ|маг|дан|ун |етм|инә|н а|рлә|си | ва|ә в|раг|н б|ә м|ама|ры |н и|әра|нма|ынд|инс| өз|аны|ала| ал|ик |ә д|ләт|ирл|ил | ди|бил|ығы|ли |а б|әлә|дил|ә е|унм|алы|мүд| сә|ны |ә и|н в|ыг |нла|үда|аси|или| дә|нса|сан|угл|уг |әтл|ә о|хси| һе|ола|кил|ејн|тәр|јин| бу|ми |мәс|дыр|һәм| да|мин|иш | һа| ки|у в|лан|әни| ас|хал|бу |лығ|р в| ед|јан|рә |һеч|алг| та|еч |и с|ы һ|сиа|оси|сос|фиә|г һ|афи|ким|даф| әс|ә г| иш|н ә|ији|ыгл|әмә|ы о|әдә|әса| со|а г|лыд|илл|мил|а һ|ыды|сас|лы |ист| ис|ифа|мәз|ыр |јар|тлә|лиј|түн|ина|ә т|сиј|ал |рил| бү|иә |бүт| үч|үтү|өз |ону| ми|ија| нә|адә|ман|үчү|чүн|сеч|ылы|т в| се|иал|дах|сил|еди|н е|әји|ахи|хил| ҹә|миј|мән|р а|әз |а в|илд|и һ|тәһ|әһс|ы в|һси|вар|шәр|абә|гу |раб|аја|з һ|амә|там|ғын|ад |уғу|н д|мәһ|тәм| ни|и т| ха",
+    "koi": "ны |ӧн | бы|да | пр|пра|рав| мо|лӧн| да|быд|лӧ |орт|мор|ӧм |аво|ӧй | ве|ыд | не|нӧй|ыс |ын |сӧ |тӧм|сь |во |эз |льн|ьнӧ|тны|д м| ас|ыны|м п| по|сьӧ| и |то |бы | ӧт| эм| кы|аль|тлӧ|н э| от|вер|эм | кӧ|ртл|ӧ в| ко|воэ|ств|ерм|тшӧ| до|ола|ылӧ|вол|ас |ӧдн|кыт|ісь|ето|нет|тво|ліс|кӧр|ӧс | се|ы с|шӧм|а с|та |злӧ| ме| ол|аци|ӧ к|ӧ д|мед| вы|вны|а в|на |з в| на|ӧ б|лас|ӧрт| во| вӧ| сі|лан|рмӧ|дбы|едб|ыдӧ|оз |ась| оз| сы|ытш|олӧ|оэз|тир|с о| чу|ы а|оти|ция|ись|ӧтл| эт|рты| го|ы п|ы б|кол|тыс|сет| сь|рті|кӧт|о с|н б|дз |н н| мы| ке|кер|тӧн|тӧг|ӧтн|ис |а д|мӧ |ост|ӧ м| со|онд|нац|дӧс|итӧ|ест|выл| ви|сис|эта| уд|суд|нӧ |удж|ӧг |пон|ы н|н п|мӧд|а п|орй|ӧны|ӧмӧ|н м|ть |сыл|ана|ті |нда|рны|сси|рре|укӧ|з к|чук|йын|рез| эз|ысл|ӧр |ьӧр|с с|с д|рт |с в|езл|кин|осу|эзл|й о|отс| тӧ|ы д| ло| об|овн|лӧт|асс|кӧд|с м|ӧ о|нал|быт|она|ӧт |слӧ|скӧ|кон|тӧд|ытӧ|дны|а м|ы м|нек|ы к|ӧ н|асл|дор|ӧ п| де| за|а о| ов|сть|тра| дз|ь к|ӧтч|н к| ст|аса|етӧ|ьны|мӧл|умӧ|сьн| ум|ерн|код| пы|тла|оль|иал|а к|н о| сэ|а н|ь м|кыд|циа|са | ли|а б|езӧ|й д| чт|ськ|эсӧ|ион|еск|ӧ с|оци|что|ан |соц|йӧ |мӧс|тко|зын|нӧя|вес|енн| мӧ|ӧтк|ӧсь|тӧ |рлӧ|ӧя |оля|рйӧ|ӧмы|гос|тсӧ|зак|рст|з д|дек|ннё|уда|пыр|еки|ако|озь| а |исӧ|поз|дар|арс|ы ч",
     "bel": " і | пр|пра|ава| на|на | па|рав|ны |ць |або| аб|ва |ацы|аве|ае | ча|ння|анн|льн| ма| св|сва|ала|не |чал|лав|ня |ай |ых | як|га |век|е п| ад|а н| не|пры|ага| ко|а п| за|кож|ожн|ы ч|бод|дна|жны|ваб|цца|ца | ў |а а|ек |мае|і п|нне|ных|асц|а с|пав|бо |ам |ста| са| вы|ван|ьна| да|ара|дзе|одн|го |наг|він|аць|оўн|цыя|мі |то | ра|і а|тва| ас|ств|лен|аві|ад |і с|енн|і н|аль|най|аво|рац|аро|ці |сці|пад|ама| бы| яг|яго|к м|іх |рым|ым |энн|што|і і|род| та|нан| дз|ні |я а|гэт|нас|ана| гэ|інн|а б|ыць|да |ыі |оў |чын| шт|а ў|цыі|які|дзя|а і|агу|я п|ным|нац| у | ўс|ыя |ьны|оль|нар|ўна|х п|і д|ў і| гр|амі|ымі|ах | ус|адз| ні|эта|ля |воў|ыма|рад|ы п|зна|чэн|нен|аба| ка|ўле|іна|быц|ход| ін|о п| ст|ера|уль|аў |асн|сам|рам|ры | су|нал|ду |ь с|чы |кла|аны|жна|і р|пер|і з|ь у|маю|ако|ыцц|яко|для|ую |гра|ука|е і|нае|адс|і ў|кац|ўны|а з| дл|яўл|а р|аюч|ючы|оду| пе| ро|ы і|вы |і м|аса|е м|аду|х н|ода|адн|нні|кі | шл|але|раз|ада|х і|авя|нав|алі|раб|ы ў|нна|мад|роў|кан|зе |дст|жыц|ані|нст|зяр|ржа|зак|дзі|люб|аюц|бар|ім |ены|бес|тан|м п|дук|е а|гул|я ў| дэ|ве |жав|ацц|ахо|заб|а в|авы|ган|о н|ваг|я і|чна|я я|сац|так|од |ярж|соб|м н|се |чац|ніч|ыял|яль|цця|ь п|о с|вол|дэк| бе|ну |ога| рэ|рас|буд|а т|асо|сно|ейн",
     "bul": " на|на | пр|то | и |рав|да |пра| да|а с|ств|ва |та |а п|ите|но |во |ени|а н|е н| за|о и|ото|ван|не | вс|те |ки | не|о н|ове| по|а и|ава|чов|ни |ане|ия | чо|аво|ие | св|е п|а д| об|век|ест|сво| им|има|ост|и д|и ч|ани|или|все|ли |тво|и с|ние|вот|а в|ват|ма | ра|и п|и н| в |ек |сек|еки|а о| ил|е и|при| се|ова|ето|ата|воб|обо|бод|аци|ат |пре|оди|к и| бъ| съ|раз| ос|ред| ка|а б|о д|се | ко|бъд|лно|ния|о п| от|ъде|о в|за |ята| е | тр|и и|о с|тел|и в|нит|е с|ран| де|от |общ|де |ка |бра|ен |ява|ция|про|алн|и о|ият|ст |нов| до|его|как|ато| из|нег|а т|ден|а к|щес|а р|тря|а ч|ряб|о о|вен|ябв|бва|дър|гов|нац|ено|тве|ърж|е д|нос|ржа|а з|вит|зи |акв|лен| та|ежд|и з|род|е о|обр|нот| ни| с |т с|нар|о т|она|ез |йст|кат|иче| бе|жав|е т|е в|тва|зак|аро|кой|осн| ли|ува|авн|ейс|сно|рес|пол|нен|вни|без|ри |стр| ст|сто|под|чки|вид|ган|си |ди |и к|нст| те|а е|вси|еоб| дъ|сич|ичк|едв|жен|ник|ода|т н|о р|ака|ели|одн|елн|лич| че|чес|бще| ре|и м| ср|сре|и р|са |лни| си|дви|ичн|жда| къ|оет|ира|я н|дей| ме|еди|дру|ход|еме|кри|че |дос|ста|гра| то|ой |тъп|въз|ико|и у|нет| со|ави|той|елс|меж|чит|ита|що |ъм |азо|зов|нич|нал|дно| мо|ине|а у|тно|таз|кон|лит|ан |клю|люч|пос|тви|а м|й н|т и|изв|рез|ази|ра |оят|нео|чре",
     "kaz": "ен |не | құ|тар|ұқы| ба| қа|ға |ада|дам|құқ|ық | бо| ад|ықт|қта|ына|ар | жә|ың |ылы|әне|жән| не|мен|лық|на |р а|де | жа|ін |а қ|ары|ан | әр|қыл|ара|ала| ме|н қ|еме|уға|ның| де|асы|ам |іне|тан|лы |нды|да |әр |ығы|ста|еке| өз|ын |ған|анд|мес| бі| қо|ды |ің |бас|бол|етт|ып |н б|ілі|қық|нде|ері|е қ|алы|нем|се |бір|лар|есе|ы б|тын|а ж| ке|тиі|ост|ге |бар| ти|е б| ар|дық|сы |інд|е а|аты| та| бе|ы т|ік |олы|нда|ғын|ры |иіс|ғы | те|бос|луы|алу|сын|рын|еті|іс |рде|қығ|е ж|рін|дар|іні|н ж|тті|қар|н к|ім | ер|егі|ыры|ыны| са|рға|ген|ынд|аны|уын|ы м|лға|ана|нің|тер|уы |ей |тік|ке |сқа|қа |мыс|тық|м б|ард| от|е н|е т|мны|өзі|нан|гіз|еге| на|ы ә|аза|ң қ|лан|нег|асқ|кін|амн|кет|рал|айд|луғ|аса|ті |рды|і б|а б|ру | же|р м|ді |тта|мет|лік|тыр|ама|жас|н н|лып| мү|дай|өз |ігі| ал|ауд|дей|зін|бер|р б|уда|кел|біл|і т|қор|тең|лге| жү|ден|ы а|елі|дер|ы ж|а т|рқы|рлы|арқ| тү|қам|еле|а о|е ө|тін|ір |ең |уге|е м|лде|ау |ауы|ркі|н а|ы е|оны|н т|рыл|түр|ция|гін| то| ха|жағ|оға|осы|зде| ос|ікт|кті|а д|ұлт|лтт|тты|лім|ғда| ау| да|хал|тте|лма| ұл|амд|құр|ірі|қат|тал|орғ|зі |елг|сіз|ағы| ел|ң б|ыс | ас|імд|оты| әл|н е|ағд|қты|шін|ерк|е д|ек |ені|кім|ылм|шіл|аға|сты|лер|гі |атт|кен| кө|ым‐| кұ|кұқ|ра |рік|н ә| еш",
@@ -32654,9 +32770,9 @@ module.exports={
     "hin": "के |प्र|और | और| के|ों | का|कार| प्|का | को|या |ं क|ति |ार |को | है|िका|ने |है |्रत|धिक| अध|अधि|की |ा क| कि| की| सम|ें |व्य|्ति|क्त|से | व्|ा अ|्यक|में|मान|ि क| स्| मे|सी |न्त| हो|े क|ता |यक्|क्ष|ै ।|िक |त्य| कर|्य | या|भी | वि|रत्|र स|ी स| जा|स्व|रों|्ये|ेक |येक|त्र|िया|ा ज|क व|र ह|ित |्रा|किस| अन|ा स|िसी|ा ह|ना | से| पर|र क| सा|देश|गा | । | अप|्त्|े स|समा|ान |ी क|्त |वार| ।प|ा प| रा|षा |न क|।प्|ष्ट|था |अन्| मा|्षा|्वा|ारो|तन्|वतन|ट्र|्वत|प्त|ाप्|्ट्|राष|ाष्| इस|े अ| उस| सं|राप|कि |त ह|हो |ं औ|ार्|ा ।|किय|े प| दे| भी|करन|री |जाए|ी प| न |र अ|क स|अपन|े व|ाओं|्तर|ओं | नि|सभी|रा | तथ|तथा|िवा|यों|पर | ऐस|रता|ारा|्री|सम्| द्|ीय |िए |व क|सके|द्व|होग| सभ|ं म|माज|रने|िक्|्या|ा व|र प| जि|ो स|र उ|रक्|े म|पूर| लि|ाएग| भा|इस |त क|ाव |स्थ|पने|ा औ|द्ध|श्य|र्व| घो|घोष|रूप|भाव|ाने|कृत|ो प|े ल|लिए|शिक|ूर्| उन|। इ|ं स|य क|्ध |दी |ी र|र्य|णा |एगा|न्य|रीय|ेश |रति|े ब| रू|ूप |परा|्र |तर्| पा| सु|जिस|तिक|सार|जो |ेशो| शि|ानव|ी अ|चित|े औ| पू|ियो|ा उ|म क|ी भ|शों| बु|म्म|स्त|िश्|्रो|्म |ो क| यह|र द|नव |चार|दिय|े य|र्ण|राध|ोगा|ले |नून|ानू|ोषण|षणा|विश| जन|ारी|परि|गी |वाह|साम|ाना|रका| जो|ाज |ी ज|ध क|बन्|ताओ|ंकि|ूंक|ास |कर |चूं|ी व|य ह|ा ग|य स|न स|त र|कोई|ुक्|ोई | ।क|ं न|हित|निय|याद|ादी|्मा|्था|ामा|ाह |ी म|े ज",
     "mar": "्या|या |त्य|याच|चा | व |ण्य|प्र|कार|ाचा| प्|धिक|िका| अध|अधि|च्य|ार |आहे| आह|ा अ|हे | स्|्रत|्ये|ा क|स्व| कर|्वा|ता |ास |ा स|ा व|त्र| त्|वा |ांच|यां|िक |मान| या|्य | का| अस|रत्|ष्ट|र्य|येक|ल्य|र आ|ाहि|क्ष| को|ामा|कोण| सं|ाच्|ात |ा न| रा|ंत्|ून |ेका| सा|राष|ाष्|चे |्ट्|ट्र|तंत| मा|ने |किं| कि|व्य|वात|े स|करण|ंवा|िंव|ये |क्त| सम|ा प|ना | मि|कास|ातं|्र्|र्व|समा|मिळ| जा|े प|व स|यास|ोणत|रण्|काम|ीय |ा आ| दे|े क|ांन|हि |रां| व्|्यक|ा म|िळण|ही | पा|्षण|ार्|ान |े अ| आप| वि|ळण्|ाही|ची |े व|्रा|मा |ली |ंच्|ारा|ा द| आण| नि|णे |द्ध| नय|ला |ा ह|नये| सर|सर्|्री|बंध|ी प|आपल|ले |ील |माज| हो|्त |त क|ाचे|्व |षण |ंना|लेल|ी अ|देश|आणि|णि |ध्य| शि|ी स|े ज|शिक|रीय|ानव|पाह|हिज|िजे|जे |क स|यक्|न क|व त|ा ज|यात|पल्|न्य|वी |स्थ|ज्य| ज्|े आ|रक्|त स|िक्|ंबं|संब| के|क व|केल|असल|य अ|य क|त व|ीत |णत्|त्व|ाने| उप|्वत|भाव|े त|करत|याह|रता|िष्|व म|कां|साम|रति|सार|ंचा|र व|क आ|याय|ासा|साठ|ाठी|्ती|ठी |ेण्|र्थ|ीने|े य|जाह|ोणा|संर|ायद|च्छ|स स|ंरक|तील|ी व|त आ|ी आ|ंधा|ेशा|ित | अश|हीर| हक|हक्|क्क|य व|शा |व आ|तीन|ण म|ूर्|ेल्|द्य|ेले|ांत|ा य|ा ब|ी म|ंचे|याव|देण|कृत|ारण|ेत |िवा|वस्|स्त|ाची|नवी| अर|थवा|अथव|ा त| अथ|अर्|ती |पूर|इतर|र्ण|ी क|यत्| इत| शा|रका|तिष|ण स|तिक|्रक|्ध |रणा| आल|ेल |ाजि| न्|धात|रून|श्र|असे|ष्ठ|ुक्|ेश |तो |जिक|े म",
     "mai": "ाक | आ |प्र|कार|िका|धिक|ार |्रत|ेँ |क अ|्यक|िक |्ति| अध|व्य|अधि|क स| प्|क्त| व्|केँ|यक्|तिक|न्त| स्|हि |क व|मे |बाक|मान| सम|त्य|क्ष| छै|छैक|ेक |स्व|त्र|रत्|्ये|ष्ट| अप|येक|र छ|सँ |वा | एह|ैक।|ित | वि| जा|ति |्त्|ट्र|िके|राष|ाष्| हो|्ट्| रा|्य | सा| अन| कर|अपन|।प्|कोन|अछि|वतन|्वत|तन्|क आ| अछ|ताक|था | पर| वा| को|ार्|एहि|पन |ा आ|नहि|नो |समा| मा|्री|रता| नि| का|देश| नह|्षा|क प| दे| कए|रक | सं|ोनो|ि क|न्य|आ स|छि |्त |ल ज|्वा|ारक|ा स|तथा|ान्| तथ|्या|आ अ|ना |ँ क|ान | जे|जाए|वार|ता |ीय |र आ|क ह|करब|िवा|ामा|र्व| आओ|्रस|परि|त क|स्थ|ा प|ानव|रीय|धार|्तर|अन्|घोष|साम|माज|आओर|ारण| एक|कएल|ँ अ|ओर |एबा|स्त|द्ध|्रा|ँ स|रण | सभ|ोषण|क।प|ाहि|रबा|क ज|ा अ|चित|यक |कर |पूर|रक्|नक | घो|षा |िक्|सम्|एहन| उप|र प| अव|एल |ूर्|षणा| हे|त अ|शिक|तु |ाधि|ेतु|हेत|हन |िमे|र अ|वक |ँ ए|जाह| शि|आ प|भाव|े स|्ध |क क|ि ज|प्त|रूप|निर|िर्| सक|च्छ|होए|रति|अनु|सभ |हो |ेल |त आ|चार|ण स|रा |त ह|जिक|ाजि|र्ण|्रक|एत।|ि आ|र्य|सभक|ैक |क उ| जन|त स|ाप्|न प|श्य|न अ|कृत|हु |रसं|री |राप|ा व|जे |क ब|ि घ| भा|उद्|ाएत|्ण |विव| उद|वाध|िसँ|आ व|ि स|न व|ारा|ोएत| ओ |य आ|कान|िश्|न क| दो|णाक| द्|हिम| अथ|अथव|ामे|द्व|ेश |ओ व|ि अ|क ए|वास| पू|षाक|त्त|य प| बी|यता|धक |ए स|थवा|ि द|पर | भे|जेँ| कि|कि |क ल| रू|विश|न स| ले|सार|ाके|िष्|रिव|क र|ास |ेओ |्थि|केओ|राज",
-    "bho": " के|के |ार |े क|य्व|कार|िका|धिक|ओर | आओ|आओर|अधि| अध|े स|ा क|वे |े अ| सं| हो|में|ें | मे|िक |र स| कर|्रा|्वे|र ह|ा स|र क| से| सम|मान|रा |न क|से |े ब|क्ष|नो | चा|ता |ष्ट| रा|चाह|्टघ|प्र| का|ाष्| सा|राष|टघ्|े आ| प्| सक| मा| स्| य्|ि क|ति |ोय्|त क|ौनो|कौन| जा|्वा|पन | बा|होय|करे|था | कौ|िर | आप|ला |तथा|्त |ेला|आपन| ओक|रे |ाति|कर | हव|हवे| तथ|सबह|र आ|ही |जा | और| ह।|वे।|े ओ|हे |त्र|र म|ना |तिर|बहि|सके|केल| पर|वात|ान |।सब|े म|े च|ा आ|न स|ावे|र ब| लो|ाहे|षा |ओकर|ी क|्षा|माज|ल ज| सब|संग|े ज|्वत|घ् |ं क|ित |मिल|े ह|हिं|िं |रक्|ंत्|स्व|ाज |ा प|और | जे|ो स|कान|करा|क्त|क स|लोग|्ीय|घ्ी|े। |समा|हु |नइय|इय्|ला।| नइ|ानव|िया|े व|वतं|तंत|ी स|े न|स्थ| ओ |े उ|नून|ानू|ाही|ाम |पर |्वल|साम|व्य|्य |ून |े त|या |वल |केह| आद| सु|े य| दे|ीय |र अ| वि|। स|भे |सभे|प्त|दी |बा।|ा म|ा।स|योग| मि| नि|े द|चार| या| इ |हि |ल ह|् क|ले |री |ाधि|र न|ा ह|र प| पा| ही|ादी| बि|राप|ाप्|नवा|ए क|ु क|यता|आदि| दो|तिक|ेहु|दिम|ोग |मी |पूर|े भ|्या|ाजि|म क|ि म| जर|िमी|े प|्तर| अप| उप|जे |जाद|ेकर| सभ|देश|ुक्|क आ| सह|षण |ाव |जिक|शिक|िक्|न ह|ंगठ|गठन|ठन | अं|े ल|सब |पयो|उपय| शा|र व|दोस|न म| व्|ास |।के| शि|न आ|िल |ज क| आज|य क|आजा| ले| जी|ेश |ी ब| पू|रो | भी|्म |ा। |साथ| घो|घोष|ने |वाध|े र| उच|निय|चित|बा |ामा|रात|संर|ाता|्षण|ंरक|हो |होए|ेल ",
+    "bho": " के|के |ार |े क|कार|धिक|िका|ओर |आओर| आओ| अध|अधि|े स|ा क|े अ| हो| सं|र क|र स|ें | मे|में|िक | कर|ा स|र ह| से|से |रा |मान| सम|न क|क्ष|े ब|नो | चा|वे |ता |चाह|ष्ट| रा|ति |्रा|खे |राष|ाष्|प्र| सा| का|ट्र|े आ| प्| सक| मा|्ट्| स्|होख| बा|करे|ि क|ौनो|त क|था |कौन|पन | जा| कौ|रे |ाति|ला | ओक|ेला|तथा|आपन|्त | आप|कर |हवे|र म| हव| तथ|सबह|र आ|ोखे| ह।|िर |े ओ|केल|सके|हे | और|ही |तिर|त्र|जा |ना |बहि|।सब|े च| खा|े म| पर|खात|ान |र ब|न स|ावे| लो|षा |ाहे|ी क|ओकर|ा आ|माज|ित |े ज|ल ज|मिल|संग|्षा|ं क| सब|ा प|और |रक्|वे।|िं |े ह|ंत्|ाज |स्व|हिं|नइख|कान|ो स| जे|समा|क स|लोग|करा|क्त|्रत|ला।| नइ|े। |ानव|िया|हु |इखे|्र |रता|्वत|ानू|े न|ाम |नून|ाही|वतं|पर |ी स| ओ |े उ|े व|्री|रीय|स्थ|तंत|दी |ीय |े त|र अ|र प|्य |साम|बा।| आद|ून |। स|व्य|ा।स|सभे|भे |या | दे|ा म|े ख| वि| सु|केह|प्त|योग|ु क|ोग |े द|चार|ादी|ाप्| दो| या|राप|ल ह|पूर| मि|तिक|खल |यता|्ति| बि|ए क|आदि|दिम| ही|हि |मी | नि|र न| इ |ेहु|नवा|ा ह|री |ले | पा|ाधि| सह| उप|्या| जर|षण | सभ|िमी|देश|े प|म क|जे |ाव | अप|शिक|ाजि|जाद|जिक|े भ|क आ|्तर|िक्|ि म|ेकर|ुक्|वाध|गठन| व्|निय|ठन |।के|ामा|रो | जी|य क|न म|े ल|न ह|ास |ेश | शा|घोष|ंगठ|िल | घो|्षण| पू|े र|ंरक|संर|उपय|पयो|हो |बा |ी ब|्म |सब |दोस|ा। | आज|साथ| शि|आजा| भी| उच|ने |चित| अं|र व|ज क|न आ| ले|नि |ार्|कि |याह|्थि",
     "nep": "को | र |कार|प्र|ार |ने |िका|क्त|धिक|्यक| गर|व्य|्रत| प्|अधि|्ति| अध| व्|यक्|मा |िक |त्य|ाई |लाई|न्त|मान| सम|त्र|गर्|र्न|क व| वा|्ने|वा | स्|रत्|र स|्ये|तिल|येक|ेक |छ ।|ो स|ा स|हरू| वि|क्ष|्त्|िला| । |स्व|हुन|ति | हु|ले | रा| मा|ष्ट|समा|वतन|तन्| छ |र छ| सं|्ट्|ट्र|ाष्|ो अ|राष|्वत|ुने|नेछ|हरु|ान |ता |े अ|्र | का|िने|ाको|गरि|े छ|ना | अन| नि|रता|नै | सा|ित |तिक|क स|र र|रू |ा अ|था |स्त|कुन|ा र|ुनै| छै|्त |छैन|ा प|ार्|वार|ा व| पर|तथा| तथ|का |्या|एको|रु |्षा|माज|रक्|परि|द्ध|। प| ला|सको|ामा| यस|ाहर|ेछ |धार|्रा|ो प|नि |देश|भाव|िवा|्य |र ह|र व|र म|सबै|न अ|े र|न स|रको|अन्|ताक|ंरक|संर|्वा| त्|सम्|री |ो व|ा भ|रहर| कु|्रि|त र|रिन|श्य|पनि|ै व|यस्|ारा|ानव| शि|ा त|लाग|रा |शिक| सब|ाउन|िक्|्न |ारक|ा न|रिय|्यस|द्व|रति|चार| सह|्षण| सु|ारम|ुक्|ुद्|साम|षा |ैन | अप| भए|बाट|ुन | उप|ान्|ो आ|्तर|िय |कान|ि र|रूक|द्द|र प|ाव |ो ल|तो | पन|ैन।| आव|ा ग|।प्|बै |ूर्|िएक|र त|निज|त्प| भे|जिक|ेछ।|िको|्तो|वाह|त स|ाट | अर|ाजि|्ध | उस|रमा|ात्|र्य|नको|ाय |जको|ित्|ागि| अभ|न ग|गि |ा म| आध|स्थ| पा|ारह|घोष|त्व|यता|ा क|र्द| मत|विध| सक|सार|परा|युक|राध| घो|णको|अपर|े स|ारी|।कु| दि| जन|भेद|रिव|उसक|क र|र अ|ि स|ानु|ो ह|रुद| छ।|ूको|रका|नमा| भन|र्म|हित|पूर|न्य|क अ|ा ब|ो भ|राज|अनु|ोषण|षणा|य र| मन| बि|्धा| दे|निर|ताह|र उ|यस |उने|रण |विक",
-    "mag": "के | के|ार | हई|कार|िका|धिक|हई।|े अ| और|और | अध|अधि|ा क|े स|र ह|े क|सब |ें |में| मे| कर|्रा|था | सम|से |तथा| से| हो|िक | तथ|र क|र स| सब| सं|क्ष|मान|प्र|ना | सा|ा स|ब क|कर |रा | भी|ति | प्|ई। |भी | अप|त क| का|अपन|या |क ह| को|ट्र|पन | मा| रा| पर| या|ता | स्|ी क|ष्ट|ान |य्व|्त |करे|ही | ओक|्ट्| सक|ओकर|न क|त्र|।सब|राष|ाष्|हई |रे |ेल |े ब| जा|ई।स| ही|े म|रक्| ले|ंत्|सक |नो |ाम |दी |ा प|होए|व्य|र म|क्त|स्व| ना|तंत|पर |माज|र औ|षा |े उ|्य |ित |ोग |ी स|्वत|वतं| शा|ानव|ादी| इ |ल ज|े भ|वे |ा म|ावे|न स|्ति| दे|करा| एक|्षा|लेल|कान|े ल|म क| वि|प्त|साथ|ाथ |ला |र अ|ई।क|्र |क स|य क|नून|ानू|ेकर|्वा|े ह|ोए |ा ह| जे|कोई|वार| य्|राप|जा |ोई |े प|ून |। स|बे |ाप्| चा|रो |ि क|साम|समा| व्|मिल|े य|चाह|रात|कोन|योग|र प|ोनो|र व|े व|स्त|काम|ए क|एल |ाता|्म | पा|नवा|ाधि|ो स|े ओ| दो|व क| नि| सु|्रत|चार|संर|ल ह|पूर| सह|े च|ो क|एक |ाजि|्यक|ास | उप|।के|ं स|न ह|सम्|ंरक|ई क|्तर|ुक्|ीय |ामा|जिक|होब|परि|े आ|षण |तिक|न औ| लो|ा द|स्थ| घो|घोष|्मा|म्म| उच|वाध|री |ा त|केक|र आ|ा औ|ा ब|दोस|निय|ाही|न प| आद|मी |ब अ|देश|ेश |य स|े त|यक्|रीय|ाति|रति|्री|वा |रिव|पयो|उपय|कि |ि म|ी ह|म स|भाव|ढ़ा|बढ़|शिक|िक्| बढ|ौनो|त र|ो भ|व ह|ाव |ग क|न द|युक|ंयु| भा|ारा|संय| कए|कएल|र्म|दमी|करो|कौन|वन |आदम|िया|ोसर| आज|इ स|आजा|लोग|जाद|उचि|चित|े न|त स|ाज "
+    "mag": "के | के|ार | हई|कार|िका|धिक|हई।| और|े अ|और |अधि| अध|ा क|र ह|े स|े क|सब |ें |में| मे| कर|से | सम|था |तथा| हो| से|र स|र क|िक | तथ| सब| सं|क्ष|मान|ब क|ा स|ना | सा|प्र|कर | प्| भी|ति |ई। |रा |भी |्रा| अप| का|त क|या |अपन| को|ट्र|क ह|पन | पर| मा| रा| या|ी क|ता | स्| ओक|ष्ट|ही |ान |्त |करे|्रत|त्र|ाष्|्ट्| सक|न क|राष|ओकर|।सब|रे |ेल |हई |े ब| जा|ई।स|रक्| ले|ंत्|े म| ही|सक |नो |र म| ना|स्व|ाम |होए|र औ|दी |व्य|क्त|ा प|वतं|ानव|ित | शा|ादी|षा |माज| इ |तंत|पर |ी स|्वत|्य |े उ|्र |ोग |वे |्षा|े भ|े ल|न स|करा|कान| एक|ल ज|म क|लेल|्ति|ावे| दे|रता|क स|साथ|ानू|नून|ेकर|र अ|य क|ाथ |प्त|ा म|ला |ई।क| वि|समा|ून |े प|साम|। स|ा ह| जे|े ह| चा|ोई |जा |मिल| व्|ि क|बे |ाप्|राप|ोए |रो |वार|कोई|चाह| दो|व क| नि|चार|र व|ाधि| पा|र प|स्त|एल |कोन|े व|ोनो|काम|ो स|्म |े ओ|योग| सु|ए क|नवा|न ह|षण |ीय |एक |परि| उप|े आ|्तर| सह|ाजि|ल ह|संर|ई क|ास |पूर|ं स|ंरक|ो क|जिक|देश|ुक्|ामा|होब|सम्|।के|्यक|े च|केक|्वा|पयो|उपय|री |ी ह|ाही|दोस|र आ| उच|ाति|म्म|्मा|े ख| लो|तिक|रति|ेश |न औ|स्थ|वा |मी |े त| आद|निय|न प|वाध| घो|घोष|ब अ|रिव|ा ब|कि |म स|रीय|्री|य स|यक्|ि म|ा द|ा त|ब ह|जाद|उचि|युक|ंयु|संय| उ |इ स|े इ|्षण|। त|चित|ा औ|व ह|हे |त स| पू|क औ|ग क|े न|न द|करो|लोग|ोषण|ारा|र न|िल |समय|कौन|ं क|मय |ौनो|ुरक|ो भ| भा|ाज | कए|कएल|सुर|र्म|ाव |िवा"
   },
   "Ethiopic": {
     "amh": "፡መብ|ሰው፡|ት፡አ|ብት፡|መብት|፡ሰው|፡አለ|፡ወይ|ወይም|ይም፡|ነት፡|ንዱ፡|አለው|ለው።|ዳንዱ|ያንዳ|ንዳን|እያን|ዱ፡ሰ|ት፡መ|፡እን|፡የመ|።እያ|እንዲ|፡ነጻ|፡የተ|ም፡በ|ው፡የ|ም፡የ|፡የሚ|ና፡በ|ን፡የ|፡የማ|፡አይ|ነጻነ|ና፡የ|ው፡በ|ቶች፡|ው።፡|ሆነ፡|ት፡የ|፡በሚ|፡መን|ው።እ|ትና፡|ኀብረ|ትን፡|ውም፡|ንኛው|እኩል|ብቻ፡|ኛውም|ንም፡|፡ለመ|፡ያለ|ም፡ሰ|ማንኛ|መብቶ|፡አገ|ት፡በ|ራዊ፡|፡እኩ|፡ለማ|ለት፡|በት፡|ሆን፡|መንግ|፡በተ|ረት፡|ብቶች|ጋብቻ|ዎች፡|ህንነ|ጻነት|ም፡እ|ወንጀ|፡ልዩ|ሰብ፡|ማንም|ጠበቅ|ኩል፡|ደህን|።ማን|ነጻ፡|ግኘት|ማግኘ|።፡እ|፡የሆ|፡ሁሉ|ች፡በ|፡በመ|ሥራ፡|፡ደህ|ፈጸም|ል፡መ|ተግባ|፡ድር|ት፡ወ|ው።ማ|ፍርድ|ርድ፡|፡በሆ|ር፡ወ|በትም|ትም፡|ይነት|ቸው፡|ብ፡የ|ነትና|ቱን፡|ሕግ፡|ንና፡|፡ሥራ|የማግ|፡መሠ|ኘት፡|፡ጊዜ|ጻነቶ|ነቶች|በር፡|በኀብ|ዩነት|ልዩነ|፡በኀ|፡ዓይ|ዓይነ|ችና፡|ግባር|ባር፡|፡ደረ|ነው።|፡ነው|ደረጃ|ም።እ|ም፡መ|፡ወን|ይማኖ|ማኀበ|ሃይማ|፡ኑሮ|መሠረ|ሁሉ፡|ነቱ፡|ሌሎች|ንግሥ|በቅ፡|የሆነ|፡ይህ|ንዲጠ|ገር፡|ተባበ|ትክክ|ጸም፡|ር፡የ|ዲጠበ|ትም።|ው፡ከ|፡እያ|ሩት፡|ድርጅ|፡ብቻ|ና፡ለ|ይገባ|የመኖ|፡ማን|ንነት|ቤተሰ|ርጅት|ት፡ድ|፡መሰ|እንደ|፡አላ|ብሔራ|ት፡ለ|ሔራዊ|ርት፡|ህርት|ውን፡|የሚያ|ል።እ|ሆኑ፡|ምህር|ትምህ|በት።|ለበት|አለበ|፡አስ|ሎች፡|ች፡የ|፡በሕ|ብረ፡|፡ከሚ|ን፡አ|ት፡እ|ን፡ወ|ረግ፡|በሆነ|የኀብ|፡የኀ|መሆን|፡መሆ|ን፡መ|፡ውሳ|ንጀል|ፈላጊ|ህም፡|ረታዊ|ክለኛ|ክክለ|ታዊ፡|ጀል፡|ኑሮ፡|።፡ይ|ዓዊ፡|ዜግነ|ንዲሁ|ዲሁም|፡ማኀ|ገሩ፡|ር፡በ|ብዓዊ|አገሩ|ሁም፡|ና፡ነ|ሰብዓ|የተባ|ጅት፡|ማኖት|ር፡አ|ንግስ|ኖት፡|በሕግ|መኖር|ው፡ያ|መጠበ|ረጃ፡|፡በማ|ነትን|ብነት|ገብነ|፡ገብ|መፈጸ|፡ሁኔ|ሁኔታ|ን፡ለ|ው፡ለ|፡ተግ|፡የአ|፡ይገ|፡በአ|ችን፡|፡ትም|ነቱን|፡ቢሆ|ቢሆን|ጊዜ፡|ረ፡ሰ|ት፡ጊ|ሰቡ፡|ምበት|ላቸው|አላቸ|በነጻ|፡በነ|አንድ|ቅ፡መ|፡መጠ|ት፡ይ|መሰረ|ጥ፡የ|ስጥ፡|ፈጸመ|ውስጥ|ንድ፡|፡ውስ|፡በግ|፡ሆኖ|ሉ፡በ|፡ጋብ|ንስ፡|ንነቱ|መው፡|የሚፈ|አይፈ|ብረሰ|ነ፡መ|፡የሃ|ም፡ከ|ች፡እ|ስት፡|ሙሉ፡|አገር|ሆኖ፡|ደረግ|ኢንተ|ንተር|ተርና|ርናሽ|ናሽና|ሽናል",
@@ -32667,41 +32783,45 @@ module.exports={
     "ydd": " פֿ|ון |ער |ן א| אַ|דער|ט א| או|און|אַר|ען |פֿו| אױ| אי|ן פ|ֿון|רעכ| דע| רע|עכט|פֿא|ן ד|כט | די|די |אַ |אױף|ױף |ֿאַ| זײ| גע|אַל|אָס| אָ|ונג| הא|האָ|זײַ| מע|אָל|נג |װאָ|ַן |אַנ|רײַ| װא|ָס |באַ| יע|יעד|ניט|ן ז|ר א|יט |אָט|אָר|עדע|מען|זאָ|ָט |פֿר|ײַן| בא|טן |אין|ן ג|ין |ן װ|נאַ|ֿרײ|ר ה| זא|לעכ|ע א|אָד|ַ ר|ענט|אַצ|ַצי|אָנ| צו| װע|יז |מענ|ָדע|איז|ן מ|ַלע|בן |ר מ|טער| מי| פּ|מיט|טלע|ָל |עכע|ײט |ַנד|ע פ|לע |געז|לאַ|אַפ|עזע|ראַ| ני|ַפֿ|רן |ײַנ|נען|טיק|כע |פֿע|יע |הײט|ַהײ|נטש|ײַה|ט ד|ן ב|לן |ן נ|פֿט|שאַ|רונ| זי| װי|ט פ| דא|טאָ|דיק|קן |ר פ|ר ג|יקן|אָב|ף א|אַק|קער|ערע|כער|י פ|ות |ַרב|פּר|קט |עם |יאָ|ציע|ציא|יט־|צו |ישע| קײ|ן ק|סער| גל|דאָ|ונט|גן |ַרא|יקע| טא|ענע|לײַ|שן |ַנע|יק |טאַ|ס א|עט |נגע|ט־א|ָנא|־אי|יקט|נטע|ײנע|־ני|ָר |װער|י א|ן י|יך |זיך|ער־|ערן|אױס|ָבן|נדע|ָסע|װי |ֿעל|ר־נ|ן ה| גר|גלײ| צי|ראָ|זעל|עלק|נד |לקע|אָפ| כּ|ט װ|ג א| נא|ט צ|ר ד|עס |דור|גען|קע |ג פ|ֿט |ן ל|שע |ר ז|רע |ײטן|פּע|קלא|קײט|יטע|ים |ס ז|ײַ | דו|אַט| לא|ר װ|קײנ|עלש|י ד|לשא|יות|נט |ַרז|ע ר|ל ז|אַמ|ן ש| שו|אינ|נטל| הי|בעט|ָפּ|ף פ|ײַכ|בער|ן צ|מאָ| שט| לע|גער|ורך|רך |נעם|גרו|פֿן|לער|װעל|ע מ|ום |שפּ|ך א|יונ|רבע|עפֿ|טעט|ן כ|רעס|ערצ|ז א|עמע|ם א|שטע|כן |רט |י ג|סן |נער|ליט|ט ז|נעמ|ּרא|היו|אַש|ת װ|אומ|ק א|יבע|ֿן |ץ א|פֿי|ײן |ם ט"
   }
 }
-},{}],99:[function(require,module,exports){
+},{}],100:[function(require,module,exports){
+/* eslint-env commonjs */
+
 module.exports = {
-  cmn: /[\u2E80-\u2E99\u2E9B-\u2EF3\u2F00-\u2FD5\u3005\u3007\u3021-\u3029\u3038-\u303B\u3400-\u4DB5\u4E00-\u9FCC\uF900-\uFA6D\uFA70-\uFAD9]|[\uD840-\uD868\uD86A-\uD86C][\uDC00-\uDFFF]|\uD869[\uDC00-\uDED6\uDF00-\uDFFF]|\uD86D[\uDC00-\uDF34\uDF40-\uDFFF]|\uD86E[\uDC00-\uDC1D]|\uD87E[\uDC00-\uDE1D]/g,
-  Latin: /[A-Za-z\xAA\xBA\xC0-\xD6\xD8-\xF6\xF8-\u02B8\u02E0-\u02E4\u1D00-\u1D25\u1D2C-\u1D5C\u1D62-\u1D65\u1D6B-\u1D77\u1D79-\u1DBE\u1E00-\u1EFF\u2071\u207F\u2090-\u209C\u212A\u212B\u2132\u214E\u2160-\u2188\u2C60-\u2C7F\uA722-\uA787\uA78B-\uA78E\uA790-\uA7AD\uA7B0\uA7B1\uA7F7-\uA7FF\uAB30-\uAB5A\uAB5C-\uAB5F\uAB64\uFB00-\uFB06\uFF21-\uFF3A\uFF41-\uFF5A]/g,
-  Cyrillic: /[\u0400-\u0484\u0487-\u052F\u1D2B\u1D78\u2DE0-\u2DFF\uA640-\uA69D\uA69F]/g,
-  Arabic: /[\u0600-\u0604\u0606-\u060B\u060D-\u061A\u061E\u0620-\u063F\u0641-\u064A\u0656-\u065F\u066A-\u066F\u0671-\u06DC\u06DE-\u06FF\u0750-\u077F\u08A0-\u08B2\u08E4-\u08FF\uFB50-\uFBC1\uFBD3-\uFD3D\uFD50-\uFD8F\uFD92-\uFDC7\uFDF0-\uFDFD\uFE70-\uFE74\uFE76-\uFEFC]|\uD803[\uDE60-\uDE7E]|\uD83B[\uDE00-\uDE03\uDE05-\uDE1F\uDE21\uDE22\uDE24\uDE27\uDE29-\uDE32\uDE34-\uDE37\uDE39\uDE3B\uDE42\uDE47\uDE49\uDE4B\uDE4D-\uDE4F\uDE51\uDE52\uDE54\uDE57\uDE59\uDE5B\uDE5D\uDE5F\uDE61\uDE62\uDE64\uDE67-\uDE6A\uDE6C-\uDE72\uDE74-\uDE77\uDE79-\uDE7C\uDE7E\uDE80-\uDE89\uDE8B-\uDE9B\uDEA1-\uDEA3\uDEA5-\uDEA9\uDEAB-\uDEBB\uDEF0\uDEF1]/g,
-  ben: /[\u0980-\u0983\u0985-\u098C\u098F\u0990\u0993-\u09A8\u09AA-\u09B0\u09B2\u09B6-\u09B9\u09BC-\u09C4\u09C7\u09C8\u09CB-\u09CE\u09D7\u09DC\u09DD\u09DF-\u09E3\u09E6-\u09FB]/g,
-  Devanagari: /[\u0900-\u0950\u0953-\u0963\u0966-\u097F\uA8E0-\uA8FB]/g,
-  jpn: /[\u3041-\u3096\u309D-\u309F]|\uD82C\uDC01|\uD83C\uDE00|[\u30A1-\u30FA\u30FD-\u30FF\u31F0-\u31FF\u32D0-\u32FE\u3300-\u3357\uFF66-\uFF6F\uFF71-\uFF9D]|\uD82C\uDC00/g,
-  kor: /[\u1100-\u11FF\u302E\u302F\u3131-\u318E\u3200-\u321E\u3260-\u327E\uA960-\uA97C\uAC00-\uD7A3\uD7B0-\uD7C6\uD7CB-\uD7FB\uFFA0-\uFFBE\uFFC2-\uFFC7\uFFCA-\uFFCF\uFFD2-\uFFD7\uFFDA-\uFFDC]/g,
-  tel: /[\u0C00-\u0C03\u0C05-\u0C0C\u0C0E-\u0C10\u0C12-\u0C28\u0C2A-\u0C39\u0C3D-\u0C44\u0C46-\u0C48\u0C4A-\u0C4D\u0C55\u0C56\u0C58\u0C59\u0C60-\u0C63\u0C66-\u0C6F\u0C78-\u0C7F]/g,
-  tam: /[\u0B82\u0B83\u0B85-\u0B8A\u0B8E-\u0B90\u0B92-\u0B95\u0B99\u0B9A\u0B9C\u0B9E\u0B9F\u0BA3\u0BA4\u0BA8-\u0BAA\u0BAE-\u0BB9\u0BBE-\u0BC2\u0BC6-\u0BC8\u0BCA-\u0BCD\u0BD0\u0BD7\u0BE6-\u0BFA]/g,
-  guj: /[\u0A81-\u0A83\u0A85-\u0A8D\u0A8F-\u0A91\u0A93-\u0AA8\u0AAA-\u0AB0\u0AB2\u0AB3\u0AB5-\u0AB9\u0ABC-\u0AC5\u0AC7-\u0AC9\u0ACB-\u0ACD\u0AD0\u0AE0-\u0AE3\u0AE6-\u0AF1]/g,
-  mal: /[\u0D01-\u0D03\u0D05-\u0D0C\u0D0E-\u0D10\u0D12-\u0D3A\u0D3D-\u0D44\u0D46-\u0D48\u0D4A-\u0D4E\u0D57\u0D60-\u0D63\u0D66-\u0D75\u0D79-\u0D7F]/g,
-  kan: /[\u0C81-\u0C83\u0C85-\u0C8C\u0C8E-\u0C90\u0C92-\u0CA8\u0CAA-\u0CB3\u0CB5-\u0CB9\u0CBC-\u0CC4\u0CC6-\u0CC8\u0CCA-\u0CCD\u0CD5\u0CD6\u0CDE\u0CE0-\u0CE3\u0CE6-\u0CEF\u0CF1\u0CF2]/g,
-  mya: /[\u1000-\u109F\uA9E0-\uA9FE\uAA60-\uAA7F]/g,
-  ori: /[\u0B01-\u0B03\u0B05-\u0B0C\u0B0F\u0B10\u0B13-\u0B28\u0B2A-\u0B30\u0B32\u0B33\u0B35-\u0B39\u0B3C-\u0B44\u0B47\u0B48\u0B4B-\u0B4D\u0B56\u0B57\u0B5C\u0B5D\u0B5F-\u0B63\u0B66-\u0B77]/g,
-  pan: /[\u0A01-\u0A03\u0A05-\u0A0A\u0A0F\u0A10\u0A13-\u0A28\u0A2A-\u0A30\u0A32\u0A33\u0A35\u0A36\u0A38\u0A39\u0A3C\u0A3E-\u0A42\u0A47\u0A48\u0A4B-\u0A4D\u0A51\u0A59-\u0A5C\u0A5E\u0A66-\u0A75]/g,
-  Ethiopic: /[\u1200-\u1248\u124A-\u124D\u1250-\u1256\u1258\u125A-\u125D\u1260-\u1288\u128A-\u128D\u1290-\u12B0\u12B2-\u12B5\u12B8-\u12BE\u12C0\u12C2-\u12C5\u12C8-\u12D6\u12D8-\u1310\u1312-\u1315\u1318-\u135A\u135D-\u137C\u1380-\u1399\u2D80-\u2D96\u2DA0-\u2DA6\u2DA8-\u2DAE\u2DB0-\u2DB6\u2DB8-\u2DBE\u2DC0-\u2DC6\u2DC8-\u2DCE\u2DD0-\u2DD6\u2DD8-\u2DDE\uAB01-\uAB06\uAB09-\uAB0E\uAB11-\uAB16\uAB20-\uAB26\uAB28-\uAB2E]/g,
-  tha: /[\u0E01-\u0E3A\u0E40-\u0E5B]/g,
-  sin: /[\u0D82\u0D83\u0D85-\u0D96\u0D9A-\u0DB1\u0DB3-\u0DBB\u0DBD\u0DC0-\u0DC6\u0DCA\u0DCF-\u0DD4\u0DD6\u0DD8-\u0DDF\u0DE6-\u0DEF\u0DF2-\u0DF4]|\uD804[\uDDE1-\uDDF4]/g,
-  ell: /[\u0370-\u0373\u0375-\u0377\u037A-\u037D\u037F\u0384\u0386\u0388-\u038A\u038C\u038E-\u03A1\u03A3-\u03E1\u03F0-\u03FF\u1D26-\u1D2A\u1D5D-\u1D61\u1D66-\u1D6A\u1DBF\u1F00-\u1F15\u1F18-\u1F1D\u1F20-\u1F45\u1F48-\u1F4D\u1F50-\u1F57\u1F59\u1F5B\u1F5D\u1F5F-\u1F7D\u1F80-\u1FB4\u1FB6-\u1FC4\u1FC6-\u1FD3\u1FD6-\u1FDB\u1FDD-\u1FEF\u1FF2-\u1FF4\u1FF6-\u1FFE\u2126\uAB65]|\uD800[\uDD40-\uDD8C\uDDA0]|\uD834[\uDE00-\uDE45]/g,
-  khm: /[\u1780-\u17DD\u17E0-\u17E9\u17F0-\u17F9\u19E0-\u19FF]/g,
-  hye: /[\u0531-\u0556\u0559-\u055F\u0561-\u0587\u058A\u058D-\u058F\uFB13-\uFB17]/g,
-  sat: /[\u1C50-\u1C7F]/g,
-  bod: /[\u0F00-\u0F47\u0F49-\u0F6C\u0F71-\u0F97\u0F99-\u0FBC\u0FBE-\u0FCC\u0FCE-\u0FD4\u0FD9\u0FDA]/g,
-  Hebrew: /[\u0591-\u05C7\u05D0-\u05EA\u05F0-\u05F4\uFB1D-\uFB36\uFB38-\uFB3C\uFB3E\uFB40\uFB41\uFB43\uFB44\uFB46-\uFB4F]/g,
-  kat: /[\u10A0-\u10C5\u10C7\u10CD\u10D0-\u10FA\u10FC-\u10FF\u2D00-\u2D25\u2D27\u2D2D]/g,
-  lao: /[\u0E81\u0E82\u0E84\u0E87\u0E88\u0E8A\u0E8D\u0E94-\u0E97\u0E99-\u0E9F\u0EA1-\u0EA3\u0EA5\u0EA7\u0EAA\u0EAB\u0EAD-\u0EB9\u0EBB-\u0EBD\u0EC0-\u0EC4\u0EC6\u0EC8-\u0ECD\u0ED0-\u0ED9\u0EDC-\u0EDF]/g,
-  iii: /[\uA000-\uA48C\uA490-\uA4C6]/g,
-  aii: /[\u0700-\u070D\u070F-\u074A\u074D-\u074F]/g
+    'cmn': /[\u2E80-\u2E99\u2E9B-\u2EF3\u2F00-\u2FD5\u3005\u3007\u3021-\u3029\u3038-\u303B\u3400-\u4DB5\u4E00-\u9FCC\uF900-\uFA6D\uFA70-\uFAD9]|[\uD840-\uD868\uD86A-\uD86C][\uDC00-\uDFFF]|\uD869[\uDC00-\uDED6\uDF00-\uDFFF]|\uD86D[\uDC00-\uDF34\uDF40-\uDFFF]|\uD86E[\uDC00-\uDC1D]|\uD87E[\uDC00-\uDE1D]/g,
+    'Latin': /[A-Za-z\xAA\xBA\xC0-\xD6\xD8-\xF6\xF8-\u02B8\u02E0-\u02E4\u1D00-\u1D25\u1D2C-\u1D5C\u1D62-\u1D65\u1D6B-\u1D77\u1D79-\u1DBE\u1E00-\u1EFF\u2071\u207F\u2090-\u209C\u212A\u212B\u2132\u214E\u2160-\u2188\u2C60-\u2C7F\uA722-\uA787\uA78B-\uA78E\uA790-\uA7AD\uA7B0\uA7B1\uA7F7-\uA7FF\uAB30-\uAB5A\uAB5C-\uAB5F\uAB64\uFB00-\uFB06\uFF21-\uFF3A\uFF41-\uFF5A]/g,
+    'Cyrillic': /[\u0400-\u0484\u0487-\u052F\u1D2B\u1D78\u2DE0-\u2DFF\uA640-\uA69D\uA69F]/g,
+    'Arabic': /[\u0600-\u0604\u0606-\u060B\u060D-\u061A\u061E\u0620-\u063F\u0641-\u064A\u0656-\u065F\u066A-\u066F\u0671-\u06DC\u06DE-\u06FF\u0750-\u077F\u08A0-\u08B2\u08E4-\u08FF\uFB50-\uFBC1\uFBD3-\uFD3D\uFD50-\uFD8F\uFD92-\uFDC7\uFDF0-\uFDFD\uFE70-\uFE74\uFE76-\uFEFC]|\uD803[\uDE60-\uDE7E]|\uD83B[\uDE00-\uDE03\uDE05-\uDE1F\uDE21\uDE22\uDE24\uDE27\uDE29-\uDE32\uDE34-\uDE37\uDE39\uDE3B\uDE42\uDE47\uDE49\uDE4B\uDE4D-\uDE4F\uDE51\uDE52\uDE54\uDE57\uDE59\uDE5B\uDE5D\uDE5F\uDE61\uDE62\uDE64\uDE67-\uDE6A\uDE6C-\uDE72\uDE74-\uDE77\uDE79-\uDE7C\uDE7E\uDE80-\uDE89\uDE8B-\uDE9B\uDEA1-\uDEA3\uDEA5-\uDEA9\uDEAB-\uDEBB\uDEF0\uDEF1]/g,
+    'ben': /[\u0980-\u0983\u0985-\u098C\u098F\u0990\u0993-\u09A8\u09AA-\u09B0\u09B2\u09B6-\u09B9\u09BC-\u09C4\u09C7\u09C8\u09CB-\u09CE\u09D7\u09DC\u09DD\u09DF-\u09E3\u09E6-\u09FB]/g,
+    'Devanagari': /[\u0900-\u0950\u0953-\u0963\u0966-\u097F\uA8E0-\uA8FB]/g,
+    'jpn': /[\u3041-\u3096\u309D-\u309F]|\uD82C\uDC01|\uD83C\uDE00|[\u30A1-\u30FA\u30FD-\u30FF\u31F0-\u31FF\u32D0-\u32FE\u3300-\u3357\uFF66-\uFF6F\uFF71-\uFF9D]|\uD82C\uDC00/g,
+    'kor': /[\u1100-\u11FF\u302E\u302F\u3131-\u318E\u3200-\u321E\u3260-\u327E\uA960-\uA97C\uAC00-\uD7A3\uD7B0-\uD7C6\uD7CB-\uD7FB\uFFA0-\uFFBE\uFFC2-\uFFC7\uFFCA-\uFFCF\uFFD2-\uFFD7\uFFDA-\uFFDC]/g,
+    'tel': /[\u0C00-\u0C03\u0C05-\u0C0C\u0C0E-\u0C10\u0C12-\u0C28\u0C2A-\u0C39\u0C3D-\u0C44\u0C46-\u0C48\u0C4A-\u0C4D\u0C55\u0C56\u0C58\u0C59\u0C60-\u0C63\u0C66-\u0C6F\u0C78-\u0C7F]/g,
+    'tam': /[\u0B82\u0B83\u0B85-\u0B8A\u0B8E-\u0B90\u0B92-\u0B95\u0B99\u0B9A\u0B9C\u0B9E\u0B9F\u0BA3\u0BA4\u0BA8-\u0BAA\u0BAE-\u0BB9\u0BBE-\u0BC2\u0BC6-\u0BC8\u0BCA-\u0BCD\u0BD0\u0BD7\u0BE6-\u0BFA]/g,
+    'guj': /[\u0A81-\u0A83\u0A85-\u0A8D\u0A8F-\u0A91\u0A93-\u0AA8\u0AAA-\u0AB0\u0AB2\u0AB3\u0AB5-\u0AB9\u0ABC-\u0AC5\u0AC7-\u0AC9\u0ACB-\u0ACD\u0AD0\u0AE0-\u0AE3\u0AE6-\u0AF1]/g,
+    'mal': /[\u0D01-\u0D03\u0D05-\u0D0C\u0D0E-\u0D10\u0D12-\u0D3A\u0D3D-\u0D44\u0D46-\u0D48\u0D4A-\u0D4E\u0D57\u0D60-\u0D63\u0D66-\u0D75\u0D79-\u0D7F]/g,
+    'kan': /[\u0C81-\u0C83\u0C85-\u0C8C\u0C8E-\u0C90\u0C92-\u0CA8\u0CAA-\u0CB3\u0CB5-\u0CB9\u0CBC-\u0CC4\u0CC6-\u0CC8\u0CCA-\u0CCD\u0CD5\u0CD6\u0CDE\u0CE0-\u0CE3\u0CE6-\u0CEF\u0CF1\u0CF2]/g,
+    'mya': /[\u1000-\u109F\uA9E0-\uA9FE\uAA60-\uAA7F]/g,
+    'ori': /[\u0B01-\u0B03\u0B05-\u0B0C\u0B0F\u0B10\u0B13-\u0B28\u0B2A-\u0B30\u0B32\u0B33\u0B35-\u0B39\u0B3C-\u0B44\u0B47\u0B48\u0B4B-\u0B4D\u0B56\u0B57\u0B5C\u0B5D\u0B5F-\u0B63\u0B66-\u0B77]/g,
+    'pan': /[\u0A01-\u0A03\u0A05-\u0A0A\u0A0F\u0A10\u0A13-\u0A28\u0A2A-\u0A30\u0A32\u0A33\u0A35\u0A36\u0A38\u0A39\u0A3C\u0A3E-\u0A42\u0A47\u0A48\u0A4B-\u0A4D\u0A51\u0A59-\u0A5C\u0A5E\u0A66-\u0A75]/g,
+    'Ethiopic': /[\u1200-\u1248\u124A-\u124D\u1250-\u1256\u1258\u125A-\u125D\u1260-\u1288\u128A-\u128D\u1290-\u12B0\u12B2-\u12B5\u12B8-\u12BE\u12C0\u12C2-\u12C5\u12C8-\u12D6\u12D8-\u1310\u1312-\u1315\u1318-\u135A\u135D-\u137C\u1380-\u1399\u2D80-\u2D96\u2DA0-\u2DA6\u2DA8-\u2DAE\u2DB0-\u2DB6\u2DB8-\u2DBE\u2DC0-\u2DC6\u2DC8-\u2DCE\u2DD0-\u2DD6\u2DD8-\u2DDE\uAB01-\uAB06\uAB09-\uAB0E\uAB11-\uAB16\uAB20-\uAB26\uAB28-\uAB2E]/g,
+    'tha': /[\u0E01-\u0E3A\u0E40-\u0E5B]/g,
+    'sin': /[\u0D82\u0D83\u0D85-\u0D96\u0D9A-\u0DB1\u0DB3-\u0DBB\u0DBD\u0DC0-\u0DC6\u0DCA\u0DCF-\u0DD4\u0DD6\u0DD8-\u0DDF\u0DE6-\u0DEF\u0DF2-\u0DF4]|\uD804[\uDDE1-\uDDF4]/g,
+    'ell': /[\u0370-\u0373\u0375-\u0377\u037A-\u037D\u037F\u0384\u0386\u0388-\u038A\u038C\u038E-\u03A1\u03A3-\u03E1\u03F0-\u03FF\u1D26-\u1D2A\u1D5D-\u1D61\u1D66-\u1D6A\u1DBF\u1F00-\u1F15\u1F18-\u1F1D\u1F20-\u1F45\u1F48-\u1F4D\u1F50-\u1F57\u1F59\u1F5B\u1F5D\u1F5F-\u1F7D\u1F80-\u1FB4\u1FB6-\u1FC4\u1FC6-\u1FD3\u1FD6-\u1FDB\u1FDD-\u1FEF\u1FF2-\u1FF4\u1FF6-\u1FFE\u2126\uAB65]|\uD800[\uDD40-\uDD8C\uDDA0]|\uD834[\uDE00-\uDE45]/g,
+    'khm': /[\u1780-\u17DD\u17E0-\u17E9\u17F0-\u17F9\u19E0-\u19FF]/g,
+    'hye': /[\u0531-\u0556\u0559-\u055F\u0561-\u0587\u058A\u058D-\u058F\uFB13-\uFB17]/g,
+    'sat': /[\u1C50-\u1C7F]/g,
+    'bod': /[\u0F00-\u0F47\u0F49-\u0F6C\u0F71-\u0F97\u0F99-\u0FBC\u0FBE-\u0FCC\u0FCE-\u0FD4\u0FD9\u0FDA]/g,
+    'Hebrew': /[\u0591-\u05C7\u05D0-\u05EA\u05F0-\u05F4\uFB1D-\uFB36\uFB38-\uFB3C\uFB3E\uFB40\uFB41\uFB43\uFB44\uFB46-\uFB4F]/g,
+    'kat': /[\u10A0-\u10C5\u10C7\u10CD\u10D0-\u10FA\u10FC-\u10FF\u2D00-\u2D25\u2D27\u2D2D]/g,
+    'lao': /[\u0E81\u0E82\u0E84\u0E87\u0E88\u0E8A\u0E8D\u0E94-\u0E97\u0E99-\u0E9F\u0EA1-\u0EA3\u0EA5\u0EA7\u0EAA\u0EAB\u0EAD-\u0EB9\u0EBB-\u0EBD\u0EC0-\u0EC4\u0EC6\u0EC8-\u0ECD\u0ED0-\u0ED9\u0EDC-\u0EDF]/g,
+    'iii': /[\uA000-\uA48C\uA490-\uA4C6]/g,
+    'aii': /[\u0700-\u070D\u070F-\u074A\u074D-\u074F]/g
 };
 
-},{}],100:[function(require,module,exports){
+},{}],101:[function(require,module,exports){
 'use strict';
+
+/* eslint-env commonjs */
 
 /*
  * Load `trigram-utils`.
@@ -32780,8 +32900,8 @@ var MAX_DIFFERENCE = 300;
  *   > [[0, 20], [0, 1], [0, 5]].sort(sort);
  *   // [[0, 1], [0, 5], [0, 20]]
  *
- * @param {Object} a
- * @param {Object} b
+ * @param {Object} a - Left-hand.
+ * @param {Object} b - Right-hand.
  */
 function sort(a, b) {
     return a[1] - b[1];
@@ -32791,14 +32911,14 @@ function sort(a, b) {
  * Filter `languages` by removing languages in
  * `blacklist`, or including languages in `whitelist`.
  *
- * @param {Object.<string, Object>} languages - Languages
+ * @param {Object.<Object>} languages - Languages
  *   to filter
  * @param {Array.<string>} whitelist - Whitelisted
  *   languages; if non-empty, only included languages
  *   are kept.
  * @param {Array.<string>} blacklist - Blacklisted
  *   languages; included languages are ignored.
- * @return {Object.<string, Object>} - Filtered array of
+ * @return {Object.<Object>} - Filtered array of
  *   languages.
  */
 function filterLanguages(languages, whitelist, blacklist) {
@@ -32832,7 +32952,7 @@ function filterLanguages(languages, whitelist, blacklist) {
  *
  * @param {Array.<Array.<string, number>>} trigrams - An
  *   array containing trigram--count tuples.
- * @param {Object.<string, number>} model - Object
+ * @param {Object.<number>} model - Object
  *   containing weighted trigrams.
  * @return {number} - The distance between the two.
  */
@@ -32890,8 +33010,9 @@ function und() {
  *
  * @param {Array.<Array.<string, number>>} trigrams - An
  *   array containing trigram--count tuples.
- * @param {Object.<string, Object>} languages - multiple
+ * @param {Object.<Object>} languages - multiple
  *   trigrams to test against.
+ * @param {Object} options - Configuration.
  * @return {Array.<Array.<string, number>>} An array
  *   containing language--distance tuples.
  */
@@ -32916,8 +33037,8 @@ function getDistances(trigrams, languages, options) {
 /**
  * Get the occurrence ratio of `expression` for `value`.
  *
- * @param {string} value
- * @param {RegExp} expression
+ * @param {string} value - Value to check.
+ * @param {RegExp} expression - Code-point expression.
  * @return {number} Float between 0 and 1.
  */
 function getOccurrence(value, expression) {
@@ -32930,8 +33051,8 @@ function getOccurrence(value, expression) {
  * From `scripts`, get the most occurring expression for
  * `value`.
  *
- * @param {string} value
- * @param {Object.<string, RegExp>} scripts
+ * @param {string} value - Value to check.
+ * @param {Object.<RegExp>} scripts - Top-Scripts.
  * @return {Array} Top script and its
  *   occurrence percentage.
  */
@@ -32957,8 +33078,9 @@ function getTopScript(value, scripts) {
  * Normalize the difference for each tuple in
  * `distances`.
  *
- * @param {string} value
+ * @param {string} value - Value to normalize.
  * @param {Array.<Array.<string, number>>} distances
+ *   - List of distances.
  * @return {Array.<Array.<string, number>>} - Normalized
  *   distances.
  */
@@ -32980,6 +33102,7 @@ function normalize(value, distances) {
  * written in.
  *
  * @param {string} value - The value to test.
+ * @param {Object} options - Configuration.
  * @return {Array.<Array.<string, number>>} An array
  *   containing language--distance tuples.
  */
@@ -33030,6 +33153,7 @@ function detectAll(value, options) {
  * Get the most probable language for the given value.
  *
  * @param {string} value - The value to test.
+ * @param {Object} options - Configuration.
  * @return {string} The most probable language.
  */
 function detect(value, options) {
@@ -33048,7 +33172,7 @@ detect.all = detectAll;
 
 module.exports = detect;
 
-},{"./data.json":98,"./expressions.js":99,"trigram-utils":101}],101:[function(require,module,exports){
+},{"./data.json":99,"./expressions.js":100,"trigram-utils":102}],102:[function(require,module,exports){
 'use strict';
 
 var getTrigrams,
@@ -33254,7 +33378,7 @@ module.exports = {
     'tuplesAsDictionary': getCleanTrigramTuplesAsDictionary
 };
 
-},{"n-gram":102}],102:[function(require,module,exports){
+},{"n-gram":103}],103:[function(require,module,exports){
 'use strict';
 
 /**
@@ -33352,4927 +33476,7 @@ nGram.bigram = nGram(2);
 
 nGram.trigram = nGram(3);
 
-},{}],103:[function(require,module,exports){
-/**
- * @author Titus Wormer
- * @copyright 2014-2015 Titus Wormer
- * @license MIT
- * @module retext:language
- * @fileoverview Detect the language of text with Retext.
- */
-
-'use strict';
-
-/*
- * Dependencies.
- */
-
-var franc = require('franc');
-var visit = require('unist-util-visit');
-var nlcstToString = require('nlcst-to-string');
-
-/**
- * Patch a `language` and `languages` properties on `node`.
- *
- * @param {NLCSTNode} node - Node.
- * @param {Array.<Array.<string, number>>} languages - Languages.
- */
-function patch(node, languages) {
-    var data = node.data || {};
-    var primary = languages[0][0];
-
-    data.language = primary === 'und' ? null : primary;
-    data.languages = languages;
-
-    node.data = data;
-}
-
-/**
- * Deep regular sort on the number at `1` in both objects.
- *
- * @example
- *   > [[0, 20], [0, 1], [0, 5]].sort(sort);
- *   // [[0, 1], [0, 5], [0, 20]]
- *
- * @param {Object} a - Value.
- * @param {Object} b - Comparator.
- */
-function sort(a, b) {
-    return a[1] - b[1];
-}
-
-/**
- * Get a sorted array containing language--distance
- * tuples from an object with trigrams as its
- * attributes, and their occurence count as their
- * values.
- *
- * @param {Object.<string, number>} dictionary - Map of
- *   language-codes to distances.
- * @return {Array.<Array.<string, number>>} An
- *   array containing language--distance tupples,
- *   sorted by count (low to high).
- */
-function sortDistanceObject(dictionary) {
-    var distances,
-        distance;
-
-    distances = [];
-
-    for (distance in dictionary) {
-        distances.push([distance, dictionary[distance]]);
-    }
-
-    return distances.sort(sort);
-}
-
-/**
- * Patch a properties on `SentenceNode`s.
- *
- * @param {NLCSTSentenceNode} node - Sentence.
- */
-function any(node) {
-    patch(node, franc.all(nlcstToString(node)));
-}
-
-/**
- * Factory to gather parents and patch them based on their
- * childrens directionality.
- *
- * @return {function(node, index, parent)} - Can be passed
- *   to `visit`.
- */
-function concatenateFactory() {
-    var queue = [];
-
-    /**
-     * Gather a parent if not already gathered.
-     *
-     * @param {NLCSTChildNode} node - Child.
-     * @param {number} index - Position of `node` in
-     *   `parent`.
-     * @param {NLCSTParentNode} parent - Parent of `child`.
-     */
-    function concatenate(node, index, parent) {
-        if (
-            parent &&
-            (parent.type === 'ParagraphNode' || parent.type === 'RootNode') &&
-            queue.indexOf(parent) === -1
-        ) {
-            queue.push(parent);
-        }
-    }
-
-    /**
-     * Patch one parent.
-     *
-     * @param {NLCSTParentNode} node - Parent
-     * @return {Array.<Array.<string, number>>} - Language
-     *  map.
-     */
-    function one(node) {
-        var children = node.children;
-        var length = children.length;
-        var index = -1;
-        var languages;
-        var child;
-        var dictionary = {};
-        var tuple;
-
-        while (++index < length) {
-            child = children[index];
-            languages = child.data && child.data.languages;
-
-            if (languages) {
-                tuple = languages[0];
-
-                if (tuple[0] in dictionary) {
-                    dictionary[tuple[0]] += tuple[1];
-                } else {
-                    dictionary[tuple[0]] = tuple[1];
-                }
-            }
-        }
-
-        return sortDistanceObject(dictionary);
-    }
-
-    /**
-     * Patch all parents in reverse order: this means
-     * that first the last and deepest parent is invoked
-     * up to the first and highest parent.
-     */
-    function done() {
-        var index = queue.length;
-
-        while (index--) {
-            patch(queue[index], one(queue[index]));
-        }
-    }
-
-    concatenate.done = done;
-
-    return concatenate;
-}
-
-/**
- * Transformer.
- *
- * @param {NLCSTNode} cst - Syntax tree.
- */
-function transformer(cst) {
-    var concatenate = concatenateFactory();
-
-    visit(cst, 'SentenceNode', any);
-    visit(cst, concatenate);
-
-    concatenate.done();
-}
-
-/**
- * Attacher.
- *
- * @return {Function} - `transformer`.
- */
-function attacher() {
-    return transformer;
-}
-
-/*
- * Expose.
- */
-
-module.exports = attacher;
-
-},{"franc":97,"nlcst-to-string":104,"unist-util-visit":105}],104:[function(require,module,exports){
-/**
- * @author Titus Wormer
- * @copyright 2014-2015 Titus Wormer
- * @license MIT
- * @module nlcst:to-string
- * @fileoverview Transform an NLCST node into a string.
- */
-
-'use strict';
-
-/* eslint-env commonjs */
-
-/**
- * Stringify an NLCST node.
- *
- * @param {NLCSTNode|Array.<NLCSTNode>} node - Node to to
- *   stringify.
- * @param {string} separator - Value to separate each item
- *   with.
- * @return {string} - Stringified `node`.
- */
-function nlcstToString(node, separator) {
-    var values;
-    var length;
-    var children;
-
-    separator = separator || '';
-
-    if (typeof node.value === 'string') {
-        return node.value;
-    }
-
-    children = 'length' in node ? node : node.children;
-    length = children.length;
-
-    /*
-     * Shortcut: This is pretty common, and a small performance win.
-     */
-
-    if (length === 1 && 'value' in children[0]) {
-        return children[0].value;
-    }
-
-    values = [];
-
-    while (length--) {
-        values[length] = nlcstToString(children[length], separator);
-    }
-
-    return values.join(separator);
-}
-
-/*
- * Expose.
- */
-
-module.exports = nlcstToString;
-
-},{}],105:[function(require,module,exports){
-'use strict';
-
-/* Expose. */
-module.exports = visit;
-
-/* Visit. */
-function visit(tree, type, visitor, reverse) {
-  if (typeof type === 'function') {
-    reverse = visitor;
-    visitor = type;
-    type = null;
-  }
-
-  one(tree);
-
-  return;
-
-  /* Visit a single node. */
-  function one(node, index, parent) {
-    var result;
-
-    index = index || (parent ? 0 : null);
-
-    if (!type || node.type === type) {
-      result = visitor(node, index, parent || null);
-    }
-
-    if (node.children && result !== false) {
-      return all(node.children, node);
-    }
-
-    return result;
-  }
-
-  /* Visit children in `parent`. */
-  function all(children, parent) {
-    var step = reverse ? -1 : 1;
-    var max = children.length;
-    var min = -1;
-    var index = (reverse ? max : min) + step;
-    var child;
-
-    while (index > min && index < max) {
-      child = children[index];
-
-      if (child && one(child, index, parent) === false) {
-        return false;
-      }
-
-      index += step;
-    }
-
-    return true;
-  }
-}
-
-},{}],106:[function(require,module,exports){
-/**
- * @author Titus Wormer
- * @copyright 2014-2015 Titus Wormer.
- * @license MIT
- * @module retext
- * @fileoverview Extensible system for analysing and manipulating
- *   natural language.
- */
-
-'use strict';
-
-/* eslint-env commonjs */
-
-/*
- * Dependencies.
- */
-
-var unified = require('unified');
-var Parser = require('parse-latin');
-var Compiler = require('./lib/compile.js');
-
-/*
- * Exports.
- */
-
-module.exports = unified({
-    'name': 'retext',
-    'Parser': Parser,
-    'Compiler': Compiler
-});
-
-},{"./lib/compile.js":107,"parse-latin":109,"unified":136}],107:[function(require,module,exports){
-/**
- * @author Titus Wormer
- * @copyright 2014-2015 Titus Wormer. All rights reserved.
- * @license MIT
- * @module retext:compile
- * @fileoverview Compile nlcst to string.
- */
-
-/* eslint-env commonjs */
-
-'use strict';
-
-/*
- * Dependencies.
- */
-
-var toString = require('nlcst-to-string');
-
-/**
- * Construct a new compiler.
- *
- * @example
- *   var file = new VFile('Hello World.');
- *
- *   file.namespace('retext').cst = {
- *       'type': 'SentenceNode',
- *       'children': [
- *           {
- *               'type': 'WordNode',
- *               'children': [{
- *                   'type': 'TextNode',
- *                   'value': 'Hello'
- *               }]
- *           },
- *           {
- *               'type': 'WhiteSpaceNode',
- *               'value': ' '
- *           },
- *           {
- *               'type': 'WordNode',
- *               'children': [{
- *                   'type': 'TextNode',
- *                   'value': 'World'
- *               }]
- *           },
- *           {
- *               'type': 'PunctuationNode',
- *               'value': '.'
- *           }
- *       ]
- *   };
- *
- *   var compiler = new Compiler(file);
- *
- * @constructor
- * @class {Compiler}
- * @param {File} file - Virtual file.
- */
-function Compiler(file) {
-    this.file = file;
-}
-
-/**
- * Stringify the bound file.
- *
- * @example
- *   var file = new VFile('Hello');
- *
- *   file.namespace('retext').cst = {
- *     type: 'WordNode',
- *     children: [{
- *       type: 'TextNode',
- *       value: 'Hello'
- *     }]
- *   });
- *
- *   new Compiler(file).compile();
- *   // 'Foo'
- *
- * @this {Compiler}
- * @return {string} - Document.
- */
-function compile() {
-    return toString(this.file.namespace('retext').tree);
-}
-
-/*
- * Expose `compile`.
- */
-
-Compiler.prototype.compile = compile;
-
-/*
- * Expose.
- */
-
-module.exports = Compiler;
-
-},{"nlcst-to-string":108}],108:[function(require,module,exports){
-arguments[4][104][0].apply(exports,arguments)
-},{"dup":104}],109:[function(require,module,exports){
-/**
- * @author Titus Wormer
- * @copyright 2014-2015 Titus Wormer
- * @license MIT
- * @module parse-latin
- * @fileoverview Latin-script (natural language) parser.
- */
-
-'use strict';
-
-/* eslint-env commonjs */
-
-module.exports = require('./lib/parse-latin');
-
-},{"./lib/parse-latin":111}],110:[function(require,module,exports){
-/* This module is generated by `script/build-expressions.js` */
-'use strict'
-/* eslint-env commonjs */
-module.exports = {
-    'affixSymbol': /^([\)\]\}\u0F3B\u0F3D\u169C\u2046\u207E\u208E\u2309\u230B\u232A\u2769\u276B\u276D\u276F\u2771\u2773\u2775\u27C6\u27E7\u27E9\u27EB\u27ED\u27EF\u2984\u2986\u2988\u298A\u298C\u298E\u2990\u2992\u2994\u2996\u2998\u29D9\u29DB\u29FD\u2E23\u2E25\u2E27\u2E29\u3009\u300B\u300D\u300F\u3011\u3015\u3017\u3019\u301B\u301E\u301F\uFD3E\uFE18\uFE36\uFE38\uFE3A\uFE3C\uFE3E\uFE40\uFE42\uFE44\uFE48\uFE5A\uFE5C\uFE5E\uFF09\uFF3D\uFF5D\uFF60\uFF63]|["'\xBB\u2019\u201D\u203A\u2E03\u2E05\u2E0A\u2E0D\u2E1D\u2E21]|[!\.\?\u2026\u203D])\1*$/,
-    'newLine': /^(\r?\n|\r)+$/,
-    'newLineMulti': /^(\r?\n|\r){2,}$/,
-    'terminalMarker': /^((?:[!\.\?\u2026\u203D])+)$/,
-    'wordSymbolInner': /^((?:[&'\-\.:=\?@\xAD\xB7\u2010\u2011\u2019\u2027])|(?:[\/_])+)$/,
-    'punctuation': /^(?:[!"'-\),-\/:;\?\[-\]_\{\}\xA1\xA7\xAB\xB6\xB7\xBB\xBF\u037E\u0387\u055A-\u055F\u0589\u058A\u05BE\u05C0\u05C3\u05C6\u05F3\u05F4\u0609\u060A\u060C\u060D\u061B\u061E\u061F\u066A-\u066D\u06D4\u0700-\u070D\u07F7-\u07F9\u0830-\u083E\u085E\u0964\u0965\u0970\u0AF0\u0DF4\u0E4F\u0E5A\u0E5B\u0F04-\u0F12\u0F14\u0F3A-\u0F3D\u0F85\u0FD0-\u0FD4\u0FD9\u0FDA\u104A-\u104F\u10FB\u1360-\u1368\u1400\u166D\u166E\u169B\u169C\u16EB-\u16ED\u1735\u1736\u17D4-\u17D6\u17D8-\u17DA\u1800-\u180A\u1944\u1945\u1A1E\u1A1F\u1AA0-\u1AA6\u1AA8-\u1AAD\u1B5A-\u1B60\u1BFC-\u1BFF\u1C3B-\u1C3F\u1C7E\u1C7F\u1CC0-\u1CC7\u1CD3\u2010-\u201F\u2022-\u2027\u2032-\u203A\u203C-\u2043\u2045-\u2051\u2053-\u205E\u207D\u207E\u208D\u208E\u2308-\u230B\u2329\u232A\u2768-\u2775\u27C5\u27C6\u27E6-\u27EF\u2983-\u2998\u29D8-\u29DB\u29FC\u29FD\u2CF9-\u2CFC\u2CFE\u2CFF\u2D70\u2E00-\u2E2E\u2E30-\u2E42\u3001-\u3003\u3008-\u3011\u3014-\u301F\u3030\u303D\u30A0\u30FB\uA4FE\uA4FF\uA60D-\uA60F\uA673\uA67E\uA6F2-\uA6F7\uA874-\uA877\uA8CE\uA8CF\uA8F8-\uA8FA\uA8FC\uA92E\uA92F\uA95F\uA9C1-\uA9CD\uA9DE\uA9DF\uAA5C-\uAA5F\uAADE\uAADF\uAAF0\uAAF1\uABEB\uFD3E\uFD3F\uFE10-\uFE19\uFE30-\uFE52\uFE54-\uFE61\uFE63\uFE68\uFE6A\uFE6B\uFF01-\uFF03\uFF05-\uFF0A\uFF0C-\uFF0F\uFF1A\uFF1B\uFF1F\uFF20\uFF3B-\uFF3D\uFF3F\uFF5B\uFF5D\uFF5F-\uFF65]|\uD800[\uDD00-\uDD02\uDF9F\uDFD0]|\uD801\uDD6F|\uD802[\uDC57\uDD1F\uDD3F\uDE50-\uDE58\uDE7F\uDEF0-\uDEF6\uDF39-\uDF3F\uDF99-\uDF9C]|\uD804[\uDC47-\uDC4D\uDCBB\uDCBC\uDCBE-\uDCC1\uDD40-\uDD43\uDD74\uDD75\uDDC5-\uDDC9\uDDCD\uDDDB\uDDDD-\uDDDF\uDE38-\uDE3D\uDEA9]|\uD805[\uDCC6\uDDC1-\uDDD7\uDE41-\uDE43\uDF3C-\uDF3E]|\uD809[\uDC70-\uDC74]|\uD81A[\uDE6E\uDE6F\uDEF5\uDF37-\uDF3B\uDF44]|\uD82F\uDC9F|\uD836[\uDE87-\uDE8B])+$/,
-    'numerical': /^(?:[0-9\xB2\xB3\xB9\xBC-\xBE\u0660-\u0669\u06F0-\u06F9\u07C0-\u07C9\u0966-\u096F\u09E6-\u09EF\u09F4-\u09F9\u0A66-\u0A6F\u0AE6-\u0AEF\u0B66-\u0B6F\u0B72-\u0B77\u0BE6-\u0BF2\u0C66-\u0C6F\u0C78-\u0C7E\u0CE6-\u0CEF\u0D66-\u0D75\u0DE6-\u0DEF\u0E50-\u0E59\u0ED0-\u0ED9\u0F20-\u0F33\u1040-\u1049\u1090-\u1099\u1369-\u137C\u16EE-\u16F0\u17E0-\u17E9\u17F0-\u17F9\u1810-\u1819\u1946-\u194F\u19D0-\u19DA\u1A80-\u1A89\u1A90-\u1A99\u1B50-\u1B59\u1BB0-\u1BB9\u1C40-\u1C49\u1C50-\u1C59\u2070\u2074-\u2079\u2080-\u2089\u2150-\u2182\u2185-\u2189\u2460-\u249B\u24EA-\u24FF\u2776-\u2793\u2CFD\u3007\u3021-\u3029\u3038-\u303A\u3192-\u3195\u3220-\u3229\u3248-\u324F\u3251-\u325F\u3280-\u3289\u32B1-\u32BF\uA620-\uA629\uA6E6-\uA6EF\uA830-\uA835\uA8D0-\uA8D9\uA900-\uA909\uA9D0-\uA9D9\uA9F0-\uA9F9\uAA50-\uAA59\uABF0-\uABF9\uFF10-\uFF19]|\uD800[\uDD07-\uDD33\uDD40-\uDD78\uDD8A\uDD8B\uDEE1-\uDEFB\uDF20-\uDF23\uDF41\uDF4A\uDFD1-\uDFD5]|\uD801[\uDCA0-\uDCA9]|\uD802[\uDC58-\uDC5F\uDC79-\uDC7F\uDCA7-\uDCAF\uDCFB-\uDCFF\uDD16-\uDD1B\uDDBC\uDDBD\uDDC0-\uDDCF\uDDD2-\uDDFF\uDE40-\uDE47\uDE7D\uDE7E\uDE9D-\uDE9F\uDEEB-\uDEEF\uDF58-\uDF5F\uDF78-\uDF7F\uDFA9-\uDFAF]|\uD803[\uDCFA-\uDCFF\uDE60-\uDE7E]|\uD804[\uDC52-\uDC6F\uDCF0-\uDCF9\uDD36-\uDD3F\uDDD0-\uDDD9\uDDE1-\uDDF4\uDEF0-\uDEF9]|\uD805[\uDCD0-\uDCD9\uDE50-\uDE59\uDEC0-\uDEC9\uDF30-\uDF3B]|\uD806[\uDCE0-\uDCF2]|\uD809[\uDC00-\uDC6E]|\uD81A[\uDE60-\uDE69\uDF50-\uDF59\uDF5B-\uDF61]|\uD834[\uDF60-\uDF71]|\uD835[\uDFCE-\uDFFF]|\uD83A[\uDCC7-\uDCCF]|\uD83C[\uDD00-\uDD0C])+$/,
-    'lowerInitial': /^(?:[a-z\xB5\xDF-\xF6\xF8-\xFF\u0101\u0103\u0105\u0107\u0109\u010B\u010D\u010F\u0111\u0113\u0115\u0117\u0119\u011B\u011D\u011F\u0121\u0123\u0125\u0127\u0129\u012B\u012D\u012F\u0131\u0133\u0135\u0137\u0138\u013A\u013C\u013E\u0140\u0142\u0144\u0146\u0148\u0149\u014B\u014D\u014F\u0151\u0153\u0155\u0157\u0159\u015B\u015D\u015F\u0161\u0163\u0165\u0167\u0169\u016B\u016D\u016F\u0171\u0173\u0175\u0177\u017A\u017C\u017E-\u0180\u0183\u0185\u0188\u018C\u018D\u0192\u0195\u0199-\u019B\u019E\u01A1\u01A3\u01A5\u01A8\u01AA\u01AB\u01AD\u01B0\u01B4\u01B6\u01B9\u01BA\u01BD-\u01BF\u01C6\u01C9\u01CC\u01CE\u01D0\u01D2\u01D4\u01D6\u01D8\u01DA\u01DC\u01DD\u01DF\u01E1\u01E3\u01E5\u01E7\u01E9\u01EB\u01ED\u01EF\u01F0\u01F3\u01F5\u01F9\u01FB\u01FD\u01FF\u0201\u0203\u0205\u0207\u0209\u020B\u020D\u020F\u0211\u0213\u0215\u0217\u0219\u021B\u021D\u021F\u0221\u0223\u0225\u0227\u0229\u022B\u022D\u022F\u0231\u0233-\u0239\u023C\u023F\u0240\u0242\u0247\u0249\u024B\u024D\u024F-\u0293\u0295-\u02AF\u0371\u0373\u0377\u037B-\u037D\u0390\u03AC-\u03CE\u03D0\u03D1\u03D5-\u03D7\u03D9\u03DB\u03DD\u03DF\u03E1\u03E3\u03E5\u03E7\u03E9\u03EB\u03ED\u03EF-\u03F3\u03F5\u03F8\u03FB\u03FC\u0430-\u045F\u0461\u0463\u0465\u0467\u0469\u046B\u046D\u046F\u0471\u0473\u0475\u0477\u0479\u047B\u047D\u047F\u0481\u048B\u048D\u048F\u0491\u0493\u0495\u0497\u0499\u049B\u049D\u049F\u04A1\u04A3\u04A5\u04A7\u04A9\u04AB\u04AD\u04AF\u04B1\u04B3\u04B5\u04B7\u04B9\u04BB\u04BD\u04BF\u04C2\u04C4\u04C6\u04C8\u04CA\u04CC\u04CE\u04CF\u04D1\u04D3\u04D5\u04D7\u04D9\u04DB\u04DD\u04DF\u04E1\u04E3\u04E5\u04E7\u04E9\u04EB\u04ED\u04EF\u04F1\u04F3\u04F5\u04F7\u04F9\u04FB\u04FD\u04FF\u0501\u0503\u0505\u0507\u0509\u050B\u050D\u050F\u0511\u0513\u0515\u0517\u0519\u051B\u051D\u051F\u0521\u0523\u0525\u0527\u0529\u052B\u052D\u052F\u0561-\u0587\u13F8-\u13FD\u1D00-\u1D2B\u1D6B-\u1D77\u1D79-\u1D9A\u1E01\u1E03\u1E05\u1E07\u1E09\u1E0B\u1E0D\u1E0F\u1E11\u1E13\u1E15\u1E17\u1E19\u1E1B\u1E1D\u1E1F\u1E21\u1E23\u1E25\u1E27\u1E29\u1E2B\u1E2D\u1E2F\u1E31\u1E33\u1E35\u1E37\u1E39\u1E3B\u1E3D\u1E3F\u1E41\u1E43\u1E45\u1E47\u1E49\u1E4B\u1E4D\u1E4F\u1E51\u1E53\u1E55\u1E57\u1E59\u1E5B\u1E5D\u1E5F\u1E61\u1E63\u1E65\u1E67\u1E69\u1E6B\u1E6D\u1E6F\u1E71\u1E73\u1E75\u1E77\u1E79\u1E7B\u1E7D\u1E7F\u1E81\u1E83\u1E85\u1E87\u1E89\u1E8B\u1E8D\u1E8F\u1E91\u1E93\u1E95-\u1E9D\u1E9F\u1EA1\u1EA3\u1EA5\u1EA7\u1EA9\u1EAB\u1EAD\u1EAF\u1EB1\u1EB3\u1EB5\u1EB7\u1EB9\u1EBB\u1EBD\u1EBF\u1EC1\u1EC3\u1EC5\u1EC7\u1EC9\u1ECB\u1ECD\u1ECF\u1ED1\u1ED3\u1ED5\u1ED7\u1ED9\u1EDB\u1EDD\u1EDF\u1EE1\u1EE3\u1EE5\u1EE7\u1EE9\u1EEB\u1EED\u1EEF\u1EF1\u1EF3\u1EF5\u1EF7\u1EF9\u1EFB\u1EFD\u1EFF-\u1F07\u1F10-\u1F15\u1F20-\u1F27\u1F30-\u1F37\u1F40-\u1F45\u1F50-\u1F57\u1F60-\u1F67\u1F70-\u1F7D\u1F80-\u1F87\u1F90-\u1F97\u1FA0-\u1FA7\u1FB0-\u1FB4\u1FB6\u1FB7\u1FBE\u1FC2-\u1FC4\u1FC6\u1FC7\u1FD0-\u1FD3\u1FD6\u1FD7\u1FE0-\u1FE7\u1FF2-\u1FF4\u1FF6\u1FF7\u210A\u210E\u210F\u2113\u212F\u2134\u2139\u213C\u213D\u2146-\u2149\u214E\u2184\u2C30-\u2C5E\u2C61\u2C65\u2C66\u2C68\u2C6A\u2C6C\u2C71\u2C73\u2C74\u2C76-\u2C7B\u2C81\u2C83\u2C85\u2C87\u2C89\u2C8B\u2C8D\u2C8F\u2C91\u2C93\u2C95\u2C97\u2C99\u2C9B\u2C9D\u2C9F\u2CA1\u2CA3\u2CA5\u2CA7\u2CA9\u2CAB\u2CAD\u2CAF\u2CB1\u2CB3\u2CB5\u2CB7\u2CB9\u2CBB\u2CBD\u2CBF\u2CC1\u2CC3\u2CC5\u2CC7\u2CC9\u2CCB\u2CCD\u2CCF\u2CD1\u2CD3\u2CD5\u2CD7\u2CD9\u2CDB\u2CDD\u2CDF\u2CE1\u2CE3\u2CE4\u2CEC\u2CEE\u2CF3\u2D00-\u2D25\u2D27\u2D2D\uA641\uA643\uA645\uA647\uA649\uA64B\uA64D\uA64F\uA651\uA653\uA655\uA657\uA659\uA65B\uA65D\uA65F\uA661\uA663\uA665\uA667\uA669\uA66B\uA66D\uA681\uA683\uA685\uA687\uA689\uA68B\uA68D\uA68F\uA691\uA693\uA695\uA697\uA699\uA69B\uA723\uA725\uA727\uA729\uA72B\uA72D\uA72F-\uA731\uA733\uA735\uA737\uA739\uA73B\uA73D\uA73F\uA741\uA743\uA745\uA747\uA749\uA74B\uA74D\uA74F\uA751\uA753\uA755\uA757\uA759\uA75B\uA75D\uA75F\uA761\uA763\uA765\uA767\uA769\uA76B\uA76D\uA76F\uA771-\uA778\uA77A\uA77C\uA77F\uA781\uA783\uA785\uA787\uA78C\uA78E\uA791\uA793-\uA795\uA797\uA799\uA79B\uA79D\uA79F\uA7A1\uA7A3\uA7A5\uA7A7\uA7A9\uA7B5\uA7B7\uA7FA\uAB30-\uAB5A\uAB60-\uAB65\uAB70-\uABBF\uFB00-\uFB06\uFB13-\uFB17\uFF41-\uFF5A]|\uD801[\uDC28-\uDC4F]|\uD803[\uDCC0-\uDCF2]|\uD806[\uDCC0-\uDCDF]|\uD835[\uDC1A-\uDC33\uDC4E-\uDC54\uDC56-\uDC67\uDC82-\uDC9B\uDCB6-\uDCB9\uDCBB\uDCBD-\uDCC3\uDCC5-\uDCCF\uDCEA-\uDD03\uDD1E-\uDD37\uDD52-\uDD6B\uDD86-\uDD9F\uDDBA-\uDDD3\uDDEE-\uDE07\uDE22-\uDE3B\uDE56-\uDE6F\uDE8A-\uDEA5\uDEC2-\uDEDA\uDEDC-\uDEE1\uDEFC-\uDF14\uDF16-\uDF1B\uDF36-\uDF4E\uDF50-\uDF55\uDF70-\uDF88\uDF8A-\uDF8F\uDFAA-\uDFC2\uDFC4-\uDFC9\uDFCB])/,
-    'token': /(?:[0-9A-Za-z\xAA\xB2\xB3\xB5\xB9\xBA\xBC-\xBE\xC0-\xD6\xD8-\xF6\xF8-\u02C1\u02C6-\u02D1\u02E0-\u02E4\u02EC\u02EE\u0300-\u0374\u0376\u0377\u037A-\u037D\u037F\u0386\u0388-\u038A\u038C\u038E-\u03A1\u03A3-\u03F5\u03F7-\u0481\u0483-\u052F\u0531-\u0556\u0559\u0561-\u0587\u0591-\u05BD\u05BF\u05C1\u05C2\u05C4\u05C5\u05C7\u05D0-\u05EA\u05F0-\u05F2\u0610-\u061A\u0620-\u0669\u066E-\u06D3\u06D5-\u06DC\u06DF-\u06E8\u06EA-\u06FC\u06FF\u0710-\u074A\u074D-\u07B1\u07C0-\u07F5\u07FA\u0800-\u082D\u0840-\u085B\u08A0-\u08B4\u08E3-\u0963\u0966-\u096F\u0971-\u0983\u0985-\u098C\u098F\u0990\u0993-\u09A8\u09AA-\u09B0\u09B2\u09B6-\u09B9\u09BC-\u09C4\u09C7\u09C8\u09CB-\u09CE\u09D7\u09DC\u09DD\u09DF-\u09E3\u09E6-\u09F1\u09F4-\u09F9\u0A01-\u0A03\u0A05-\u0A0A\u0A0F\u0A10\u0A13-\u0A28\u0A2A-\u0A30\u0A32\u0A33\u0A35\u0A36\u0A38\u0A39\u0A3C\u0A3E-\u0A42\u0A47\u0A48\u0A4B-\u0A4D\u0A51\u0A59-\u0A5C\u0A5E\u0A66-\u0A75\u0A81-\u0A83\u0A85-\u0A8D\u0A8F-\u0A91\u0A93-\u0AA8\u0AAA-\u0AB0\u0AB2\u0AB3\u0AB5-\u0AB9\u0ABC-\u0AC5\u0AC7-\u0AC9\u0ACB-\u0ACD\u0AD0\u0AE0-\u0AE3\u0AE6-\u0AEF\u0AF9\u0B01-\u0B03\u0B05-\u0B0C\u0B0F\u0B10\u0B13-\u0B28\u0B2A-\u0B30\u0B32\u0B33\u0B35-\u0B39\u0B3C-\u0B44\u0B47\u0B48\u0B4B-\u0B4D\u0B56\u0B57\u0B5C\u0B5D\u0B5F-\u0B63\u0B66-\u0B6F\u0B71-\u0B77\u0B82\u0B83\u0B85-\u0B8A\u0B8E-\u0B90\u0B92-\u0B95\u0B99\u0B9A\u0B9C\u0B9E\u0B9F\u0BA3\u0BA4\u0BA8-\u0BAA\u0BAE-\u0BB9\u0BBE-\u0BC2\u0BC6-\u0BC8\u0BCA-\u0BCD\u0BD0\u0BD7\u0BE6-\u0BF2\u0C00-\u0C03\u0C05-\u0C0C\u0C0E-\u0C10\u0C12-\u0C28\u0C2A-\u0C39\u0C3D-\u0C44\u0C46-\u0C48\u0C4A-\u0C4D\u0C55\u0C56\u0C58-\u0C5A\u0C60-\u0C63\u0C66-\u0C6F\u0C78-\u0C7E\u0C81-\u0C83\u0C85-\u0C8C\u0C8E-\u0C90\u0C92-\u0CA8\u0CAA-\u0CB3\u0CB5-\u0CB9\u0CBC-\u0CC4\u0CC6-\u0CC8\u0CCA-\u0CCD\u0CD5\u0CD6\u0CDE\u0CE0-\u0CE3\u0CE6-\u0CEF\u0CF1\u0CF2\u0D01-\u0D03\u0D05-\u0D0C\u0D0E-\u0D10\u0D12-\u0D3A\u0D3D-\u0D44\u0D46-\u0D48\u0D4A-\u0D4E\u0D57\u0D5F-\u0D63\u0D66-\u0D75\u0D7A-\u0D7F\u0D82\u0D83\u0D85-\u0D96\u0D9A-\u0DB1\u0DB3-\u0DBB\u0DBD\u0DC0-\u0DC6\u0DCA\u0DCF-\u0DD4\u0DD6\u0DD8-\u0DDF\u0DE6-\u0DEF\u0DF2\u0DF3\u0E01-\u0E3A\u0E40-\u0E4E\u0E50-\u0E59\u0E81\u0E82\u0E84\u0E87\u0E88\u0E8A\u0E8D\u0E94-\u0E97\u0E99-\u0E9F\u0EA1-\u0EA3\u0EA5\u0EA7\u0EAA\u0EAB\u0EAD-\u0EB9\u0EBB-\u0EBD\u0EC0-\u0EC4\u0EC6\u0EC8-\u0ECD\u0ED0-\u0ED9\u0EDC-\u0EDF\u0F00\u0F18\u0F19\u0F20-\u0F33\u0F35\u0F37\u0F39\u0F3E-\u0F47\u0F49-\u0F6C\u0F71-\u0F84\u0F86-\u0F97\u0F99-\u0FBC\u0FC6\u1000-\u1049\u1050-\u109D\u10A0-\u10C5\u10C7\u10CD\u10D0-\u10FA\u10FC-\u1248\u124A-\u124D\u1250-\u1256\u1258\u125A-\u125D\u1260-\u1288\u128A-\u128D\u1290-\u12B0\u12B2-\u12B5\u12B8-\u12BE\u12C0\u12C2-\u12C5\u12C8-\u12D6\u12D8-\u1310\u1312-\u1315\u1318-\u135A\u135D-\u135F\u1369-\u137C\u1380-\u138F\u13A0-\u13F5\u13F8-\u13FD\u1401-\u166C\u166F-\u167F\u1681-\u169A\u16A0-\u16EA\u16EE-\u16F8\u1700-\u170C\u170E-\u1714\u1720-\u1734\u1740-\u1753\u1760-\u176C\u176E-\u1770\u1772\u1773\u1780-\u17D3\u17D7\u17DC\u17DD\u17E0-\u17E9\u17F0-\u17F9\u180B-\u180D\u1810-\u1819\u1820-\u1877\u1880-\u18AA\u18B0-\u18F5\u1900-\u191E\u1920-\u192B\u1930-\u193B\u1946-\u196D\u1970-\u1974\u1980-\u19AB\u19B0-\u19C9\u19D0-\u19DA\u1A00-\u1A1B\u1A20-\u1A5E\u1A60-\u1A7C\u1A7F-\u1A89\u1A90-\u1A99\u1AA7\u1AB0-\u1ABE\u1B00-\u1B4B\u1B50-\u1B59\u1B6B-\u1B73\u1B80-\u1BF3\u1C00-\u1C37\u1C40-\u1C49\u1C4D-\u1C7D\u1CD0-\u1CD2\u1CD4-\u1CF6\u1CF8\u1CF9\u1D00-\u1DF5\u1DFC-\u1F15\u1F18-\u1F1D\u1F20-\u1F45\u1F48-\u1F4D\u1F50-\u1F57\u1F59\u1F5B\u1F5D\u1F5F-\u1F7D\u1F80-\u1FB4\u1FB6-\u1FBC\u1FBE\u1FC2-\u1FC4\u1FC6-\u1FCC\u1FD0-\u1FD3\u1FD6-\u1FDB\u1FE0-\u1FEC\u1FF2-\u1FF4\u1FF6-\u1FFC\u2070\u2071\u2074-\u2079\u207F-\u2089\u2090-\u209C\u20D0-\u20F0\u2102\u2107\u210A-\u2113\u2115\u2119-\u211D\u2124\u2126\u2128\u212A-\u212D\u212F-\u2139\u213C-\u213F\u2145-\u2149\u214E\u2150-\u2189\u2460-\u249B\u24EA-\u24FF\u2776-\u2793\u2C00-\u2C2E\u2C30-\u2C5E\u2C60-\u2CE4\u2CEB-\u2CF3\u2CFD\u2D00-\u2D25\u2D27\u2D2D\u2D30-\u2D67\u2D6F\u2D7F-\u2D96\u2DA0-\u2DA6\u2DA8-\u2DAE\u2DB0-\u2DB6\u2DB8-\u2DBE\u2DC0-\u2DC6\u2DC8-\u2DCE\u2DD0-\u2DD6\u2DD8-\u2DDE\u2DE0-\u2DFF\u2E2F\u3005-\u3007\u3021-\u302F\u3031-\u3035\u3038-\u303C\u3041-\u3096\u3099\u309A\u309D-\u309F\u30A1-\u30FA\u30FC-\u30FF\u3105-\u312D\u3131-\u318E\u3192-\u3195\u31A0-\u31BA\u31F0-\u31FF\u3220-\u3229\u3248-\u324F\u3251-\u325F\u3280-\u3289\u32B1-\u32BF\u3400-\u4DB5\u4E00-\u9FD5\uA000-\uA48C\uA4D0-\uA4FD\uA500-\uA60C\uA610-\uA62B\uA640-\uA672\uA674-\uA67D\uA67F-\uA6F1\uA717-\uA71F\uA722-\uA788\uA78B-\uA7AD\uA7B0-\uA7B7\uA7F7-\uA827\uA830-\uA835\uA840-\uA873\uA880-\uA8C4\uA8D0-\uA8D9\uA8E0-\uA8F7\uA8FB\uA8FD\uA900-\uA92D\uA930-\uA953\uA960-\uA97C\uA980-\uA9C0\uA9CF-\uA9D9\uA9E0-\uA9FE\uAA00-\uAA36\uAA40-\uAA4D\uAA50-\uAA59\uAA60-\uAA76\uAA7A-\uAAC2\uAADB-\uAADD\uAAE0-\uAAEF\uAAF2-\uAAF6\uAB01-\uAB06\uAB09-\uAB0E\uAB11-\uAB16\uAB20-\uAB26\uAB28-\uAB2E\uAB30-\uAB5A\uAB5C-\uAB65\uAB70-\uABEA\uABEC\uABED\uABF0-\uABF9\uAC00-\uD7A3\uD7B0-\uD7C6\uD7CB-\uD7FB\uF900-\uFA6D\uFA70-\uFAD9\uFB00-\uFB06\uFB13-\uFB17\uFB1D-\uFB28\uFB2A-\uFB36\uFB38-\uFB3C\uFB3E\uFB40\uFB41\uFB43\uFB44\uFB46-\uFBB1\uFBD3-\uFD3D\uFD50-\uFD8F\uFD92-\uFDC7\uFDF0-\uFDFB\uFE00-\uFE0F\uFE20-\uFE2F\uFE70-\uFE74\uFE76-\uFEFC\uFF10-\uFF19\uFF21-\uFF3A\uFF41-\uFF5A\uFF66-\uFFBE\uFFC2-\uFFC7\uFFCA-\uFFCF\uFFD2-\uFFD7\uFFDA-\uFFDC]|\uD800[\uDC00-\uDC0B\uDC0D-\uDC26\uDC28-\uDC3A\uDC3C\uDC3D\uDC3F-\uDC4D\uDC50-\uDC5D\uDC80-\uDCFA\uDD07-\uDD33\uDD40-\uDD78\uDD8A\uDD8B\uDDFD\uDE80-\uDE9C\uDEA0-\uDED0\uDEE0-\uDEFB\uDF00-\uDF23\uDF30-\uDF4A\uDF50-\uDF7A\uDF80-\uDF9D\uDFA0-\uDFC3\uDFC8-\uDFCF\uDFD1-\uDFD5]|\uD801[\uDC00-\uDC9D\uDCA0-\uDCA9\uDD00-\uDD27\uDD30-\uDD63\uDE00-\uDF36\uDF40-\uDF55\uDF60-\uDF67]|\uD802[\uDC00-\uDC05\uDC08\uDC0A-\uDC35\uDC37\uDC38\uDC3C\uDC3F-\uDC55\uDC58-\uDC76\uDC79-\uDC9E\uDCA7-\uDCAF\uDCE0-\uDCF2\uDCF4\uDCF5\uDCFB-\uDD1B\uDD20-\uDD39\uDD80-\uDDB7\uDDBC-\uDDCF\uDDD2-\uDE03\uDE05\uDE06\uDE0C-\uDE13\uDE15-\uDE17\uDE19-\uDE33\uDE38-\uDE3A\uDE3F-\uDE47\uDE60-\uDE7E\uDE80-\uDE9F\uDEC0-\uDEC7\uDEC9-\uDEE6\uDEEB-\uDEEF\uDF00-\uDF35\uDF40-\uDF55\uDF58-\uDF72\uDF78-\uDF91\uDFA9-\uDFAF]|\uD803[\uDC00-\uDC48\uDC80-\uDCB2\uDCC0-\uDCF2\uDCFA-\uDCFF\uDE60-\uDE7E]|\uD804[\uDC00-\uDC46\uDC52-\uDC6F\uDC7F-\uDCBA\uDCD0-\uDCE8\uDCF0-\uDCF9\uDD00-\uDD34\uDD36-\uDD3F\uDD50-\uDD73\uDD76\uDD80-\uDDC4\uDDCA-\uDDCC\uDDD0-\uDDDA\uDDDC\uDDE1-\uDDF4\uDE00-\uDE11\uDE13-\uDE37\uDE80-\uDE86\uDE88\uDE8A-\uDE8D\uDE8F-\uDE9D\uDE9F-\uDEA8\uDEB0-\uDEEA\uDEF0-\uDEF9\uDF00-\uDF03\uDF05-\uDF0C\uDF0F\uDF10\uDF13-\uDF28\uDF2A-\uDF30\uDF32\uDF33\uDF35-\uDF39\uDF3C-\uDF44\uDF47\uDF48\uDF4B-\uDF4D\uDF50\uDF57\uDF5D-\uDF63\uDF66-\uDF6C\uDF70-\uDF74]|\uD805[\uDC80-\uDCC5\uDCC7\uDCD0-\uDCD9\uDD80-\uDDB5\uDDB8-\uDDC0\uDDD8-\uDDDD\uDE00-\uDE40\uDE44\uDE50-\uDE59\uDE80-\uDEB7\uDEC0-\uDEC9\uDF00-\uDF19\uDF1D-\uDF2B\uDF30-\uDF3B]|\uD806[\uDCA0-\uDCF2\uDCFF\uDEC0-\uDEF8]|\uD808[\uDC00-\uDF99]|\uD809[\uDC00-\uDC6E\uDC80-\uDD43]|[\uD80C\uD840-\uD868\uD86A-\uD86C\uD86F-\uD872][\uDC00-\uDFFF]|\uD80D[\uDC00-\uDC2E]|\uD811[\uDC00-\uDE46]|\uD81A[\uDC00-\uDE38\uDE40-\uDE5E\uDE60-\uDE69\uDED0-\uDEED\uDEF0-\uDEF4\uDF00-\uDF36\uDF40-\uDF43\uDF50-\uDF59\uDF5B-\uDF61\uDF63-\uDF77\uDF7D-\uDF8F]|\uD81B[\uDF00-\uDF44\uDF50-\uDF7E\uDF8F-\uDF9F]|\uD82C[\uDC00\uDC01]|\uD82F[\uDC00-\uDC6A\uDC70-\uDC7C\uDC80-\uDC88\uDC90-\uDC99\uDC9D\uDC9E]|\uD834[\uDD65-\uDD69\uDD6D-\uDD72\uDD7B-\uDD82\uDD85-\uDD8B\uDDAA-\uDDAD\uDE42-\uDE44\uDF60-\uDF71]|\uD835[\uDC00-\uDC54\uDC56-\uDC9C\uDC9E\uDC9F\uDCA2\uDCA5\uDCA6\uDCA9-\uDCAC\uDCAE-\uDCB9\uDCBB\uDCBD-\uDCC3\uDCC5-\uDD05\uDD07-\uDD0A\uDD0D-\uDD14\uDD16-\uDD1C\uDD1E-\uDD39\uDD3B-\uDD3E\uDD40-\uDD44\uDD46\uDD4A-\uDD50\uDD52-\uDEA5\uDEA8-\uDEC0\uDEC2-\uDEDA\uDEDC-\uDEFA\uDEFC-\uDF14\uDF16-\uDF34\uDF36-\uDF4E\uDF50-\uDF6E\uDF70-\uDF88\uDF8A-\uDFA8\uDFAA-\uDFC2\uDFC4-\uDFCB\uDFCE-\uDFFF]|\uD836[\uDE00-\uDE36\uDE3B-\uDE6C\uDE75\uDE84\uDE9B-\uDE9F\uDEA1-\uDEAF]|\uD83A[\uDC00-\uDCC4\uDCC7-\uDCD6]|\uD83B[\uDE00-\uDE03\uDE05-\uDE1F\uDE21\uDE22\uDE24\uDE27\uDE29-\uDE32\uDE34-\uDE37\uDE39\uDE3B\uDE42\uDE47\uDE49\uDE4B\uDE4D-\uDE4F\uDE51\uDE52\uDE54\uDE57\uDE59\uDE5B\uDE5D\uDE5F\uDE61\uDE62\uDE64\uDE67-\uDE6A\uDE6C-\uDE72\uDE74-\uDE77\uDE79-\uDE7C\uDE7E\uDE80-\uDE89\uDE8B-\uDE9B\uDEA1-\uDEA3\uDEA5-\uDEA9\uDEAB-\uDEBB]|\uD83C[\uDD00-\uDD0C]|\uD869[\uDC00-\uDED6\uDF00-\uDFFF]|\uD86D[\uDC00-\uDF34\uDF40-\uDFFF]|\uD86E[\uDC00-\uDC1D\uDC20-\uDFFF]|\uD873[\uDC00-\uDEA1]|\uD87E[\uDC00-\uDE1D]|\uDB40[\uDD00-\uDDEF])+|(?:[\t-\r \x85\xA0\u1680\u2000-\u200A\u2028\u2029\u202F\u205F\u3000])+|(?:[\uD800-\uDFFF])+|([\s\S])\1*/g,
-    'word': /^(?:[0-9A-Za-z\xAA\xB2\xB3\xB5\xB9\xBA\xBC-\xBE\xC0-\xD6\xD8-\xF6\xF8-\u02C1\u02C6-\u02D1\u02E0-\u02E4\u02EC\u02EE\u0300-\u0374\u0376\u0377\u037A-\u037D\u037F\u0386\u0388-\u038A\u038C\u038E-\u03A1\u03A3-\u03F5\u03F7-\u0481\u0483-\u052F\u0531-\u0556\u0559\u0561-\u0587\u0591-\u05BD\u05BF\u05C1\u05C2\u05C4\u05C5\u05C7\u05D0-\u05EA\u05F0-\u05F2\u0610-\u061A\u0620-\u0669\u066E-\u06D3\u06D5-\u06DC\u06DF-\u06E8\u06EA-\u06FC\u06FF\u0710-\u074A\u074D-\u07B1\u07C0-\u07F5\u07FA\u0800-\u082D\u0840-\u085B\u08A0-\u08B4\u08E3-\u0963\u0966-\u096F\u0971-\u0983\u0985-\u098C\u098F\u0990\u0993-\u09A8\u09AA-\u09B0\u09B2\u09B6-\u09B9\u09BC-\u09C4\u09C7\u09C8\u09CB-\u09CE\u09D7\u09DC\u09DD\u09DF-\u09E3\u09E6-\u09F1\u09F4-\u09F9\u0A01-\u0A03\u0A05-\u0A0A\u0A0F\u0A10\u0A13-\u0A28\u0A2A-\u0A30\u0A32\u0A33\u0A35\u0A36\u0A38\u0A39\u0A3C\u0A3E-\u0A42\u0A47\u0A48\u0A4B-\u0A4D\u0A51\u0A59-\u0A5C\u0A5E\u0A66-\u0A75\u0A81-\u0A83\u0A85-\u0A8D\u0A8F-\u0A91\u0A93-\u0AA8\u0AAA-\u0AB0\u0AB2\u0AB3\u0AB5-\u0AB9\u0ABC-\u0AC5\u0AC7-\u0AC9\u0ACB-\u0ACD\u0AD0\u0AE0-\u0AE3\u0AE6-\u0AEF\u0AF9\u0B01-\u0B03\u0B05-\u0B0C\u0B0F\u0B10\u0B13-\u0B28\u0B2A-\u0B30\u0B32\u0B33\u0B35-\u0B39\u0B3C-\u0B44\u0B47\u0B48\u0B4B-\u0B4D\u0B56\u0B57\u0B5C\u0B5D\u0B5F-\u0B63\u0B66-\u0B6F\u0B71-\u0B77\u0B82\u0B83\u0B85-\u0B8A\u0B8E-\u0B90\u0B92-\u0B95\u0B99\u0B9A\u0B9C\u0B9E\u0B9F\u0BA3\u0BA4\u0BA8-\u0BAA\u0BAE-\u0BB9\u0BBE-\u0BC2\u0BC6-\u0BC8\u0BCA-\u0BCD\u0BD0\u0BD7\u0BE6-\u0BF2\u0C00-\u0C03\u0C05-\u0C0C\u0C0E-\u0C10\u0C12-\u0C28\u0C2A-\u0C39\u0C3D-\u0C44\u0C46-\u0C48\u0C4A-\u0C4D\u0C55\u0C56\u0C58-\u0C5A\u0C60-\u0C63\u0C66-\u0C6F\u0C78-\u0C7E\u0C81-\u0C83\u0C85-\u0C8C\u0C8E-\u0C90\u0C92-\u0CA8\u0CAA-\u0CB3\u0CB5-\u0CB9\u0CBC-\u0CC4\u0CC6-\u0CC8\u0CCA-\u0CCD\u0CD5\u0CD6\u0CDE\u0CE0-\u0CE3\u0CE6-\u0CEF\u0CF1\u0CF2\u0D01-\u0D03\u0D05-\u0D0C\u0D0E-\u0D10\u0D12-\u0D3A\u0D3D-\u0D44\u0D46-\u0D48\u0D4A-\u0D4E\u0D57\u0D5F-\u0D63\u0D66-\u0D75\u0D7A-\u0D7F\u0D82\u0D83\u0D85-\u0D96\u0D9A-\u0DB1\u0DB3-\u0DBB\u0DBD\u0DC0-\u0DC6\u0DCA\u0DCF-\u0DD4\u0DD6\u0DD8-\u0DDF\u0DE6-\u0DEF\u0DF2\u0DF3\u0E01-\u0E3A\u0E40-\u0E4E\u0E50-\u0E59\u0E81\u0E82\u0E84\u0E87\u0E88\u0E8A\u0E8D\u0E94-\u0E97\u0E99-\u0E9F\u0EA1-\u0EA3\u0EA5\u0EA7\u0EAA\u0EAB\u0EAD-\u0EB9\u0EBB-\u0EBD\u0EC0-\u0EC4\u0EC6\u0EC8-\u0ECD\u0ED0-\u0ED9\u0EDC-\u0EDF\u0F00\u0F18\u0F19\u0F20-\u0F33\u0F35\u0F37\u0F39\u0F3E-\u0F47\u0F49-\u0F6C\u0F71-\u0F84\u0F86-\u0F97\u0F99-\u0FBC\u0FC6\u1000-\u1049\u1050-\u109D\u10A0-\u10C5\u10C7\u10CD\u10D0-\u10FA\u10FC-\u1248\u124A-\u124D\u1250-\u1256\u1258\u125A-\u125D\u1260-\u1288\u128A-\u128D\u1290-\u12B0\u12B2-\u12B5\u12B8-\u12BE\u12C0\u12C2-\u12C5\u12C8-\u12D6\u12D8-\u1310\u1312-\u1315\u1318-\u135A\u135D-\u135F\u1369-\u137C\u1380-\u138F\u13A0-\u13F5\u13F8-\u13FD\u1401-\u166C\u166F-\u167F\u1681-\u169A\u16A0-\u16EA\u16EE-\u16F8\u1700-\u170C\u170E-\u1714\u1720-\u1734\u1740-\u1753\u1760-\u176C\u176E-\u1770\u1772\u1773\u1780-\u17D3\u17D7\u17DC\u17DD\u17E0-\u17E9\u17F0-\u17F9\u180B-\u180D\u1810-\u1819\u1820-\u1877\u1880-\u18AA\u18B0-\u18F5\u1900-\u191E\u1920-\u192B\u1930-\u193B\u1946-\u196D\u1970-\u1974\u1980-\u19AB\u19B0-\u19C9\u19D0-\u19DA\u1A00-\u1A1B\u1A20-\u1A5E\u1A60-\u1A7C\u1A7F-\u1A89\u1A90-\u1A99\u1AA7\u1AB0-\u1ABE\u1B00-\u1B4B\u1B50-\u1B59\u1B6B-\u1B73\u1B80-\u1BF3\u1C00-\u1C37\u1C40-\u1C49\u1C4D-\u1C7D\u1CD0-\u1CD2\u1CD4-\u1CF6\u1CF8\u1CF9\u1D00-\u1DF5\u1DFC-\u1F15\u1F18-\u1F1D\u1F20-\u1F45\u1F48-\u1F4D\u1F50-\u1F57\u1F59\u1F5B\u1F5D\u1F5F-\u1F7D\u1F80-\u1FB4\u1FB6-\u1FBC\u1FBE\u1FC2-\u1FC4\u1FC6-\u1FCC\u1FD0-\u1FD3\u1FD6-\u1FDB\u1FE0-\u1FEC\u1FF2-\u1FF4\u1FF6-\u1FFC\u2070\u2071\u2074-\u2079\u207F-\u2089\u2090-\u209C\u20D0-\u20F0\u2102\u2107\u210A-\u2113\u2115\u2119-\u211D\u2124\u2126\u2128\u212A-\u212D\u212F-\u2139\u213C-\u213F\u2145-\u2149\u214E\u2150-\u2189\u2460-\u249B\u24EA-\u24FF\u2776-\u2793\u2C00-\u2C2E\u2C30-\u2C5E\u2C60-\u2CE4\u2CEB-\u2CF3\u2CFD\u2D00-\u2D25\u2D27\u2D2D\u2D30-\u2D67\u2D6F\u2D7F-\u2D96\u2DA0-\u2DA6\u2DA8-\u2DAE\u2DB0-\u2DB6\u2DB8-\u2DBE\u2DC0-\u2DC6\u2DC8-\u2DCE\u2DD0-\u2DD6\u2DD8-\u2DDE\u2DE0-\u2DFF\u2E2F\u3005-\u3007\u3021-\u302F\u3031-\u3035\u3038-\u303C\u3041-\u3096\u3099\u309A\u309D-\u309F\u30A1-\u30FA\u30FC-\u30FF\u3105-\u312D\u3131-\u318E\u3192-\u3195\u31A0-\u31BA\u31F0-\u31FF\u3220-\u3229\u3248-\u324F\u3251-\u325F\u3280-\u3289\u32B1-\u32BF\u3400-\u4DB5\u4E00-\u9FD5\uA000-\uA48C\uA4D0-\uA4FD\uA500-\uA60C\uA610-\uA62B\uA640-\uA672\uA674-\uA67D\uA67F-\uA6F1\uA717-\uA71F\uA722-\uA788\uA78B-\uA7AD\uA7B0-\uA7B7\uA7F7-\uA827\uA830-\uA835\uA840-\uA873\uA880-\uA8C4\uA8D0-\uA8D9\uA8E0-\uA8F7\uA8FB\uA8FD\uA900-\uA92D\uA930-\uA953\uA960-\uA97C\uA980-\uA9C0\uA9CF-\uA9D9\uA9E0-\uA9FE\uAA00-\uAA36\uAA40-\uAA4D\uAA50-\uAA59\uAA60-\uAA76\uAA7A-\uAAC2\uAADB-\uAADD\uAAE0-\uAAEF\uAAF2-\uAAF6\uAB01-\uAB06\uAB09-\uAB0E\uAB11-\uAB16\uAB20-\uAB26\uAB28-\uAB2E\uAB30-\uAB5A\uAB5C-\uAB65\uAB70-\uABEA\uABEC\uABED\uABF0-\uABF9\uAC00-\uD7A3\uD7B0-\uD7C6\uD7CB-\uD7FB\uF900-\uFA6D\uFA70-\uFAD9\uFB00-\uFB06\uFB13-\uFB17\uFB1D-\uFB28\uFB2A-\uFB36\uFB38-\uFB3C\uFB3E\uFB40\uFB41\uFB43\uFB44\uFB46-\uFBB1\uFBD3-\uFD3D\uFD50-\uFD8F\uFD92-\uFDC7\uFDF0-\uFDFB\uFE00-\uFE0F\uFE20-\uFE2F\uFE70-\uFE74\uFE76-\uFEFC\uFF10-\uFF19\uFF21-\uFF3A\uFF41-\uFF5A\uFF66-\uFFBE\uFFC2-\uFFC7\uFFCA-\uFFCF\uFFD2-\uFFD7\uFFDA-\uFFDC]|\uD800[\uDC00-\uDC0B\uDC0D-\uDC26\uDC28-\uDC3A\uDC3C\uDC3D\uDC3F-\uDC4D\uDC50-\uDC5D\uDC80-\uDCFA\uDD07-\uDD33\uDD40-\uDD78\uDD8A\uDD8B\uDDFD\uDE80-\uDE9C\uDEA0-\uDED0\uDEE0-\uDEFB\uDF00-\uDF23\uDF30-\uDF4A\uDF50-\uDF7A\uDF80-\uDF9D\uDFA0-\uDFC3\uDFC8-\uDFCF\uDFD1-\uDFD5]|\uD801[\uDC00-\uDC9D\uDCA0-\uDCA9\uDD00-\uDD27\uDD30-\uDD63\uDE00-\uDF36\uDF40-\uDF55\uDF60-\uDF67]|\uD802[\uDC00-\uDC05\uDC08\uDC0A-\uDC35\uDC37\uDC38\uDC3C\uDC3F-\uDC55\uDC58-\uDC76\uDC79-\uDC9E\uDCA7-\uDCAF\uDCE0-\uDCF2\uDCF4\uDCF5\uDCFB-\uDD1B\uDD20-\uDD39\uDD80-\uDDB7\uDDBC-\uDDCF\uDDD2-\uDE03\uDE05\uDE06\uDE0C-\uDE13\uDE15-\uDE17\uDE19-\uDE33\uDE38-\uDE3A\uDE3F-\uDE47\uDE60-\uDE7E\uDE80-\uDE9F\uDEC0-\uDEC7\uDEC9-\uDEE6\uDEEB-\uDEEF\uDF00-\uDF35\uDF40-\uDF55\uDF58-\uDF72\uDF78-\uDF91\uDFA9-\uDFAF]|\uD803[\uDC00-\uDC48\uDC80-\uDCB2\uDCC0-\uDCF2\uDCFA-\uDCFF\uDE60-\uDE7E]|\uD804[\uDC00-\uDC46\uDC52-\uDC6F\uDC7F-\uDCBA\uDCD0-\uDCE8\uDCF0-\uDCF9\uDD00-\uDD34\uDD36-\uDD3F\uDD50-\uDD73\uDD76\uDD80-\uDDC4\uDDCA-\uDDCC\uDDD0-\uDDDA\uDDDC\uDDE1-\uDDF4\uDE00-\uDE11\uDE13-\uDE37\uDE80-\uDE86\uDE88\uDE8A-\uDE8D\uDE8F-\uDE9D\uDE9F-\uDEA8\uDEB0-\uDEEA\uDEF0-\uDEF9\uDF00-\uDF03\uDF05-\uDF0C\uDF0F\uDF10\uDF13-\uDF28\uDF2A-\uDF30\uDF32\uDF33\uDF35-\uDF39\uDF3C-\uDF44\uDF47\uDF48\uDF4B-\uDF4D\uDF50\uDF57\uDF5D-\uDF63\uDF66-\uDF6C\uDF70-\uDF74]|\uD805[\uDC80-\uDCC5\uDCC7\uDCD0-\uDCD9\uDD80-\uDDB5\uDDB8-\uDDC0\uDDD8-\uDDDD\uDE00-\uDE40\uDE44\uDE50-\uDE59\uDE80-\uDEB7\uDEC0-\uDEC9\uDF00-\uDF19\uDF1D-\uDF2B\uDF30-\uDF3B]|\uD806[\uDCA0-\uDCF2\uDCFF\uDEC0-\uDEF8]|\uD808[\uDC00-\uDF99]|\uD809[\uDC00-\uDC6E\uDC80-\uDD43]|[\uD80C\uD840-\uD868\uD86A-\uD86C\uD86F-\uD872][\uDC00-\uDFFF]|\uD80D[\uDC00-\uDC2E]|\uD811[\uDC00-\uDE46]|\uD81A[\uDC00-\uDE38\uDE40-\uDE5E\uDE60-\uDE69\uDED0-\uDEED\uDEF0-\uDEF4\uDF00-\uDF36\uDF40-\uDF43\uDF50-\uDF59\uDF5B-\uDF61\uDF63-\uDF77\uDF7D-\uDF8F]|\uD81B[\uDF00-\uDF44\uDF50-\uDF7E\uDF8F-\uDF9F]|\uD82C[\uDC00\uDC01]|\uD82F[\uDC00-\uDC6A\uDC70-\uDC7C\uDC80-\uDC88\uDC90-\uDC99\uDC9D\uDC9E]|\uD834[\uDD65-\uDD69\uDD6D-\uDD72\uDD7B-\uDD82\uDD85-\uDD8B\uDDAA-\uDDAD\uDE42-\uDE44\uDF60-\uDF71]|\uD835[\uDC00-\uDC54\uDC56-\uDC9C\uDC9E\uDC9F\uDCA2\uDCA5\uDCA6\uDCA9-\uDCAC\uDCAE-\uDCB9\uDCBB\uDCBD-\uDCC3\uDCC5-\uDD05\uDD07-\uDD0A\uDD0D-\uDD14\uDD16-\uDD1C\uDD1E-\uDD39\uDD3B-\uDD3E\uDD40-\uDD44\uDD46\uDD4A-\uDD50\uDD52-\uDEA5\uDEA8-\uDEC0\uDEC2-\uDEDA\uDEDC-\uDEFA\uDEFC-\uDF14\uDF16-\uDF34\uDF36-\uDF4E\uDF50-\uDF6E\uDF70-\uDF88\uDF8A-\uDFA8\uDFAA-\uDFC2\uDFC4-\uDFCB\uDFCE-\uDFFF]|\uD836[\uDE00-\uDE36\uDE3B-\uDE6C\uDE75\uDE84\uDE9B-\uDE9F\uDEA1-\uDEAF]|\uD83A[\uDC00-\uDCC4\uDCC7-\uDCD6]|\uD83B[\uDE00-\uDE03\uDE05-\uDE1F\uDE21\uDE22\uDE24\uDE27\uDE29-\uDE32\uDE34-\uDE37\uDE39\uDE3B\uDE42\uDE47\uDE49\uDE4B\uDE4D-\uDE4F\uDE51\uDE52\uDE54\uDE57\uDE59\uDE5B\uDE5D\uDE5F\uDE61\uDE62\uDE64\uDE67-\uDE6A\uDE6C-\uDE72\uDE74-\uDE77\uDE79-\uDE7C\uDE7E\uDE80-\uDE89\uDE8B-\uDE9B\uDEA1-\uDEA3\uDEA5-\uDEA9\uDEAB-\uDEBB]|\uD83C[\uDD00-\uDD0C]|\uD869[\uDC00-\uDED6\uDF00-\uDFFF]|\uD86D[\uDC00-\uDF34\uDF40-\uDFFF]|\uD86E[\uDC00-\uDC1D\uDC20-\uDFFF]|\uD873[\uDC00-\uDEA1]|\uD87E[\uDC00-\uDE1D]|\uDB40[\uDD00-\uDDEF])+$/,
-    'whiteSpace': /^(?:[\t-\r \x85\xA0\u1680\u2000-\u200A\u2028\u2029\u202F\u205F\u3000])+$/
-};
-
-},{}],111:[function(require,module,exports){
-/**
- * @author Titus Wormer
- * @copyright 2014-2015 Titus Wormer
- * @license MIT
- * @module parse-latin
- * @fileoverview Latin-script (natural language) parser.
- */
-
-'use strict';
-
-/* eslint-env commonjs */
-
-/*
- * Dependencies.
- */
-
-var createParser = require('./parser');
-var expressions = require('./expressions');
-
-/*
- * == CLASSIFY ===============================================================
- */
-
-/*
- * Constants.
- */
-
-/*
- * Match all tokens:
- * - One or more number, alphabetic, or
- *   combining characters;
- * - One or more white space characters;
- * - One or more astral plane characters;
- * - One or more of the same character;
- */
-
-var EXPRESSION_TOKEN = expressions.token;
-
-/*
- * Match a word.
- */
-
-var EXPRESSION_WORD = expressions.word;
-
-/*
- * Match a string containing ONLY punctuation.
- */
-
-var EXPRESSION_PUNCTUATION = expressions.punctuation;
-
-/*
- * Match a string containing ONLY white space.
- */
-
-var EXPRESSION_WHITE_SPACE = expressions.whiteSpace;
-
-/**
- * Classify a token.
- *
- * @param {string?} value - Value to classify.
- * @return {string} - value's type.
- */
-function classify(value) {
-    if (EXPRESSION_WHITE_SPACE.test(value)) {
-        return 'WhiteSpace';
-    }
-
-    if (EXPRESSION_WORD.test(value)) {
-        return 'Word';
-    }
-
-    if (EXPRESSION_PUNCTUATION.test(value)) {
-        return 'Punctuation';
-    }
-
-    return 'Symbol';
-}
-
-/**
- * Transform a `value` into a list of `NLCSTNode`s.
- *
- * @param {ParseLatin} parser - Context.
- * @param {string?} value - Value to tokenize.
- * @return {Array.<NLCSTNode>}
- */
-function tokenize(parser, value) {
-    var tokens;
-    var offset;
-    var line;
-    var column;
-    var match;
-
-    if (value === null || value === undefined) {
-        value = '';
-    } else if (value instanceof String) {
-        value = value.toString();
-    }
-
-    if (typeof value !== 'string') {
-        /**
-         * Return the given nodes if this is either an
-         * empty array, or an array with a node as a first
-         * child.
-         */
-
-        if ('length' in value && (!value[0] || value[0].type)) {
-            return value;
-        }
-
-        throw new Error(
-            'Illegal invocation: \'' + value + '\'' +
-            ' is not a valid argument for \'ParseLatin\''
-        );
-    }
-
-    tokens = [];
-
-    if (!value) {
-        return tokens;
-    }
-
-    offset = 0;
-    line = 1;
-    column = 1;
-
-    /**
-     * Get the current position.
-     *
-     * @example
-     *   position = now(); // {line: 1, column: 1}
-     *
-     * @return {Object}
-     */
-    function now() {
-        return {
-            'line': line,
-            'column': column,
-            'offset': offset
-        };
-    }
-
-    /**
-     * Store position information for a node.
-     *
-     * @example
-     *   start = now();
-     *   updatePosition('foo');
-     *   location = new Position(start);
-     *   // {start: {line: 1, column: 1}, end: {line: 1, column: 3}}
-     *
-     * @param {Object} start - Starting position.
-     */
-    function Position(start) {
-        this.start = start;
-        this.end = now();
-    }
-
-    /**
-     * Mark position and patch `node.position`.
-     *
-     * @example
-     *   var update = position();
-     *   updatePosition('foo');
-     *   update({});
-     *   // {
-     *   //   position: {
-     *   //     start: {line: 1, column: 1}
-     *   //     end: {line: 1, column: 3}
-     *   //   }
-     *   // }
-     *
-     * @returns {function(Node): Node}
-     */
-    function position() {
-        var before = now();
-
-        /**
-         * Add the position to a node.
-         *
-         * @example
-         *   update({type: 'text', value: 'foo'});
-         *
-         * @param {Node} node - Node to attach position
-         *   on.
-         * @return {Node} - `node`.
-         */
-        function patch(node) {
-            node.position = new Position(before);
-
-            return node;
-        }
-
-        return patch;
-    }
-
-    /**
-     * Update line and column based on `value`.
-     *
-     * @example
-     *   update('foo');
-     *
-     * @param {string} subvalue - Eaten value..
-     */
-    function update(subvalue) {
-        var subvalueLength = subvalue.length;
-        var character = -1;
-        var lastIndex = -1;
-
-        offset += subvalueLength;
-
-        while (++character < subvalueLength) {
-            if (subvalue.charAt(character) === '\n') {
-                lastIndex = character;
-                line++;
-            }
-        }
-
-        if (lastIndex === -1) {
-            column = column + subvalueLength;
-        } else {
-            column = subvalueLength - lastIndex;
-        }
-    }
-
-    /**
-     * Add mechanism.
-     *
-     * @param {NLCSTNode} node - Node to add.
-     * @param {NLCSTParentNode?} [parent] - Optional parent
-     *   node to insert into.
-     * @return {NLCSTNode} - `node`.
-     */
-    function add(node, parent) {
-        if (parent) {
-            parent.children.push(node);
-        } else {
-            tokens.push(node);
-        }
-
-        return node;
-    }
-
-    /**
-     * Remove `subvalue` from `value`.
-     * Expects `subvalue` to be at the start from
-     * `value`, and applies no validation.
-     *
-     * @example
-     *   eat('foo')({type: 'TextNode', value: 'foo'});
-     *
-     * @param {string} subvalue - Removed from `value`,
-     *   and passed to `update`.
-     * @return {Function} - Wrapper around `add`, which
-     *   also adds `position` to node.
-     */
-    function eat(subvalue) {
-        var pos = position();
-
-        /**
-         * Add the given arguments, add `position` to
-         * the returned node, and return the node.
-         *
-         * @return {Node}
-         */
-        function apply() {
-            return pos(add.apply(null, arguments));
-        }
-
-        value = value.substring(subvalue.length);
-
-        update(subvalue);
-
-        return apply;
-    }
-
-    /**
-     * Remove `subvalue` from `value`. Does not patch
-     * positional information.
-     *
-     * @param {string} subvalue - Value to eat.
-     * @return {Function}
-     */
-    function noPositionEat(subvalue) {
-        /**
-         * Add the given arguments and return the node.
-         *
-         * @return {Node}
-         */
-        function apply() {
-            return add.apply(null, arguments);
-        }
-
-        value = value.substring(subvalue.length);
-
-        return apply;
-    }
-
-    /*
-     * Eat mechanism to use.
-     */
-
-    var eater = parser.position ? eat : noPositionEat;
-
-    /**
-     * Continue matching.
-     */
-    function next() {
-        EXPRESSION_TOKEN.lastIndex = 0;
-
-        match = EXPRESSION_TOKEN.exec(value);
-    }
-
-    next();
-
-    while (match) {
-        parser['tokenize' + classify(match[0])](match[0], eater);
-
-        next();
-    }
-
-    return tokens;
-}
-
-/**
- * Add mechanism used when text-tokenisers are called
- * directly outside of the `tokenize` function.
- *
- * @param {NLCSTNode} node - Node to add.
- * @param {NLCSTParentNode?} [parent] - Optional parent
- *   node to insert into.
- * @return {NLCSTNode} - `node`.
- */
-function noopAdd(node, parent) {
-    if (parent) {
-        parent.children.push(node);
-    }
-
-    return node;
-}
-
-/**
- * Eat and add mechanism without adding positional
- * information, used when text-tokenisers are called
- * directly outside of the `tokenize` function.
- *
- * @return {Function}
- */
-function noopEat() {
-    return noopAdd;
-}
-
-/*
- * == PARSE LATIN ============================================================
- */
-
-/**
- * Transform Latin-script natural language into
- * an NLCST-tree.
- *
- * @param {VFile?} file - Virtual file.
- * @param {Object?} options - Configuration.
- * @constructor {ParseLatin}
- */
-function ParseLatin(file, options) {
-    var position;
-
-    if (!(this instanceof ParseLatin)) {
-        return new ParseLatin(file, options);
-    }
-
-    if (file && file.message) {
-        this.file = file;
-    } else {
-        options = file;
-    }
-
-    position = options && options.position;
-
-    if (position !== null && position !== undefined) {
-        this.position = Boolean(position);
-    }
-}
-
-/*
- * Quick access to the prototype.
- */
-
-var parseLatinPrototype = ParseLatin.prototype;
-
-/*
- * Default position.
- */
-
-parseLatinPrototype.position = true;
-
-/*
- * == TOKENIZE ===============================================================
- */
-
-/**
- * Transform a `value` into a list of `NLCSTNode`s.
- *
- * @see tokenize
- */
-parseLatinPrototype.tokenize = function (value) {
-    return tokenize(this, value);
-};
-
-/*
- * == TEXT NODES =============================================================
- */
-
-/**
- * Factory to create a `Text`.
- *
- * @param {string} type - Name of text node.
- * @return {function(value): NLCSTText}
- */
-function createTextFactory(type) {
-    type += 'Node';
-
-    /**
-     * Construct a `Text` from a bound `type`
-     *
-     * @param {value} value - Value of the node.
-     * @param {Function?} [eat] - Optional eat mechanism
-     *   to use.
-     * @param {NLCSTParentNode?} [parent] - Optional
-     *   parent to insert into.
-     * @return {NLCSTText}
-     */
-    return function (value, eat, parent) {
-        if (value === null || value === undefined) {
-            value = '';
-        }
-
-        return (eat || noopEat)(value)({
-            'type': type,
-            'value': String(value)
-        }, parent);
-    };
-}
-
-/**
- * Create a `SymbolNode` with the given `value`.
- *
- * @param {string?} value
- * @return {NLCSTSymbolNode}
- */
-parseLatinPrototype.tokenizeSymbol = createTextFactory('Symbol');
-
-/**
- * Create a `WhiteSpaceNode` with the given `value`.
- *
- * @param {string?} value
- * @return {NLCSTWhiteSpaceNode}
- */
-parseLatinPrototype.tokenizeWhiteSpace = createTextFactory('WhiteSpace');
-
-/**
- * Create a `PunctuationNode` with the given `value`.
- *
- * @param {string?} value
- * @return {NLCSTPunctuationNode}
- */
-parseLatinPrototype.tokenizePunctuation = createTextFactory('Punctuation');
-
-/**
- * Create a `SourceNode` with the given `value`.
- *
- * @param {string?} value
- * @return {NLCSTSourceNode}
- */
-parseLatinPrototype.tokenizeSource = createTextFactory('Source');
-
-/**
- * Create a `TextNode` with the given `value`.
- *
- * @param {string?} value
- * @return {NLCSTTextNode}
- */
-parseLatinPrototype.tokenizeText = createTextFactory('Text');
-
-/*
- * == PARENT NODES ===========================================================
- *
- * All these nodes are `pluggable`: they come with a
- * `use` method which accepts a plugin
- * (`function(NLCSTNode)`). Every time one of these
- * methods are called, the plugin is invoked with the
- * node, allowing for easy modification.
- *
- * In fact, the internal transformation from `tokenize`
- * (a list of words, white space, punctuation, and
- * symbols) to `tokenizeRoot` (an NLCST tree), is also
- * implemented through this mechanism.
- */
-
-/**
- * Run transform plug-ins for `key` on `nodes`.
- *
- * @param {string} key - Unique name.
- * @param {Array.<Node>} nodes - List of nodes.
- * @return {Array.<Node>} - `nodes`.
- */
-function run(key, nodes) {
-    var wareKey = key + 'Plugins';
-    var plugins = this[wareKey];
-    var index = -1;
-
-    if (plugins) {
-        while (plugins[++index]) {
-            plugins[index](nodes);
-        }
-    }
-
-    return nodes;
-}
-
-/*
- * Expose `run`.
- */
-
-parseLatinPrototype.run = run;
-
-/**
- * @param {Function} Constructor - Context.
- * @param {string} key - Unique name.
- * @param {function(*): undefined} callback - Wrapped.
- */
-function pluggable(Constructor, key, callback) {
-    /**
-     * Set a pluggable version of `callback`
-     * on `Constructor`.
-     */
-    Constructor.prototype[key] = function () {
-        return this.run(key, callback.apply(this, arguments));
-    };
-}
-
-/**
- * Factory to inject `plugins`. Takes `callback` for
- * the actual inserting.
- *
- * @param {function(Object, string, Array.<Function>)} callback - Wrapped.
- * @return {function(string, Array.<Function>)}
- */
-function useFactory(callback) {
-    /*
-     * Validate if `plugins` can be inserted. Invokes
-     * the bound `callback` to do the actual inserting.
-     *
-     * @param {string} key - Method to inject on
-     * @param {Array.<Function>|Function} plugins - One
-     *   or more plugins.
-     */
-
-    return function (key, plugins) {
-        var self = this;
-        var wareKey;
-
-        /*
-         * Throw if the method is not pluggable.
-         */
-
-        if (!(key in self)) {
-            throw new Error(
-                'Illegal Invocation: Unsupported `key` for ' +
-                '`use(key, plugins)`. Make sure `key` is a ' +
-                'supported function'
-            );
-        }
-
-        /*
-         * Fail silently when no plugins are given.
-         */
-
-        if (!plugins) {
-            return;
-        }
-
-        wareKey = key + 'Plugins';
-
-        /*
-         * Make sure `plugins` is a list.
-         */
-
-        if (typeof plugins === 'function') {
-            plugins = [plugins];
-        } else {
-            plugins = plugins.concat();
-        }
-
-        /*
-         * Make sure `wareKey` exists.
-         */
-
-        if (!self[wareKey]) {
-            self[wareKey] = [];
-        }
-
-        /*
-         * Invoke callback with the ware key and plugins.
-         */
-
-        callback(self, wareKey, plugins);
-    };
-}
-
-/*
- * Inject `plugins` to modifiy the result of the method
- * at `key` on the operated on context.
- *
- * @param {string} key
- * @param {Function|Array.<Function>} plugins
- * @this {ParseLatin|Object}
- */
-
-parseLatinPrototype.use = useFactory(function (context, key, plugins) {
-    context[key] = context[key].concat(plugins);
-});
-
-/*
- * Inject `plugins` to modifiy the result of the method
- * at `key` on the operated on context, before any other.
- *
- * @param {string} key
- * @param {Function|Array.<Function>} plugins
- * @this {ParseLatin|Object}
- */
-
-parseLatinPrototype.useFirst = useFactory(function (context, key, plugins) {
-    context[key] = plugins.concat(context[key]);
-});
-
-/**
- * Create a `WordNode` with its children set to a single
- * `TextNode`, its value set to the given `value`.
- *
- * @see pluggable
- *
- * @param {string?} value - Value to classify as a word.
- * @return {NLCSTWordNode}
- */
-pluggable(ParseLatin, 'tokenizeWord', function (value, eat) {
-    var add = (eat || noopEat)('');
-    var parent = {
-        'type': 'WordNode',
-        'children': []
-    };
-
-    this.tokenizeText(value, eat, parent);
-
-    return add(parent);
-});
-
-/**
- * Create a `SentenceNode` with its children set to
- * `Node`s, their values set to the tokenized given
- * `value`.
- *
- * Unless plugins add new nodes, the sentence is
- * populated by `WordNode`s, `SymbolNode`s,
- * `PunctuationNode`s, and `WhiteSpaceNode`s.
- *
- * @see pluggable
- *
- * @param {string?} value
- * @return {NLCSTSentenceNode}
- */
-pluggable(ParseLatin, 'tokenizeSentence', createParser({
-    'type': 'SentenceNode',
-    'tokenizer': 'tokenize'
-}));
-
-/**
- * Create a `ParagraphNode` with its children set to
- * `Node`s, their values set to the tokenized given
- * `value`.
- *
- * Unless plugins add new nodes, the paragraph is
- * populated by `SentenceNode`s and `WhiteSpaceNode`s.
- *
- * @see pluggable
- *
- * @param {string?} value
- * @return {NLCSTParagraphNode}
- */
-pluggable(ParseLatin, 'tokenizeParagraph', createParser({
-    'type': 'ParagraphNode',
-    'delimiter': expressions.terminalMarker,
-    'delimiterType': 'PunctuationNode',
-    'tokenizer': 'tokenizeSentence'
-}));
-
-/**
- * Create a `RootNode` with its children set to `Node`s,
- * their values set to the tokenized given `value`.
- *
- * Unless plugins add new nodes, the root is populated by
- * `ParagraphNode`s and `WhiteSpaceNode`s.
- *
- * @see pluggable
- *
- * @param {string?} value
- * @return {NLCSTRootNode}
- */
-pluggable(ParseLatin, 'tokenizeRoot', createParser({
-    'type': 'RootNode',
-    'delimiter': expressions.newLine,
-    'delimiterType': 'WhiteSpaceNode',
-    'tokenizer': 'tokenizeParagraph'
-}));
-
-/**
- * Easy access to the document parser. This additionally
- * supports retext-style invocation: where an instance is
- * created for each file, and the file is given on
- * instanciation.
- *
- * @see ParseLatin#tokenizeRoot
- */
-parseLatinPrototype.parse = function (value) {
-    return this.tokenizeRoot(this.file ? this.file.toString() : value);
-};
-
-/*
- * == PLUGINS ================================================================
- */
-
-parseLatinPrototype.use('tokenizeSentence', [
-    require('./plugin/merge-initial-word-symbol'),
-    require('./plugin/merge-final-word-symbol'),
-    require('./plugin/merge-inner-word-symbol'),
-    require('./plugin/merge-initialisms'),
-    require('./plugin/merge-words'),
-    require('./plugin/patch-position')
-]);
-
-parseLatinPrototype.use('tokenizeParagraph', [
-    require('./plugin/merge-non-word-sentences'),
-    require('./plugin/merge-affix-symbol'),
-    require('./plugin/merge-initial-lower-case-letter-sentences'),
-    require('./plugin/merge-prefix-exceptions'),
-    require('./plugin/merge-affix-exceptions'),
-    require('./plugin/merge-remaining-full-stops'),
-    require('./plugin/make-initial-white-space-siblings'),
-    require('./plugin/make-final-white-space-siblings'),
-    require('./plugin/break-implicit-sentences'),
-    require('./plugin/remove-empty-nodes'),
-    require('./plugin/patch-position')
-]);
-
-parseLatinPrototype.use('tokenizeRoot', [
-    require('./plugin/make-initial-white-space-siblings'),
-    require('./plugin/make-final-white-space-siblings'),
-    require('./plugin/remove-empty-nodes'),
-    require('./plugin/patch-position')
-]);
-
-/*
- * == EXPORT =================================================================
- */
-
-/*
- * Expose.
- */
-
-module.exports = ParseLatin;
-
-},{"./expressions":110,"./parser":112,"./plugin/break-implicit-sentences":113,"./plugin/make-final-white-space-siblings":114,"./plugin/make-initial-white-space-siblings":115,"./plugin/merge-affix-exceptions":116,"./plugin/merge-affix-symbol":117,"./plugin/merge-final-word-symbol":118,"./plugin/merge-initial-lower-case-letter-sentences":119,"./plugin/merge-initial-word-symbol":120,"./plugin/merge-initialisms":121,"./plugin/merge-inner-word-symbol":122,"./plugin/merge-non-word-sentences":123,"./plugin/merge-prefix-exceptions":124,"./plugin/merge-remaining-full-stops":125,"./plugin/merge-words":126,"./plugin/patch-position":127,"./plugin/remove-empty-nodes":128}],112:[function(require,module,exports){
-/**
- * @author Titus Wormer
- * @copyright 2014-2015 Titus Wormer
- * @license MIT
- * @module parse-latin:parser
- * @fileoverview Construct a parser for a given node.
- */
-
-'use strict';
-
-/* eslint-env commonjs */
-
-/*
- * Dependencies.
- */
-
-var tokenizer = require('./tokenizer');
-
-/**
- * Construct a parser based on `options`.
- *
- * @param {Object} options - Configuration.
- * @return {function(string): NLCSTNode}
- */
-function parserFactory(options) {
-    var type = options.type;
-    var tokenizerProperty = options.tokenizer;
-    var delimiter = options.delimiter;
-    var tokenize = delimiter && tokenizer(options.delimiterType, delimiter);
-
-    return function (value) {
-        var children = this[tokenizerProperty](value);
-
-        return {
-            'type': type,
-            'children': tokenize ? tokenize(children) : children
-        };
-    };
-}
-
-/*
- * Expose.
- */
-
-module.exports = parserFactory;
-
-},{"./tokenizer":129}],113:[function(require,module,exports){
-/**
- * @author Titus Wormer
- * @copyright 2014-2015 Titus Wormer
- * @license MIT
- * @module parse-latin:plugin:break-implicit-sentencs
- * @fileoverview Break a sentence if a white space with
- *   more than one new-line is found.
- */
-
-'use strict';
-
-/* eslint-env commonjs */
-
-/*
- * Dependencies.
- */
-
-var nlcstToString = require('nlcst-to-string');
-var modifyChildren = require('unist-util-modify-children');
-var expressions = require('../expressions');
-
-/*
- * Constants.
- *
- * - Two or more new line characters.
- */
-
-var EXPRESSION_MULTI_NEW_LINE = expressions.newLineMulti;
-
-/**
- * Break a sentence if a white space with more
- * than one new-line is found.
- *
- * @param {NLCSTNode} child - Node.
- * @param {number} index - Position of `child` in `parent`.
- * @param {NLCSTParagraphNode} parent - Parent of `child`.
- * @return {undefined}
- */
-function breakImplicitSentences(child, index, parent) {
-    var children;
-    var position;
-    var length;
-    var tail;
-    var head;
-    var end;
-    var insertion;
-    var node;
-
-    if (child.type !== 'SentenceNode') {
-        return;
-    }
-
-    children = child.children;
-
-    /*
-     * Ignore first and last child.
-     */
-
-    length = children.length - 1;
-    position = 0;
-
-    while (++position < length) {
-        node = children[position];
-
-        if (
-            node.type !== 'WhiteSpaceNode' ||
-            !EXPRESSION_MULTI_NEW_LINE.test(nlcstToString(node))
-        ) {
-            continue;
-        }
-
-        child.children = children.slice(0, position);
-
-        insertion = {
-            'type': 'SentenceNode',
-            'children': children.slice(position + 1)
-        };
-
-        tail = children[position - 1];
-        head = children[position + 1];
-
-        parent.children.splice(index + 1, 0, node, insertion);
-
-        if (child.position && tail.position && head.position) {
-            end = child.position.end;
-
-            child.position.end = tail.position.end;
-
-            insertion.position = {
-                'start': head.position.start,
-                'end': end
-            };
-        }
-
-        return index + 1;
-    }
-}
-
-/*
- * Expose `breakImplicitSentences` as a plugin.
- */
-
-module.exports = modifyChildren(breakImplicitSentences);
-
-},{"../expressions":110,"nlcst-to-string":108,"unist-util-modify-children":134}],114:[function(require,module,exports){
-/**
- * @author Titus Wormer
- * @copyright 2014-2015 Titus Wormer
- * @license MIT
- * @module parse-latin:plugin:make-final-white-space-siblings
- * @fileoverview Make final white-space siblings.
- */
-
-'use strict';
-
-/* eslint-env commonjs */
-
-/*
- * Dependencies.
- */
-
-var modifyChildren = require('unist-util-modify-children');
-
-/**
- * Move white space ending a paragraph up, so they are
- * the siblings of paragraphs.
- *
- * @param {NLCSTNode} child - Node.
- * @param {number} index - Position of `child` in `parent`.
- * @param {NLCSTParent} parent - Parent of `child`.
- * @return {undefined|number}
- */
-function makeFinalWhiteSpaceSiblings(child, index, parent) {
-    var children = child.children;
-    var prev;
-
-    if (
-        children &&
-        children.length !== 0 &&
-        children[children.length - 1].type === 'WhiteSpaceNode'
-    ) {
-        parent.children.splice(index + 1, 0, child.children.pop());
-        prev = children[children.length - 1];
-
-        if (prev && prev.position && child.position) {
-            child.position.end = prev.position.end;
-        }
-
-        /*
-         * Next, iterate over the current node again.
-         */
-
-        return index;
-    }
-}
-
-/*
- * Expose `makeFinalWhiteSpaceSiblings` as a modifier.
- */
-
-module.exports = modifyChildren(makeFinalWhiteSpaceSiblings);
-
-},{"unist-util-modify-children":134}],115:[function(require,module,exports){
-/**
- * @author Titus Wormer
- * @copyright 2014-2015 Titus Wormer
- * @license MIT
- * @module parse-latin:plugin:make-initial-white-space-siblings
- * @fileoverview Make initial white-space siblings.
- */
-
-'use strict';
-
-/* eslint-env commonjs */
-
-/*
- * Dependencies.
- */
-
-var visitChildren = require('unist-util-visit-children');
-
-/**
- * Move white space starting a sentence up, so they are
- * the siblings of sentences.
- *
- * @param {NLCSTNode} child - Node.
- * @param {number} index - Position of `child` in `parent`.
- * @param {NLCSTParent} parent - Parent of `child`.
- */
-function makeInitialWhiteSpaceSiblings(child, index, parent) {
-    var children = child.children;
-    var next;
-
-    if (
-        children &&
-        children.length !== 0 &&
-        children[0].type === 'WhiteSpaceNode'
-    ) {
-        parent.children.splice(index, 0, children.shift());
-        next = children[0];
-
-        if (next && next.position && child.position) {
-            child.position.start = next.position.start;
-        }
-    }
-}
-
-/*
- * Expose `makeInitialWhiteSpaceSiblings` as a plugin.
- */
-
-module.exports = visitChildren(makeInitialWhiteSpaceSiblings);
-
-},{"unist-util-visit-children":135}],116:[function(require,module,exports){
-/**
- * @author Titus Wormer
- * @copyright 2014-2015 Titus Wormer
- * @license MIT
- * @module parse-latin:plugin:merge-affix-exceptions
- * @fileoverview Merge a sentence into its previous
- *   sentence, when the sentence starts with a comma.
- */
-
-'use strict';
-
-/* eslint-env commonjs */
-
-/*
- * Dependencies.
- */
-
-var nlcstToString = require('nlcst-to-string');
-var modifyChildren = require('unist-util-modify-children');
-
-/**
- * Merge a sentence into its previous sentence, when
- * the sentence starts with a comma.
- *
- * @param {NLCSTNode} child - Node.
- * @param {number} index - Position of `child` in `parent`.
- * @param {NLCSTParagraphNode} parent - Parent of `child`.
- * @return {undefined|number}
- */
-function mergeAffixExceptions(child, index, parent) {
-    var children = child.children;
-    var node;
-    var position;
-    var value;
-    var previousChild;
-
-    if (!children || !children.length || index === 0) {
-        return;
-    }
-
-    position = -1;
-
-    while (children[++position]) {
-        node = children[position];
-
-        if (node.type === 'WordNode') {
-            return;
-        }
-
-        if (
-            node.type === 'SymbolNode' ||
-            node.type === 'PunctuationNode'
-        ) {
-            value = nlcstToString(node);
-
-            if (value !== ',' && value !== ';') {
-                return;
-            }
-
-            previousChild = parent.children[index - 1];
-
-            previousChild.children = previousChild.children.concat(children);
-
-            /*
-             * Update position.
-             */
-
-            if (previousChild.position && child.position) {
-                previousChild.position.end = child.position.end;
-            }
-
-            parent.children.splice(index, 1);
-
-            /*
-             * Next, iterate over the node *now* at the current
-             * position.
-             */
-
-            return index;
-        }
-    }
-}
-
-/*
- * Expose `mergeAffixExceptions` as a modifier.
- */
-
-module.exports = modifyChildren(mergeAffixExceptions);
-
-},{"nlcst-to-string":108,"unist-util-modify-children":134}],117:[function(require,module,exports){
-/**
- * @author Titus Wormer
- * @copyright 2014-2015 Titus Wormer
- * @license MIT
- * @module parse-latin:plugin:merge-affix-symbol
- * @fileoverview Move certain punctuation following a
- *   terminal marker (thus in the next sentence) to the
- *   previous sentence.
- */
-
-'use strict';
-
-/* eslint-env commonjs */
-
-/*
- * Dependencies.
- */
-
-var nlcstToString = require('nlcst-to-string');
-var modifyChildren = require('unist-util-modify-children');
-var expressions = require('../expressions');
-
-/*
- * Constants.
- *
- * - Closing or final punctuation, or terminal markers
- *   that should still be included in the previous
- *   sentence, even though they follow the sentence's
- *   terminal marker.
- */
-
-var EXPRESSION_AFFIX_SYMBOL = expressions.affixSymbol;
-
-/**
- * Move certain punctuation following a terminal
- * marker (thus in the next sentence) to the
- * previous sentence.
- *
- * @param {NLCSTNode} child - Node.
- * @param {number} index - Position of `child` in `parent`.
- * @param {NLCSTParagraphNode} parent - Parent of `child`.
- * @return {undefined|number}
- */
-function mergeAffixSymbol(child, index, parent) {
-    var children = child.children;
-    var first;
-    var second;
-    var prev;
-
-    if (
-        children &&
-        children.length &&
-        index !== 0
-    ) {
-        first = children[0];
-        second = children[1];
-        prev = parent.children[index - 1];
-
-        if (
-            (
-                first.type === 'SymbolNode' ||
-                first.type === 'PunctuationNode'
-            ) &&
-            EXPRESSION_AFFIX_SYMBOL.test(nlcstToString(first))
-        ) {
-            prev.children.push(children.shift());
-
-            /*
-             * Update position.
-             */
-
-            if (first.position && prev.position) {
-                prev.position.end = first.position.end;
-            }
-
-            if (second && second.position && child.position) {
-                child.position.start = second.position.start;
-            }
-
-            /*
-             * Next, iterate over the previous node again.
-             */
-
-            return index - 1;
-        }
-    }
-}
-
-/*
- * Expose `mergeAffixSymbol` as a modifier.
- */
-
-module.exports = modifyChildren(mergeAffixSymbol);
-
-},{"../expressions":110,"nlcst-to-string":108,"unist-util-modify-children":134}],118:[function(require,module,exports){
-/**
- * @author Titus Wormer
- * @copyright 2014-2015 Titus Wormer
- * @license MIT
- * @module parse-latin:plugin:merge-final-word-symbol
- * @fileoverview Merge certain symbols into their preceding word.
- */
-
-'use strict';
-
-/* eslint-env commonjs */
-
-/*
- * Dependencies.
- */
-
-var nlcstToString = require('nlcst-to-string');
-var modifyChildren = require('unist-util-modify-children');
-
-/**
- * Merge certain punctuation marks into their
- * preceding words.
- *
- * @param {NLCSTNode} child - Node.
- * @param {number} index - Position of `child` in `parent`.
- * @param {NLCSTSentenceNode} parent - Parent of `child`.
- * @return {undefined|number}
- */
-function mergeFinalWordSymbol(child, index, parent) {
-    var children;
-    var prev;
-    var next;
-
-    if (
-        index !== 0 &&
-        (
-            child.type === 'SymbolNode' ||
-            child.type === 'PunctuationNode'
-        ) &&
-        nlcstToString(child) === '-'
-    ) {
-        children = parent.children;
-
-        prev = children[index - 1];
-        next = children[index + 1];
-
-        if (
-            (
-                !next ||
-                next.type !== 'WordNode'
-            ) &&
-            (
-                prev &&
-                prev.type === 'WordNode'
-            )
-        ) {
-            /*
-             * Remove `child` from parent.
-             */
-
-            children.splice(index, 1);
-
-            /*
-             * Add the punctuation mark at the end of the
-             * previous node.
-             */
-
-            prev.children.push(child);
-
-            /*
-             * Update position.
-             */
-
-            if (prev.position && child.position) {
-                prev.position.end = child.position.end;
-            }
-
-            /*
-             * Next, iterate over the node *now* at the
-             * current position (which was the next node).
-             */
-
-            return index;
-        }
-    }
-}
-
-/*
- * Expose `mergeFinalWordSymbol` as a modifier.
- */
-
-module.exports = modifyChildren(mergeFinalWordSymbol);
-
-},{"nlcst-to-string":108,"unist-util-modify-children":134}],119:[function(require,module,exports){
-/**
- * @author Titus Wormer
- * @copyright 2014-2015 Titus Wormer
- * @license MIT
- * @module parse-latin:plugin:merge-initial-lower-case-letter-sentences
- * @fileoverview Merge a sentence into its previous
- *   sentence, when the sentence starts with a lower case
- *   letter.
- */
-
-'use strict';
-
-/* eslint-env commonjs */
-
-/*
- * Dependencies.
- */
-
-var nlcstToString = require('nlcst-to-string');
-var modifyChildren = require('unist-util-modify-children');
-var expressions = require('../expressions');
-
-/*
- * Constants.
- *
- * - Initial lowercase letter.
- */
-
-var EXPRESSION_LOWER_INITIAL = expressions.lowerInitial;
-
-/**
- * Merge a sentence into its previous sentence, when
- * the sentence starts with a lower case letter.
- *
- * @param {NLCSTNode} child - Node.
- * @param {number} index - Position of `child` in `parent`.
- * @param {NLCSTParagraphNode} parent - Parent of `child`.
- * @return {undefined|number}
- */
-function mergeInitialLowerCaseLetterSentences(child, index, parent) {
-    var children = child.children;
-    var position;
-    var node;
-    var siblings;
-    var prev;
-
-    if (
-        children &&
-        children.length &&
-        index !== 0
-    ) {
-        position = -1;
-
-        while (children[++position]) {
-            node = children[position];
-
-            if (node.type === 'WordNode') {
-                if (!EXPRESSION_LOWER_INITIAL.test(nlcstToString(node))) {
-                    return;
-                }
-
-                siblings = parent.children;
-
-                prev = siblings[index - 1];
-
-                prev.children = prev.children.concat(children);
-
-                siblings.splice(index, 1);
-
-                /*
-                 * Update position.
-                 */
-
-                if (prev.position && child.position) {
-                    prev.position.end = child.position.end;
-                }
-
-                /*
-                 * Next, iterate over the node *now* at
-                 * the current position.
-                 */
-
-                return index;
-            }
-
-            if (
-                node.type === 'SymbolNode' ||
-                node.type === 'PunctuationNode'
-            ) {
-                return;
-            }
-        }
-    }
-}
-
-/*
- * Expose `mergeInitialLowerCaseLetterSentences` as a modifier.
- */
-
-module.exports = modifyChildren(mergeInitialLowerCaseLetterSentences);
-
-},{"../expressions":110,"nlcst-to-string":108,"unist-util-modify-children":134}],120:[function(require,module,exports){
-/**
- * @author Titus Wormer
- * @copyright 2014-2015 Titus Wormer
- * @license MIT
- * @module parse-latin:plugin:merge-initial-word-symbol
- * @fileoverview Merge certain symbols into their next word.
- */
-
-'use strict';
-
-/* eslint-env commonjs */
-
-/*
- * Dependencies.
- */
-
-var nlcstToString = require('nlcst-to-string');
-var modifyChildren = require('unist-util-modify-children');
-
-/**
- * Merge certain punctuation marks into their
- * following words.
- *
- * @param {NLCSTNode} child - Node.
- * @param {number} index - Position of `child` in `parent`.
- * @param {NLCSTSentenceNode} parent - Parent of `child`.
- * @return {undefined|number}
- */
-function mergeInitialWordSymbol(child, index, parent) {
-    var children;
-    var next;
-
-    if (
-        (
-            child.type !== 'SymbolNode' &&
-            child.type !== 'PunctuationNode'
-        ) ||
-        nlcstToString(child) !== '&'
-    ) {
-        return;
-    }
-
-    children = parent.children;
-
-    next = children[index + 1];
-
-    /*
-     * If either a previous word, or no following word,
-     * exists, exit early.
-     */
-
-    if (
-        (
-            index !== 0 &&
-            children[index - 1].type === 'WordNode'
-        ) ||
-        !(
-            next &&
-            next.type === 'WordNode'
-        )
-    ) {
-        return;
-    }
-
-    /*
-     * Remove `child` from parent.
-     */
-
-    children.splice(index, 1);
-
-    /*
-     * Add the punctuation mark at the start of the
-     * next node.
-     */
-
-    next.children.unshift(child);
-
-    /*
-     * Update position.
-     */
-
-    if (next.position && child.position) {
-        next.position.start = child.position.start;
-    }
-
-    /*
-     * Next, iterate over the node at the previous
-     * position, as it's now adjacent to a following
-     * word.
-     */
-
-    return index - 1;
-}
-
-/*
- * Expose `mergeInitialWordSymbol` as a modifier.
- */
-
-module.exports = modifyChildren(mergeInitialWordSymbol);
-
-},{"nlcst-to-string":108,"unist-util-modify-children":134}],121:[function(require,module,exports){
-/**
- * @author Titus Wormer
- * @copyright 2014-2015 Titus Wormer
- * @license MIT
- * @module parse-latin:plugin:merge-initialisms
- * @fileoverview Merge initialisms.
- */
-
-'use strict';
-
-/* eslint-env commonjs */
-
-/*
- * Dependencies.
- */
-
-var nlcstToString = require('nlcst-to-string');
-var modifyChildren = require('unist-util-modify-children');
-var expressions = require('../expressions');
-
-/*
- * Constants.
- *
- * - Numbers.
- */
-
-var EXPRESSION_NUMERICAL = expressions.numerical;
-
-/**
- * Merge initialisms.
- *
- * @param {NLCSTNode} child - Node.
- * @param {number} index - Position of `child` in `parent`.
- * @param {NLCSTSentenceNode} parent - Parent of `child`.
- * @return {undefined|number}
- */
-function mergeInitialisms(child, index, parent) {
-    var siblings;
-    var prev;
-    var children;
-    var length;
-    var position;
-    var otherChild;
-    var isAllDigits;
-    var value;
-
-    if (
-        index !== 0 &&
-        nlcstToString(child) === '.'
-    ) {
-        siblings = parent.children;
-
-        prev = siblings[index - 1];
-        children = prev.children;
-
-        length = children && children.length;
-
-        if (
-            prev.type === 'WordNode' &&
-            length !== 1 &&
-            length % 2 !== 0
-        ) {
-            position = length;
-
-            isAllDigits = true;
-
-            while (children[--position]) {
-                otherChild = children[position];
-
-                value = nlcstToString(otherChild);
-
-                if (position % 2 === 0) {
-                    /*
-                     * Initialisms consist of one
-                     * character values.
-                     */
-
-                    if (value.length > 1) {
-                        return;
-                    }
-
-                    if (!EXPRESSION_NUMERICAL.test(value)) {
-                        isAllDigits = false;
-                    }
-                } else if (value !== '.') {
-                    if (position < length - 2) {
-                        break;
-                    } else {
-                        return;
-                    }
-                }
-            }
-
-            if (!isAllDigits) {
-                /*
-                 * Remove `child` from parent.
-                 */
-
-                siblings.splice(index, 1);
-
-                /*
-                 * Add child to the previous children.
-                 */
-
-                children.push(child);
-
-                /*
-                 * Update position.
-                 */
-
-                if (prev.position && child.position) {
-                    prev.position.end = child.position.end;
-                }
-
-                /*
-                 * Next, iterate over the node *now* at the current
-                 * position.
-                 */
-
-                return index;
-            }
-        }
-    }
-}
-
-/*
- * Expose `mergeInitialisms` as a modifier.
- */
-
-module.exports = modifyChildren(mergeInitialisms);
-
-},{"../expressions":110,"nlcst-to-string":108,"unist-util-modify-children":134}],122:[function(require,module,exports){
-/**
- * @author Titus Wormer
- * @copyright 2014-2015 Titus Wormer
- * @license MIT
- * @module parse-latin:plugin:merge-inner-word-symbol
- * @fileoverview Merge words joined by certain punctuation
- *   marks.
- */
-
-'use strict';
-
-/* eslint-env commonjs */
-
-/*
- * Dependencies.
- */
-
-var nlcstToString = require('nlcst-to-string');
-var modifyChildren = require('unist-util-modify-children');
-var expressions = require('../expressions');
-
-/*
- * Constants.
- *
- * - Symbols part of surrounding words.
- */
-
-var EXPRESSION_INNER_WORD_SYMBOL = expressions.wordSymbolInner;
-
-/**
- * Merge words joined by certain punctuation marks.
- *
- * @param {NLCSTNode} child - Node.
- * @param {number} index - Position of `child` in `parent`.
- * @param {NLCSTSentenceNode} parent - Parent of `child`.
- * @return {undefined|number}
- */
-function mergeInnerWordSymbol(child, index, parent) {
-    var siblings;
-    var sibling;
-    var prev;
-    var last;
-    var position;
-    var tokens;
-    var queue;
-
-    if (
-        index !== 0 &&
-        (
-            child.type === 'SymbolNode' ||
-            child.type === 'PunctuationNode'
-        )
-    ) {
-        siblings = parent.children;
-
-        prev = siblings[index - 1];
-
-        if (prev && prev.type === 'WordNode') {
-            position = index - 1;
-
-            tokens = [];
-            queue = [];
-
-            /*
-             * - If a token which is neither word nor
-             *   inner word symbol is found, the loop
-             *   is broken.
-             * - If an inner word symbol is found,
-             *   it's queued.
-             * - If a word is found, it's queued (and
-             *   the queue stored and emptied).
-             */
-
-            while (siblings[++position]) {
-                sibling = siblings[position];
-
-                if (sibling.type === 'WordNode') {
-                    tokens = tokens.concat(queue, sibling.children);
-
-                    queue = [];
-                } else if (
-                    (
-                        sibling.type === 'SymbolNode' ||
-                        sibling.type === 'PunctuationNode'
-                    ) &&
-                    EXPRESSION_INNER_WORD_SYMBOL.test(nlcstToString(sibling))
-                ) {
-                    queue.push(sibling);
-                } else {
-                    break;
-                }
-            }
-
-            if (tokens.length) {
-                /*
-                 * If there is a queue, remove its length
-                 * from `position`.
-                 */
-
-                if (queue.length) {
-                    position -= queue.length;
-                }
-
-                /*
-                 * Remove every (one or more) inner-word punctuation
-                 * marks and children of words.
-                 */
-
-                siblings.splice(index, position - index);
-
-                /*
-                 * Add all found tokens to `prev`s children.
-                 */
-
-                prev.children = prev.children.concat(tokens);
-
-                last = tokens[tokens.length - 1];
-
-                /*
-                 * Update position.
-                 */
-
-                if (prev.position && last.position) {
-                    prev.position.end = last.position.end;
-                }
-
-                /*
-                 * Next, iterate over the node *now* at the current
-                 * position.
-                 */
-
-                return index;
-            }
-        }
-    }
-}
-
-/*
- * Expose `mergeInnerWordSymbol` as a modifier.
- */
-
-module.exports = modifyChildren(mergeInnerWordSymbol);
-
-},{"../expressions":110,"nlcst-to-string":108,"unist-util-modify-children":134}],123:[function(require,module,exports){
-/**
- * @author Titus Wormer
- * @copyright 2014-2015 Titus Wormer
- * @license MIT
- * @module parse-latin:plugin:merge-non-word-sentences
- * @fileoverview Merge a sentence into the following
- *   sentence, when the sentence does not contain word
- *   tokens.
- */
-
-'use strict';
-
-/* eslint-env commonjs */
-
-/*
- * Dependencies.
- */
-
-var modifyChildren = require('unist-util-modify-children');
-
-/**
- * Merge a sentence into the following sentence, when
- * the sentence does not contain word tokens.
- *
- * @param {NLCSTNode} child - Node.
- * @param {number} index - Position of `child` in `parent`.
- * @param {NLCSTParagraphNode} parent - Parent of `child`.
- * @return {undefined|number}
- */
-function mergeNonWordSentences(child, index, parent) {
-    var children = child.children;
-    var position = -1;
-    var prev;
-    var next;
-
-    while (children[++position]) {
-        if (children[position].type === 'WordNode') {
-            return;
-        }
-    }
-
-    prev = parent.children[index - 1];
-
-    if (prev) {
-        prev.children = prev.children.concat(children);
-
-        /*
-         * Remove the child.
-         */
-
-        parent.children.splice(index, 1);
-
-        /*
-         * Patch position.
-         */
-
-        if (prev.position && child.position) {
-            prev.position.end = child.position.end;
-        }
-
-        /*
-         * Next, iterate over the node *now* at
-         * the current position (which was the
-         * next node).
-         */
-
-        return index;
-    }
-
-    next = parent.children[index + 1];
-
-    if (next) {
-        next.children = children.concat(next.children);
-
-        /*
-         * Patch position.
-         */
-
-        if (next.position && child.position) {
-            next.position.start = child.position.start;
-        }
-
-        /*
-         * Remove the child.
-         */
-
-        parent.children.splice(index, 1);
-    }
-}
-
-/*
- * Expose `mergeNonWordSentences` as a modifier.
- */
-
-module.exports = modifyChildren(mergeNonWordSentences);
-
-},{"unist-util-modify-children":134}],124:[function(require,module,exports){
-/**
- * @author Titus Wormer
- * @copyright 2014-2015 Titus Wormer
- * @license MIT
- * @module parse-latin:plugin:merge-prefix-exceptions
- * @fileoverview Merge a sentence into its next sentence,
- *   when the sentence ends with a certain word.
- */
-
-'use strict';
-
-/* eslint-env commonjs */
-
-/*
- * Dependencies.
- */
-
-var nlcstToString = require('nlcst-to-string');
-var modifyChildren = require('unist-util-modify-children');
-
-/*
- * Constants.
- *
- * - Blacklist of full stop characters that should not
- *   be treated as terminal sentence markers: A
- *   case-insensitive abbreviation.
- */
-
-var EXPRESSION_ABBREVIATION_PREFIX = new RegExp(
-    '^(' +
-        '[0-9]+|' +
-        '[a-z]|' +
-
-        /*
-         * Common Latin Abbreviations:
-         * Based on: http://en.wikipedia.org/wiki/List_of_Latin_abbreviations
-         * Where only the abbreviations written without joining full stops,
-         * but with a final full stop, were extracted.
-         *
-         * circa, capitulus, confer, compare, centum weight, eadem, (et) alii,
-         * et cetera, floruit, foliis, ibidem, idem, nemine && contradicente,
-         * opere && citato, (per) cent, (per) procurationem, (pro) tempore,
-         * sic erat scriptum, (et) sequentia, statim, videlicet.
-         */
-
-        'al|ca|cap|cca|cent|cf|cit|con|cp|cwt|ead|etc|ff|' +
-        'fl|ibid|id|nem|op|pro|seq|sic|stat|tem|viz' +
-    ')$'
-);
-
-/**
- * Merge a sentence into its next sentence, when the
- * sentence ends with a certain word.
- *
- * @param {NLCSTNode} child - Node.
- * @param {number} index - Position of `child` in `parent`.
- * @param {NLCSTParagraphNode} parent - Parent of `child`.
- * @return {undefined|number}
- */
-function mergePrefixExceptions(child, index, parent) {
-    var children = child.children;
-    var node;
-    var next;
-
-    if (
-        children &&
-        children.length &&
-        index !== parent.children.length - 1
-    ) {
-        node = children[children.length - 1];
-
-        if (
-            node &&
-            nlcstToString(node) === '.'
-        ) {
-            node = children[children.length - 2];
-
-            if (
-                node &&
-                node.type === 'WordNode' &&
-                EXPRESSION_ABBREVIATION_PREFIX.test(
-                    nlcstToString(node).toLowerCase()
-                )
-            ) {
-                next = parent.children[index + 1];
-
-                child.children = children.concat(next.children);
-
-                parent.children.splice(index + 1, 1);
-
-                /*
-                 * Update position.
-                 */
-
-                if (next.position && child.position) {
-                    child.position.end = next.position.end;
-                }
-
-                /*
-                 * Next, iterate over the current node again.
-                 */
-
-                return index - 1;
-            }
-        }
-    }
-}
-
-/*
- * Expose `mergePrefixExceptions` as a modifier.
- */
-
-module.exports = modifyChildren(mergePrefixExceptions);
-
-},{"nlcst-to-string":108,"unist-util-modify-children":134}],125:[function(require,module,exports){
-/**
- * @author Titus Wormer
- * @copyright 2014-2015 Titus Wormer
- * @license MIT
- * @module parse-latin:plugin:merge-remaining-full-stops
- * @fileoverview Merge non-terminal-marker full stops into
- *   previous or next adjacent words.
- */
-
-'use strict';
-
-/* eslint-env commonjs */
-
-/*
- * Dependencies.
- */
-
-var nlcstToString = require('nlcst-to-string');
-var visitChildren = require('unist-util-visit-children');
-var expressions = require('../expressions');
-
-/*
- * Constants.
- *
- * - Blacklist of full stop characters that should not
- *   be treated as terminal sentence markers: A
- *   case-insensitive abbreviation.
- */
-
-var EXPRESSION_TERMINAL_MARKER = expressions.terminalMarker;
-
-/**
- * Merge non-terminal-marker full stops into
- * the previous word (if available), or the next
- * word (if available).
- *
- * @param {NLCSTNode} child - Node.
- */
-function mergeRemainingFullStops(child) {
-    var children = child.children;
-    var position = children.length;
-    var hasFoundDelimiter = false;
-    var grandchild;
-    var prev;
-    var next;
-    var nextNext;
-
-    while (children[--position]) {
-        grandchild = children[position];
-
-        if (
-            grandchild.type !== 'SymbolNode' &&
-            grandchild.type !== 'PunctuationNode'
-        ) {
-            /*
-             * This is a sentence without terminal marker,
-             * so we 'fool' the code to make it think we
-             * have found one.
-             */
-
-            if (grandchild.type === 'WordNode') {
-                hasFoundDelimiter = true;
-            }
-
-            continue;
-        }
-
-        /*
-         * Exit when this token is not a terminal marker.
-         */
-
-        if (!EXPRESSION_TERMINAL_MARKER.test(nlcstToString(grandchild))) {
-            continue;
-        }
-
-        /*
-         * Ignore the first terminal marker found
-         * (starting at the end), as it should not
-         * be merged.
-         */
-
-        if (!hasFoundDelimiter) {
-            hasFoundDelimiter = true;
-
-            continue;
-        }
-
-        /*
-         * Only merge a single full stop.
-         */
-
-        if (nlcstToString(grandchild) !== '.') {
-            continue;
-        }
-
-        prev = children[position - 1];
-        next = children[position + 1];
-
-        if (prev && prev.type === 'WordNode') {
-            nextNext = children[position + 2];
-
-            /*
-             * Continue when the full stop is followed by
-             * a space and another full stop, such as:
-             * `{.} .`
-             */
-
-            if (
-                next &&
-                nextNext &&
-                next.type === 'WhiteSpaceNode' &&
-                nlcstToString(nextNext) === '.'
-            ) {
-                continue;
-            }
-
-            /*
-             * Remove `child` from parent.
-             */
-
-            children.splice(position, 1);
-
-            /*
-             * Add the punctuation mark at the end of the
-             * previous node.
-             */
-
-            prev.children.push(grandchild);
-
-            /*
-             * Update position.
-             */
-
-            if (grandchild.position && prev.position) {
-                prev.position.end = grandchild.position.end;
-            }
-
-            position--;
-        } else if (next && next.type === 'WordNode') {
-            /*
-             * Remove `child` from parent.
-             */
-
-            children.splice(position, 1);
-
-            /*
-             * Add the punctuation mark at the start of
-             * the next node.
-             */
-
-            next.children.unshift(grandchild);
-
-            if (grandchild.position && next.position) {
-                next.position.start = grandchild.position.start;
-            }
-        }
-    }
-}
-
-/*
- * Expose `mergeRemainingFullStops` as a plugin.
- */
-
-module.exports = visitChildren(mergeRemainingFullStops);
-
-},{"../expressions":110,"nlcst-to-string":108,"unist-util-visit-children":135}],126:[function(require,module,exports){
-/**
- * @author Titus Wormer
- * @copyright 2014-2015 Titus Wormer
- * @license MIT
- * @module parse-latin:plugin:merge-words
- * @fileoverview Merge adjacent words.
- */
-
-'use strict';
-
-/* eslint-env commonjs */
-
-/*
- * Dependencies.
- */
-
-var modifyChildren = require('unist-util-modify-children');
-
-/**
- * Merge multiple words. This merges the children of
- * adjacent words, something which should not occur
- * naturally by parse-latin, but might happen when
- * custom tokens were passed in.
- *
- * @param {NLCSTNode} child - Node.
- * @param {number} index - Position of `child` in `parent`.
- * @param {NLCSTSentenceNode} parent - Parent of `child`.
- * @return {undefined|number}
- */
-function mergeFinalWordSymbol(child, index, parent) {
-    var siblings = parent.children;
-    var next;
-
-    if (child.type === 'WordNode') {
-        next = siblings[index + 1];
-
-        if (next && next.type === 'WordNode') {
-            /*
-             * Remove `next` from parent.
-             */
-
-            siblings.splice(index + 1, 1);
-
-            /*
-             * Add the punctuation mark at the end of the
-             * previous node.
-             */
-
-            child.children = child.children.concat(next.children);
-
-            /*
-             * Update position.
-             */
-
-            if (next.position && child.position) {
-                child.position.end = next.position.end;
-            }
-
-            /*
-             * Next, re-iterate the current node.
-             */
-
-            return index;
-        }
-    }
-}
-
-/*
- * Expose `mergeFinalWordSymbol` as a modifier.
- */
-
-module.exports = modifyChildren(mergeFinalWordSymbol);
-
-},{"unist-util-modify-children":134}],127:[function(require,module,exports){
-/**
- * @author Titus Wormer
- * @copyright 2014-2015 Titus Wormer
- * @license MIT
- * @module parse-latin:plugin:patch-position
- * @fileoverview Patch `position` on a parent node based
- *   on its first and last child.
- */
-
-'use strict';
-
-/* eslint-env commonjs */
-
-/*
- * Dependencies.
- */
-
-var visitChildren = require('unist-util-visit-children');
-
-/**
- * Add a `position` object when it does not yet exist
- * on `node`.
- *
- * @param {NLCSTNode} node - Node to patch.
- */
-function patch(node) {
-    if (!node.position) {
-        node.position = {};
-    }
-}
-
-/**
- * Patch the position on a parent node based on its first
- * and last child.
- *
- * @param {NLCSTNode} child - Node.
- */
-function patchPosition(child, index, node) {
-    var siblings = node.children;
-
-    if (!child.position) {
-        return;
-    }
-
-    if (
-        index === 0 &&
-        (!node.position || /* istanbul ignore next */ !node.position.start)
-    ) {
-        patch(node);
-        node.position.start = child.position.start;
-    }
-
-    if (
-        index === siblings.length - 1 &&
-        (!node.position || !node.position.end)
-    ) {
-        patch(node);
-        node.position.end = child.position.end;
-    }
-}
-
-/*
- * Expose `patchPosition` as a plugin.
- */
-
-module.exports = visitChildren(patchPosition);
-
-},{"unist-util-visit-children":135}],128:[function(require,module,exports){
-/**
- * @author Titus Wormer
- * @copyright 2014-2015 Titus Wormer
- * @license MIT
- * @module parse-latin:plugin:remove-empty-nodes
- * @fileoverview Remove empty child nodes without children.
- */
-
-'use strict';
-
-/* eslint-env commonjs */
-
-/*
- * Dependencies.
- */
-
-var modifyChildren = require('unist-util-modify-children');
-
-/**
- * Remove empty children.
- *
- * @param {NLCSTNode} child - Node.
- * @param {number} index - Position of `child` in `parent`.
- * @param {NLCSTParagraphNode} parent - Parent of `child`.
- * @return {undefined|number}
- */
-function removeEmptyNodes(child, index, parent) {
-    if ('children' in child && !child.children.length) {
-        parent.children.splice(index, 1);
-
-        /*
-         * Next, iterate over the node *now* at
-         * the current position (which was the
-         * next node).
-         */
-
-        return index;
-    }
-}
-
-/*
- * Expose `removeEmptyNodes` as a modifier.
- */
-
-module.exports = modifyChildren(removeEmptyNodes);
-
-},{"unist-util-modify-children":134}],129:[function(require,module,exports){
-/**
- * @author Titus Wormer
- * @copyright 2014-2015 Titus Wormer
- * @license MIT
- * @module parse-latin:tokenizer
- * @fileoverview Tokenize tokens matching an expression as
- *   a given node-type.
- */
-
-'use strict';
-
-/* eslint-env commonjs */
-
-/*
- * Dependencies.
- */
-
-var nlcstToString = require('nlcst-to-string');
-
-/**
- * Factory to create a tokenizer based on a given
- * `expression`.
- *
- * @param {string} childType - Type of child to tokenize
- *   as.
- * @param {RegExp} expression - Expression to use for
- *   tokenization.
- * @return {function(NLCSTParent): Array.<NLCSTChild>}
- */
-function tokenizerFactory(childType, expression) {
-    /**
-     * A function which splits
-     *
-     * @param {NLCSTParent} node - Parent node.
-     * @return {Array.<NLCSTChild>}
-     */
-    return function (node) {
-        var children = [];
-        var tokens = node.children;
-        var type = node.type;
-        var length = tokens.length;
-        var index = -1;
-        var lastIndex = length - 1;
-        var start = 0;
-        var first;
-        var last;
-        var parent;
-
-        while (++index < length) {
-            if (
-                index === lastIndex ||
-                (
-                    tokens[index].type === childType &&
-                    expression.test(nlcstToString(tokens[index]))
-                )
-            ) {
-                first = tokens[start];
-                last = tokens[index];
-
-                parent = {
-                    'type': type,
-                    'children': tokens.slice(start, index + 1)
-                };
-
-                if (first.position && last.position) {
-                    parent.position = {
-                        'start': first.position.start,
-                        'end': last.position.end
-                    };
-                }
-
-                children.push(parent);
-
-                start = index + 1;
-            }
-        }
-
-        return children;
-    };
-}
-
-/*
- * Expose.
- */
-
-module.exports = tokenizerFactory;
-
-},{"nlcst-to-string":108}],130:[function(require,module,exports){
-/**
- * @author Titus Wormer
- * @copyright 2015 Titus Wormer
- * @license MIT
- * @module array-iterate
- * @fileoverview `forEach` with the possibility to change the
- *   next position.
- */
-
-'use strict';
-
-/* Dependencies. */
-var has = require('has');
-
-/* Expose. */
-module.exports = iterate;
-
-/**
- * `Array#forEach()` with the possibility to change
- * the next position.
- *
- * @param {{length: number}} values - Values.
- * @param {arrayIterate~callback} callback - Callback given to `iterate`.
- * @param {*?} [context] - Context object to use when invoking `callback`.
- */
-function iterate(values, callback, context) {
-  var index = -1;
-  var result;
-
-  if (!values) {
-    throw new Error('Iterate requires that |this| not be ' + values);
-  }
-
-  if (!has(values, 'length')) {
-    throw new Error('Iterate requires that |this| has a `length`');
-  }
-
-  if (typeof callback !== 'function') {
-    throw new Error('`callback` must be a function');
-  }
-
-  /* The length might change, so we do not cache it. */
-  while (++index < values.length) {
-    /* Skip missing values. */
-    if (!(index in values)) {
-      continue;
-    }
-
-    result = callback.call(context, values[index], index, values);
-
-    /*
-     * If `callback` returns a `number`, move `index` over to
-     * `number`.
-     */
-
-    if (typeof result === 'number') {
-      /* Make sure that negative numbers do not break the loop. */
-      if (result < 0) {
-        index = 0;
-      }
-
-      index = result - 1;
-    }
-  }
-}
-
-},{"has":133}],131:[function(require,module,exports){
-var ERROR_MESSAGE = 'Function.prototype.bind called on incompatible ';
-var slice = Array.prototype.slice;
-var toStr = Object.prototype.toString;
-var funcType = '[object Function]';
-
-module.exports = function bind(that) {
-    var target = this;
-    if (typeof target !== 'function' || toStr.call(target) !== funcType) {
-        throw new TypeError(ERROR_MESSAGE + target);
-    }
-    var args = slice.call(arguments, 1);
-
-    var bound;
-    var binder = function () {
-        if (this instanceof bound) {
-            var result = target.apply(
-                this,
-                args.concat(slice.call(arguments))
-            );
-            if (Object(result) === result) {
-                return result;
-            }
-            return this;
-        } else {
-            return target.apply(
-                that,
-                args.concat(slice.call(arguments))
-            );
-        }
-    };
-
-    var boundLength = Math.max(0, target.length - args.length);
-    var boundArgs = [];
-    for (var i = 0; i < boundLength; i++) {
-        boundArgs.push('$' + i);
-    }
-
-    bound = Function('binder', 'return function (' + boundArgs.join(',') + '){ return binder.apply(this,arguments); }')(binder);
-
-    if (target.prototype) {
-        var Empty = function Empty() {};
-        Empty.prototype = target.prototype;
-        bound.prototype = new Empty();
-        Empty.prototype = null;
-    }
-
-    return bound;
-};
-
-},{}],132:[function(require,module,exports){
-var implementation = require('./implementation');
-
-module.exports = Function.prototype.bind || implementation;
-
-},{"./implementation":131}],133:[function(require,module,exports){
-var bind = require('function-bind');
-
-module.exports = bind.call(Function.call, Object.prototype.hasOwnProperty);
-
-},{"function-bind":132}],134:[function(require,module,exports){
-'use strict';
-
-var iterate = require('array-iterate');
-
-module.exports = modifierFactory;
-
-/* Turn `callback` into a child-modifier accepting a parent.
- * See `array-iterate` for more info. */
-function modifierFactory(callback) {
-  return iteratorFactory(wrapperFactory(callback));
-}
-
-/* Turn `callback` into a `iterator' accepting a parent. */
-function iteratorFactory(callback) {
-  return iterator;
-
-  function iterator(parent) {
-    var children = parent && parent.children;
-
-    if (!children) {
-      throw new Error('Missing children in `parent` for `modifier`');
-    }
-
-    return iterate(children, callback, parent);
-  }
-}
-
-/* Pass the context as the third argument to `callback`. */
-function wrapperFactory(callback) {
-  return wrapper;
-
-  function wrapper(value, index) {
-    return callback(value, index, this);
-  }
-}
-
-},{"array-iterate":130}],135:[function(require,module,exports){
-'use strict';
-
-/* Expose. */
-module.exports = visitorFactory;
-
-/* Turns `callback` into a child-visitor accepting a parent. */
-function visitorFactory(callback) {
-  return visitor;
-
-  /* Visit `parent`, invoking `callback` for each child. */
-  function visitor(parent) {
-    var index = -1;
-    var children = parent && parent.children;
-
-    if (!children) {
-      throw new Error('Missing children in `parent` for `visitor`');
-    }
-
-    while (++index in children) {
-      callback(children[index], index, parent);
-    }
-  }
-}
-
-},{}],136:[function(require,module,exports){
-/**
- * @author Titus Wormer
- * @copyright 2015 Titus Wormer
- * @license MIT
- * @module unified
- * @fileoverview Parse / Transform / Compile / Repeat.
- */
-
-'use strict';
-
-/* eslint-env commonjs */
-
-/*
- * Dependencies.
- */
-
-var bail = require('bail');
-var ware = require('ware');
-var AttachWare = require('attach-ware')(ware);
-var VFile = require('vfile');
-var unherit = require('unherit');
-var extend;
-
-try {
-    extend = require('node-extend');
-} catch (e) {
-    extend = require('extend');
-}
-
-/*
- * Processing pipeline.
- */
-
-var pipeline = ware()
-    .use(function (ctx) {
-        ctx.tree = ctx.context.parse(ctx.file, ctx.settings);
-    })
-    .use(function (ctx, next) {
-        ctx.context.run(ctx.tree, ctx.file, next);
-    })
-    .use(function (ctx) {
-        ctx.result = ctx.context.stringify(ctx.tree, ctx.file, ctx.settings);
-    });
-
-/**
- * Construct a new Processor class based on the
- * given options.
- *
- * @param {Object} options - Configuration.
- * @param {string} options.name - Private storage.
- * @param {Function} options.Parser - Class to turn a
- *   virtual file into a syntax tree.
- * @param {Function} options.Compiler - Class to turn a
- *   syntax tree into a string.
- * @return {Processor} - A new constructor.
- */
-function unified(options) {
-    var name = options.name;
-    var Parser = options.Parser;
-    var Compiler = options.Compiler;
-    var data = options.data;
-
-    /**
-     * Construct a Processor instance.
-     *
-     * @constructor
-     * @class {Processor}
-     */
-    function Processor(processor) {
-        var self = this;
-
-        if (!(self instanceof Processor)) {
-            return new Processor(processor);
-        }
-
-        self.ware = new AttachWare(processor && processor.ware);
-        self.ware.context = self;
-
-        self.Parser = unherit(Parser);
-        self.Compiler = unherit(Compiler);
-
-        if (self.data) {
-            self.data = extend(true, {}, self.data);
-        }
-    }
-
-    /**
-     * Either return `context` if its an instance
-     * of `Processor` or construct a new `Processor`
-     * instance.
-     *
-     * @private
-     * @param {Processor?} [context] - Context object.
-     * @return {Processor} - Either `context` or a new
-     *   Processor instance.
-     */
-    function instance(context) {
-        return context instanceof Processor ? context : new Processor();
-    }
-
-    /**
-     * Attach a plugin.
-     *
-     * @this {Processor?} - Either a Processor instance or
-     *   the Processor constructor.
-     * @return {Processor} - Either `context` or a new
-     *   Processor instance.
-     */
-    function use() {
-        var self = instance(this);
-
-        self.ware.use.apply(self.ware, arguments);
-
-        return self;
-    }
-
-    /**
-     * Transform.
-     *
-     * @this {Processor?} - Either a Processor instance or
-     *   the Processor constructor.
-     * @param {Node} [node] - Syntax tree.
-     * @param {VFile?} [file] - Virtual file.
-     * @param {Function?} [done] - Callback.
-     * @return {Node} - `node`.
-     */
-    function run(node, file, done) {
-        var self = this;
-        var space;
-
-        if (typeof file === 'function') {
-            done = file;
-            file = null;
-        }
-
-        if (!file && node && !node.type) {
-            file = node;
-            node = null;
-        }
-
-        file = new VFile(file);
-        space = file.namespace(name);
-
-        if (!node) {
-            node = space.tree || node;
-        } else if (!space.tree) {
-            space.tree = node;
-        }
-
-        if (!node) {
-            throw new Error('Expected node, got ' + node);
-        }
-
-        done = typeof done === 'function' ? done : bail;
-
-        /*
-         * Only run when this is an instance of Processor,
-         * and when there are transformers.
-         */
-
-        if (self.ware && self.ware.fns) {
-            self.ware.run(node, file, done);
-        } else {
-            done(null, node, file);
-        }
-
-        return node;
-    }
-
-    /**
-     * Parse a file.
-     *
-     * Patches the parsed node onto the `name`
-     * namespace on the `type` property.
-     *
-     * @this {Processor?} - Either a Processor instance or
-     *   the Processor constructor.
-     * @param {string|VFile} value - Input to parse.
-     * @param {Object?} [settings] - Configuration.
-     * @return {Node} - `node`.
-     */
-    function parse(value, settings) {
-        var file = new VFile(value);
-        var CustomParser = (this && this.Parser) || Parser;
-        var node = new CustomParser(file, settings, instance(this)).parse();
-
-        file.namespace(name).tree = node;
-
-        return node;
-    }
-
-    /**
-     * Compile a file.
-     *
-     * Used the parsed node at the `name`
-     * namespace at `'tree'` when no node was given.
-     *
-     * @this {Processor?} - Either a Processor instance or
-     *   the Processor constructor.
-     * @param {Object} [node] - Syntax tree.
-     * @param {VFile} [file] - File with syntax tree.
-     * @param {Object?} [settings] - Configuration.
-     * @return {string} - Compiled `file`.
-     */
-    function stringify(node, file, settings) {
-        var CustomCompiler = (this && this.Compiler) || Compiler;
-        var space;
-
-        if (settings === null || settings === undefined) {
-            settings = file;
-            file = null;
-        }
-
-        if (!file && node && !node.type) {
-            file = node;
-            node = null;
-        }
-
-        file = new VFile(file);
-        space = file.namespace(name);
-
-        if (!node) {
-            node = space.tree || node;
-        } else if (!space.tree) {
-            space.tree = node;
-        }
-
-        if (!node) {
-            throw new Error('Expected node, got ' + node);
-        }
-
-        return new CustomCompiler(file, settings, instance(this)).compile();
-    }
-
-    /**
-     * Parse / Transform / Compile.
-     *
-     * @this {Processor?} - Either a Processor instance or
-     *   the Processor constructor.
-     * @param {string|VFile} value - Input to process.
-     * @param {Object?} [settings] - Configuration.
-     * @param {Function?} [done] - Callback.
-     * @return {string?} - Parsed document, when
-     *   transformation was async.
-     */
-    function process(value, settings, done) {
-        var self = instance(this);
-        var file = new VFile(value);
-        var result = null;
-
-        if (typeof settings === 'function') {
-            done = settings;
-            settings = null;
-        }
-
-        pipeline.run({
-            'context': self,
-            'file': file,
-            'settings': settings || {}
-        }, function (err, res) {
-            result = res && res.result;
-
-            if (done) {
-                done(err, file, result);
-            } else if (err) {
-                bail(err);
-            }
-        });
-
-        return result;
-    }
-
-    /*
-     * Methods / functions.
-     */
-
-    var proto = Processor.prototype;
-
-    Processor.use = proto.use = use;
-    Processor.parse = proto.parse = parse;
-    Processor.run = proto.run = run;
-    Processor.stringify = proto.stringify = stringify;
-    Processor.process = proto.process = process;
-    Processor.data = proto.data = data || null;
-
-    return Processor;
-}
-
-/*
- * Expose.
- */
-
-module.exports = unified;
-
-},{"attach-ware":137,"bail":138,"extend":139,"node-extend":139,"unherit":140,"vfile":143,"ware":144}],137:[function(require,module,exports){
-/**
- * @author Titus Wormer
- * @copyright 2015 Titus Wormer
- * @license MIT
- * @module attach-ware
- * @fileoverview Middleware with configuration.
- * @example
- *   var ware = require('attach-ware')(require('ware'));
- *
- *   var middleware = ware()
- *     .use(function (context, options) {
- *         if (!options.condition) return;
- *
- *         return function (req, res, next) {
- *           res.x = 'hello';
- *           next();
- *         };
- *     }, {
- *         'condition': true
- *     })
- *     .use(function (context, options) {
- *         if (!options.condition) return;
- *
- *         return function (req, res, next) {
- *           res.y = 'world';
- *           next();
- *         };
- *     }, {
- *         'condition': false
- *     });
- *
- *   middleware.run({}, {}, function (err, req, res) {
- *     res.x; // "hello"
- *     res.y; // undefined
- *   });
- */
-
-'use strict';
-
-/* eslint-env commonjs */
-
-var slice = [].slice;
-var unherit = require('unherit');
-
-/**
- * Clone `Ware` without affecting the super-class and
- * turn it into configurable middleware.
- *
- * @param {Function} Ware - Ware-like constructor.
- * @return {Function} AttachWare - Configurable middleware.
- */
-function patch(Ware) {
-    /*
-     * Methods.
-     */
-
-    var useFn = Ware.prototype.use;
-
-    /**
-     * @constructor
-     * @class {AttachWare}
-     */
-    var AttachWare = unherit(Ware);
-
-    AttachWare.prototype.foo = true;
-
-    /**
-     * Attach configurable middleware.
-     *
-     * @memberof {AttachWare}
-     * @this {AttachWare}
-     * @param {Function} attach - Attacher.
-     * @return {AttachWare} - `this`.
-     */
-    function use(attach) {
-        var self = this;
-        var params = slice.call(arguments, 1);
-        var index;
-        var length;
-        var fn;
-
-        /*
-         * Accept other `AttachWare`.
-         */
-
-        if (attach instanceof AttachWare) {
-            if (attach.attachers) {
-                return self.use(attach.attachers);
-            }
-
-            return self;
-        }
-
-        /*
-         * Accept normal ware.
-         */
-
-        if (attach instanceof Ware) {
-            self.fns = self.fns.concat(attach.fns);
-            return self;
-        }
-
-        /*
-         * Multiple attachers.
-         */
-
-        if ('length' in attach && typeof attach !== 'function') {
-            index = -1;
-            length = attach.length;
-
-            while (++index < length) {
-                self.use.apply(self, [attach[index]].concat(params));
-            }
-
-            return self;
-        }
-
-        /*
-         * Single attacher.
-         */
-
-        fn = attach.apply(null, [self.context || self].concat(params));
-
-        /*
-         * Store the attacher to not break `new Ware(otherWare)`
-         * functionality.
-         */
-
-        if (!self.attachers) {
-            self.attachers = [];
-        }
-
-        self.attachers.push(attach);
-
-        /*
-         * Pass `fn` to the original `Ware#use()`.
-         */
-
-        if (fn) {
-            useFn.call(self, fn);
-        }
-
-        return self;
-    }
-
-    AttachWare.prototype.use = use;
-
-    return function (fn) {
-        return new AttachWare(fn);
-    };
-}
-
-module.exports = patch;
-
-},{"unherit":140}],138:[function(require,module,exports){
-/**
- * @author Titus Wormer
- * @copyright 2015 Titus Wormer
- * @license MIT
- * @module bail
- * @fileoverview Throw a given error.
- */
-
-'use strict';
-
-/* Expose. */
-module.exports = bail;
-
-/**
- * Throw a given error.
- *
- * @example
- *   bail();
- *
- * @example
- *   bail(new Error('failure'));
- *   // Error: failure
- *   //     at repl:1:6
- *   //     at REPLServer.defaultEval (repl.js:154:27)
- *   //     ...
- *
- * @param {Error?} [err] - Optional error.
- * @throws {Error} - `err`, when given.
- */
-function bail(err) {
-  if (err) {
-    throw err;
-  }
-}
-
-},{}],139:[function(require,module,exports){
-'use strict';
-
-var hasOwn = Object.prototype.hasOwnProperty;
-var toStr = Object.prototype.toString;
-
-var isArray = function isArray(arr) {
-	if (typeof Array.isArray === 'function') {
-		return Array.isArray(arr);
-	}
-
-	return toStr.call(arr) === '[object Array]';
-};
-
-var isPlainObject = function isPlainObject(obj) {
-	if (!obj || toStr.call(obj) !== '[object Object]') {
-		return false;
-	}
-
-	var hasOwnConstructor = hasOwn.call(obj, 'constructor');
-	var hasIsPrototypeOf = obj.constructor && obj.constructor.prototype && hasOwn.call(obj.constructor.prototype, 'isPrototypeOf');
-	// Not own constructor property must be Object
-	if (obj.constructor && !hasOwnConstructor && !hasIsPrototypeOf) {
-		return false;
-	}
-
-	// Own properties are enumerated firstly, so to speed up,
-	// if last one is own, then all properties are own.
-	var key;
-	for (key in obj) {/**/}
-
-	return typeof key === 'undefined' || hasOwn.call(obj, key);
-};
-
-module.exports = function extend() {
-	var options, name, src, copy, copyIsArray, clone,
-		target = arguments[0],
-		i = 1,
-		length = arguments.length,
-		deep = false;
-
-	// Handle a deep copy situation
-	if (typeof target === 'boolean') {
-		deep = target;
-		target = arguments[1] || {};
-		// skip the boolean and the target
-		i = 2;
-	} else if ((typeof target !== 'object' && typeof target !== 'function') || target == null) {
-		target = {};
-	}
-
-	for (; i < length; ++i) {
-		options = arguments[i];
-		// Only deal with non-null/undefined values
-		if (options != null) {
-			// Extend the base object
-			for (name in options) {
-				src = target[name];
-				copy = options[name];
-
-				// Prevent never-ending loop
-				if (target !== copy) {
-					// Recurse if we're merging plain objects or arrays
-					if (deep && copy && (isPlainObject(copy) || (copyIsArray = isArray(copy)))) {
-						if (copyIsArray) {
-							copyIsArray = false;
-							clone = src && isArray(src) ? src : [];
-						} else {
-							clone = src && isPlainObject(src) ? src : {};
-						}
-
-						// Never move original objects, clone them
-						target[name] = extend(deep, clone, copy);
-
-					// Don't bring in undefined values
-					} else if (typeof copy !== 'undefined') {
-						target[name] = copy;
-					}
-				}
-			}
-		}
-	}
-
-	// Return the modified object
-	return target;
-};
-
-
-},{}],140:[function(require,module,exports){
-/**
- * @author Titus Wormer
- * @copyright 2015 Titus Wormer
- * @license MIT
- * @module unherit
- * @fileoverview Create a custom constructor which can be modified
- *   without affecting the original class.
- */
-
-'use strict';
-
-/* Dependencies. */
-var xtend = require('xtend');
-var inherits = require('inherits');
-
-/* Expose. */
-module.exports = unherit;
-
-/**
- * Create a custom constructor which can be modified
- * without affecting the original class.
- *
- * @param {Function} Super - Super-class.
- * @return {Function} - Constructor acting like `Super`,
- *   which can be modified without affecting the original
- *   class.
- */
-function unherit(Super) {
-  var result;
-  var key;
-  var value;
-
-  inherits(Of, Super);
-  inherits(From, Of);
-
-  /* Clone values. */
-  result = Of.prototype;
-
-  for (key in result) {
-    value = result[key];
-
-    if (value && typeof value === 'object') {
-      result[key] = 'concat' in value ? value.concat() : xtend(value);
-    }
-  }
-
-  return Of;
-
-  /**
-   * Constructor accepting a single argument,
-   * which itself is an `arguments` object.
-   */
-  function From(parameters) {
-    return Super.apply(this, parameters);
-  }
-
-  /**
-   * Constructor accepting variadic arguments.
-   */
-  function Of() {
-    if (!(this instanceof Of)) {
-      return new From(arguments);
-    }
-
-    return Super.apply(this, arguments);
-  }
-}
-
-},{"inherits":141,"xtend":142}],141:[function(require,module,exports){
-arguments[4][88][0].apply(exports,arguments)
-},{"dup":88}],142:[function(require,module,exports){
-module.exports = extend
-
-var hasOwnProperty = Object.prototype.hasOwnProperty;
-
-function extend() {
-    var target = {}
-
-    for (var i = 0; i < arguments.length; i++) {
-        var source = arguments[i]
-
-        for (var key in source) {
-            if (hasOwnProperty.call(source, key)) {
-                target[key] = source[key]
-            }
-        }
-    }
-
-    return target
-}
-
-},{}],143:[function(require,module,exports){
-/**
- * @author Titus Wormer
- * @copyright 2015 Titus Wormer
- * @license MIT
- * @module vfile
- * @fileoverview Virtual file format to attach additional
- *   information related to processed input.  Similar to
- *   `wearefractal/vinyl`.  Additionally, `VFile` can be
- *   passed directly to ESLint formatters to visualise
- *   warnings and errors relating to a file.
- * @example
- *   var VFile = require('vfile');
- *
- *   var file = new VFile({
- *     'directory': '~',
- *     'filename': 'example',
- *     'extension': 'txt',
- *     'contents': 'Foo *bar* baz'
- *   });
- *
- *   file.toString(); // 'Foo *bar* baz'
- *   file.filePath(); // '~/example.txt'
- *
- *   file.move({'extension': 'md'});
- *   file.filePath(); // '~/example.md'
- *
- *   file.warn('Something went wrong', {'line': 2, 'column': 3});
- *   // { [~/example.md:2:3: Something went wrong]
- *   //   name: '~/example.md:2:3',
- *   //   file: '~/example.md',
- *   //   reason: 'Something went wrong',
- *   //   line: 2,
- *   //   column: 3,
- *   //   fatal: false }
- */
-
-'use strict';
-
-/* eslint-env commonjs */
-
-var proto;
-
-var SEPARATOR = '/';
-
-try {
-    SEPARATOR = require('pa' + 'th').sep;
-} catch (e) { /* empty */ }
-
-/**
- * Construct a new file message.
- *
- * Note: We cannot invoke `Error` on the created context,
- * as that adds readonly `line` and `column` attributes on
- * Safari 9, thus throwing and failing the data.
- *
- * @example
- *   var message = new VFileMessage('Whoops!');
- *
- *   message instanceof Error // true
- *
- * @constructor
- * @class {VFileMessage}
- * @param {string} reason - Reason for messaging.
- * @property {boolean} [fatal=null] - Whether the message
- *   is fatal.
- * @property {string} [name=''] - File-name and positional
- *   information.
- * @property {string} [file=''] - File-path.
- * @property {string} [reason=''] - Reason for messaging.
- * @property {number} [line=null] - Start of message.
- * @property {number} [column=null] - Start of message.
- * @property {Position|Location} [location=null] - Place of
- *   message.
- * @property {string} [stack] - Stack-trace of warning.
- */
-function VFileMessage(reason) {
-    this.message = reason;
-}
-
-/**
- * Inherit from `Error#`.
- */
-function VFileMessagePrototype() {}
-
-VFileMessagePrototype.prototype = Error.prototype;
-
-proto = new VFileMessagePrototype();
-
-VFileMessage.prototype = proto;
-
-/*
- * Expose defaults.
- */
-
-proto.file = proto.name = proto.reason = proto.message = proto.stack = '';
-proto.fatal = proto.column = proto.line = null;
-
-/**
- * File-related message with location information.
- *
- * @typedef {Error} VFileMessage
- * @property {string} name - (Starting) location of the
- *   message, preceded by its file-path when available,
- *   and joined by `:`. Used internally by the native
- *   `Error#toString()`.
- * @property {string} file - File-path.
- * @property {string} reason - Reason for message.
- * @property {number?} line - Line of message, when
- *   available.
- * @property {number?} column - Column of message, when
- *   available.
- * @property {string?} stack - Stack of message, when
- *   available.
- * @property {boolean?} fatal - Whether the associated file
- *   is still processable.
- */
-
-/**
- * Stringify a position.
- *
- * @example
- *   stringify({'line': 1, 'column': 3}) // '1:3'
- *   stringify({'line': 1}) // '1:1'
- *   stringify({'column': 3}) // '1:3'
- *   stringify() // '1:1'
- *
- * @private
- * @param {Object?} [position] - Single position, like
- *   those available at `node.position.start`.
- * @return {string} - Compiled location.
- */
-function stringify(position) {
-    if (!position) {
-        position = {};
-    }
-
-    return (position.line || 1) + ':' + (position.column || 1);
-}
-
-/**
- * ESLint's formatter API expects `filePath` to be a
- * string.  This hack supports invocation as well as
- * implicit coercion.
- *
- * @example
- *   var file = new VFile({
- *     'filename': 'example',
- *     'extension': 'txt'
- *   });
- *
- *   filePath = filePathFactory(file);
- *
- *   String(filePath); // 'example.txt'
- *   filePath(); // 'example.txt'
- *
- * @private
- * @param {VFile} file - Virtual file.
- * @return {Function} - `filePath` getter.
- */
-function filePathFactory(file) {
-    /**
-     * Get the filename, with extension and directory, if applicable.
-     *
-     * @example
-     *   var file = new VFile({
-     *     'directory': '~',
-     *     'filename': 'example',
-     *     'extension': 'txt'
-     *   });
-     *
-     *   String(file.filePath); // ~/example.txt
-     *   file.filePath() // ~/example.txt
-     *
-     * @memberof {VFile}
-     * @property {Function} toString - Itself. ESLint's
-     *   formatter API expects `filePath` to be `string`.
-     *   This hack supports invocation as well as implicit
-     *   coercion.
-     * @return {string} - If the `vFile` has a `filename`,
-     *   it will be prefixed with the directory (slashed),
-     *   if applicable, and suffixed with the (dotted)
-     *   extension (if applicable).  Otherwise, an empty
-     *   string is returned.
-     */
-    function filePath() {
-        var directory = file.directory;
-        var separator;
-
-        if (file.filename || file.extension) {
-            separator = directory.charAt(directory.length - 1);
-
-            if (separator === '/' || separator === '\\') {
-                directory = directory.slice(0, -1);
-            }
-
-            if (directory === '.') {
-                directory = '';
-            }
-
-            return (directory ? directory + SEPARATOR : '') +
-                file.filename +
-                (file.extension ? '.' + file.extension : '');
-        }
-
-        return '';
-    }
-
-    filePath.toString = filePath;
-
-    return filePath;
-}
-
-/**
-* Get the filename with extantion.
-*
-* @example
-*   var file = new VFile({
-*     'directory': '~/foo/bar'
-*     'filename': 'example',
-*     'extension': 'txt'
-*   });
-*
-*   file.basename() // example.txt
-*
-* @memberof {VFile}
-* @return {string} - name of file with extantion.
-*/
-function basename() {
-    var self = this;
-    var extension = self.extension;
-
-    if (self.filename || extension) {
-        return self.filename + (extension ? '.' + extension : '');
-    }
-
-    return '';
-}
-
-/**
- * Construct a new file.
- *
- * @example
- *   var file = new VFile({
- *     'directory': '~',
- *     'filename': 'example',
- *     'extension': 'txt',
- *     'contents': 'Foo *bar* baz'
- *   });
- *
- *   file === VFile(file) // true
- *   file === new VFile(file) // true
- *   VFile('foo') instanceof VFile // true
- *
- * @constructor
- * @class {VFile}
- * @param {Object|VFile|string} [options] - either an
- *   options object, or the value of `contents` (both
- *   optional).  When a `file` is passed in, it's
- *   immediately returned.
- * @property {string} [contents=''] - Content of file.
- * @property {string} [directory=''] - Path to parent
- *   directory.
- * @property {string} [filename=''] - Filename.
- *   A file-path can still be generated when no filename
- *   exists.
- * @property {string} [extension=''] - Extension.
- *   A file-path can still be generated when no extension
- *   exists.
- * @property {boolean?} quiet - Whether an error created by
- *   `VFile#fail()` is returned (when truthy) or thrown
- *   (when falsey). Ensure all `messages` associated with
- *   a file are handled properly when setting this to
- *   `true`.
- * @property {Array.<VFileMessage>} messages - List of associated
- *   messages.
- */
-function VFile(options) {
-    var self = this;
-
-    /*
-     * No `new` operator.
-     */
-
-    if (!(self instanceof VFile)) {
-        return new VFile(options);
-    }
-
-    /*
-     * Given file.
-     */
-
-    if (
-        options &&
-        typeof options.message === 'function' &&
-        typeof options.hasFailed === 'function'
-    ) {
-        return options;
-    }
-
-    if (!options) {
-        options = {};
-    } else if (typeof options === 'string') {
-        options = {
-            'contents': options
-        };
-    }
-
-    self.contents = options.contents || '';
-
-    self.messages = [];
-
-    /*
-     * Make sure eslint’s formatters stringify `filePath`
-     * properly.
-     */
-
-    self.filePath = filePathFactory(self);
-
-    self.history = [];
-
-    self.move({
-        'filename': options.filename,
-        'directory': options.directory,
-        'extension': options.extension
-    });
-}
-
-/**
- * Get the value of the file.
- *
- * @example
- *   var vFile = new VFile('Foo');
- *   String(vFile); // 'Foo'
- *
- * @this {VFile}
- * @memberof {VFile}
- * @return {string} - value at the `contents` property
- *   in context.
- */
-function toString() {
-    return this.contents;
-}
-
-/**
- * Move a file by passing a new directory, filename,
- * and extension.  When these are not given, the default
- * values are kept.
- *
- * @example
- *   var file = new VFile({
- *     'directory': '~',
- *     'filename': 'example',
- *     'extension': 'txt',
- *     'contents': 'Foo *bar* baz'
- *   });
- *
- *   file.move({'directory': '/var/www'});
- *   file.filePath(); // '/var/www/example.txt'
- *
- *   file.move({'extension': 'md'});
- *   file.filePath(); // '/var/www/example.md'
- *
- * @this {VFile}
- * @memberof {VFile}
- * @param {Object?} [options] - Configuration.
- * @return {VFile} - Context object.
- */
-function move(options) {
-    var self = this;
-    var before = self.filePath();
-    var after;
-
-    if (!options) {
-        options = {};
-    }
-
-    self.directory = options.directory || self.directory || '';
-    self.filename = options.filename || self.filename || '';
-    self.extension = options.extension || self.extension || '';
-
-    after = self.filePath();
-
-    if (after && before !== after) {
-        self.history.push(after);
-    }
-
-    return self;
-}
-
-/**
- * Create a message with `reason` at `position`.
- * When an error is passed in as `reason`, copies the
- * stack.  This does not add a message to `messages`.
- *
- * @example
- *   var file = new VFile();
- *
- *   file.message('Something went wrong');
- *   // { [1:1: Something went wrong]
- *   //   name: '1:1',
- *   //   file: '',
- *   //   reason: 'Something went wrong',
- *   //   line: null,
- *   //   column: null }
- *
- * @this {VFile}
- * @memberof {VFile}
- * @param {string|Error} reason - Reason for message.
- * @param {Node|Location|Position} [position] - Location
- *   of message in file.
- * @param {string} [ruleId] - Category of warning.
- * @return {VFileMessage} - File-related message with
- *   location information.
- */
-function message(reason, position, ruleId) {
-    var filePath = this.filePath();
-    var range;
-    var err;
-    var location = {
-        'start': {
-            'line': null,
-            'column': null
-        },
-        'end': {
-            'line': null,
-            'column': null
-        }
-    };
-
-    /*
-     * Node / location / position.
-     */
-
-    if (position && position.position) {
-        position = position.position;
-    }
-
-    if (position && position.start) {
-        range = stringify(position.start) + '-' + stringify(position.end);
-        location = position;
-        position = position.start;
-    } else {
-        range = stringify(position);
-
-        if (position) {
-            location.start = position;
-            location.end.line = null;
-            location.end.column = null;
-        }
-    }
-
-    err = new VFileMessage(reason.message || reason);
-
-    err.name = (filePath ? filePath + ':' : '') + range;
-    err.file = filePath;
-    err.reason = reason.message || reason;
-    err.line = position ? position.line : null;
-    err.column = position ? position.column : null;
-    err.location = location;
-    err.ruleId = ruleId || null;
-
-    if (reason.stack) {
-        err.stack = reason.stack;
-    }
-
-    return err;
-}
-
-/**
- * Warn. Creates a non-fatal message (see `VFile#message()`),
- * and adds it to the file's `messages` list.
- *
- * @example
- *   var file = new VFile();
- *
- *   file.warn('Something went wrong');
- *   // { [1:1: Something went wrong]
- *   //   name: '1:1',
- *   //   file: '',
- *   //   reason: 'Something went wrong',
- *   //   line: null,
- *   //   column: null,
- *   //   fatal: false }
- *
- * @see VFile#message
- * @this {VFile}
- * @memberof {VFile}
- */
-function warn() {
-    var err = this.message.apply(this, arguments);
-
-    err.fatal = false;
-
-    this.messages.push(err);
-
-    return err;
-}
-
-/**
- * Fail. Creates a fatal message (see `VFile#message()`),
- * sets `fatal: true`, adds it to the file's
- * `messages` list.
- *
- * If `quiet` is not `true`, throws the error.
- *
- * @example
- *   var file = new VFile();
- *
- *   file.fail('Something went wrong');
- *   // 1:1: Something went wrong
- *   //     at VFile.exception (vfile/index.js:296:11)
- *   //     at VFile.fail (vfile/index.js:360:20)
- *   //     at repl:1:6
- *
- *   file.quiet = true;
- *   file.fail('Something went wrong');
- *   // { [1:1: Something went wrong]
- *   //   name: '1:1',
- *   //   file: '',
- *   //   reason: 'Something went wrong',
- *   //   line: null,
- *   //   column: null,
- *   //   fatal: true }
- *
- * @this {VFile}
- * @memberof {VFile}
- * @throws {VFileMessage} - When not `quiet: true`.
- * @param {string|Error} reason - Reason for failure.
- * @param {Node|Location|Position} [position] - Place
- *   of failure in file.
- * @return {VFileMessage} - Unless thrown, of course.
- */
-function fail(reason, position) {
-    var err = this.message(reason, position);
-
-    err.fatal = true;
-
-    this.messages.push(err);
-
-    if (!this.quiet) {
-        throw err;
-    }
-
-    return err;
-}
-
-/**
- * Check if a fatal message occurred making the file no
- * longer processable.
- *
- * @example
- *   var file = new VFile();
- *   file.quiet = true;
- *
- *   file.hasFailed(); // false
- *
- *   file.fail('Something went wrong');
- *   file.hasFailed(); // true
- *
- * @this {VFile}
- * @memberof {VFile}
- * @return {boolean} - `true` if at least one of file's
- *   `messages` has a `fatal` property set to `true`
- */
-function hasFailed() {
-    var messages = this.messages;
-    var index = -1;
-    var length = messages.length;
-
-    while (++index < length) {
-        if (messages[index].fatal) {
-            return true;
-        }
-    }
-
-    return false;
-}
-
-/**
- * Access metadata.
- *
- * @example
- *   var file = new VFile('Foo');
- *
- *   file.namespace('foo').bar = 'baz';
- *
- *   console.log(file.namespace('foo').bar) // 'baz';
- *
- * @this {VFile}
- * @memberof {VFile}
- * @param {string} key - Namespace key.
- * @return {Object} - Private space.
- */
-function namespace(key) {
-    var self = this;
-    var space = self.data;
-
-    if (!space) {
-        space = self.data = {};
-    }
-
-    if (!space[key]) {
-        space[key] = {};
-    }
-
-    return space[key];
-}
-
-/*
- * Methods.
- */
-
-proto = VFile.prototype;
-
-proto.basename = basename;
-proto.move = move;
-proto.toString = toString;
-proto.message = message;
-proto.warn = warn;
-proto.fail = fail;
-proto.hasFailed = hasFailed;
-proto.namespace = namespace;
-
-/*
- * Expose.
- */
-
-module.exports = VFile;
-
-},{}],144:[function(require,module,exports){
-/**
- * Module Dependencies
- */
-
-var slice = [].slice;
-var wrap = require('wrap-fn');
-
-/**
- * Expose `Ware`.
- */
-
-module.exports = Ware;
-
-/**
- * Throw an error.
- *
- * @param {Error} error
- */
-
-function fail (err) {
-  throw err;
-}
-
-/**
- * Initialize a new `Ware` manager, with optional `fns`.
- *
- * @param {Function or Array or Ware} fn (optional)
- */
-
-function Ware (fn) {
-  if (!(this instanceof Ware)) return new Ware(fn);
-  this.fns = [];
-  if (fn) this.use(fn);
-}
-
-/**
- * Use a middleware `fn`.
- *
- * @param {Function or Array or Ware} fn
- * @return {Ware}
- */
-
-Ware.prototype.use = function (fn) {
-  if (fn instanceof Ware) {
-    return this.use(fn.fns);
-  }
-
-  if (fn instanceof Array) {
-    for (var i = 0, f; f = fn[i++];) this.use(f);
-    return this;
-  }
-
-  this.fns.push(fn);
-  return this;
-};
-
-/**
- * Run through the middleware with the given `args` and optional `callback`.
- *
- * @param {Mixed} args...
- * @param {Function} callback (optional)
- * @return {Ware}
- */
-
-Ware.prototype.run = function () {
-  var fns = this.fns;
-  var ctx = this;
-  var i = 0;
-  var last = arguments[arguments.length - 1];
-  var done = 'function' == typeof last && last;
-  var args = done
-    ? slice.call(arguments, 0, arguments.length - 1)
-    : slice.call(arguments);
-
-  // next step
-  function next (err) {
-    if (err) return (done || fail)(err);
-    var fn = fns[i++];
-    var arr = slice.call(args);
-
-    if (!fn) {
-      return done && done.apply(null, [null].concat(args));
-    }
-
-    wrap(fn, next).apply(ctx, arr);
-  }
-
-  next();
-
-  return this;
-};
-
-},{"wrap-fn":145}],145:[function(require,module,exports){
-/**
- * Module Dependencies
- */
-
-var noop = function(){};
-var co = require('co');
-
-/**
- * Export `wrap-fn`
- */
-
-module.exports = wrap;
-
-/**
- * Wrap a function to support
- * sync, async, and gen functions.
- *
- * @param {Function} fn
- * @param {Function} done
- * @return {Function}
- * @api public
- */
-
-function wrap(fn, done) {
-  done = once(done || noop);
-
-  return function() {
-    // prevents arguments leakage
-    // see https://github.com/petkaantonov/bluebird/wiki/Optimization-killers#3-managing-arguments
-    var i = arguments.length;
-    var args = new Array(i);
-    while (i--) args[i] = arguments[i];
-
-    var ctx = this;
-
-    // done
-    if (!fn) {
-      return done.apply(ctx, [null].concat(args));
-    }
-
-    // async
-    if (fn.length > args.length) {
-      // NOTE: this only handles uncaught synchronous errors
-      try {
-        return fn.apply(ctx, args.concat(done));
-      } catch (e) {
-        return done(e);
-      }
-    }
-
-    // generator
-    if (generator(fn)) {
-      return co(fn).apply(ctx, args.concat(done));
-    }
-
-    // sync
-    return sync(fn, done).apply(ctx, args);
-  }
-}
-
-/**
- * Wrap a synchronous function execution.
- *
- * @param {Function} fn
- * @param {Function} done
- * @return {Function}
- * @api private
- */
-
-function sync(fn, done) {
-  return function () {
-    var ret;
-
-    try {
-      ret = fn.apply(this, arguments);
-    } catch (err) {
-      return done(err);
-    }
-
-    if (promise(ret)) {
-      ret.then(function (value) { done(null, value); }, done);
-    } else {
-      ret instanceof Error ? done(ret) : done(null, ret);
-    }
-  }
-}
-
-/**
- * Is `value` a generator?
- *
- * @param {Mixed} value
- * @return {Boolean}
- * @api private
- */
-
-function generator(value) {
-  return value
-    && value.constructor
-    && 'GeneratorFunction' == value.constructor.name;
-}
-
-
-/**
- * Is `value` a promise?
- *
- * @param {Mixed} value
- * @return {Boolean}
- * @api private
- */
-
-function promise(value) {
-  return value && 'function' == typeof value.then;
-}
-
-/**
- * Once
- */
-
-function once(fn) {
-  return function() {
-    var ret = fn.apply(this, arguments);
-    fn = noop;
-    return ret;
-  };
-}
-
-},{"co":146}],146:[function(require,module,exports){
-
-/**
- * slice() reference.
- */
-
-var slice = Array.prototype.slice;
-
-/**
- * Expose `co`.
- */
-
-module.exports = co;
-
-/**
- * Wrap the given generator `fn` and
- * return a thunk.
- *
- * @param {Function} fn
- * @return {Function}
- * @api public
- */
-
-function co(fn) {
-  var isGenFun = isGeneratorFunction(fn);
-
-  return function (done) {
-    var ctx = this;
-
-    // in toThunk() below we invoke co()
-    // with a generator, so optimize for
-    // this case
-    var gen = fn;
-
-    // we only need to parse the arguments
-    // if gen is a generator function.
-    if (isGenFun) {
-      var args = slice.call(arguments), len = args.length;
-      var hasCallback = len && 'function' == typeof args[len - 1];
-      done = hasCallback ? args.pop() : error;
-      gen = fn.apply(this, args);
-    } else {
-      done = done || error;
-    }
-
-    next();
-
-    // #92
-    // wrap the callback in a setImmediate
-    // so that any of its errors aren't caught by `co`
-    function exit(err, res) {
-      setImmediate(function(){
-        done.call(ctx, err, res);
-      });
-    }
-
-    function next(err, res) {
-      var ret;
-
-      // multiple args
-      if (arguments.length > 2) res = slice.call(arguments, 1);
-
-      // error
-      if (err) {
-        try {
-          ret = gen.throw(err);
-        } catch (e) {
-          return exit(e);
-        }
-      }
-
-      // ok
-      if (!err) {
-        try {
-          ret = gen.next(res);
-        } catch (e) {
-          return exit(e);
-        }
-      }
-
-      // done
-      if (ret.done) return exit(null, ret.value);
-
-      // normalize
-      ret.value = toThunk(ret.value, ctx);
-
-      // run
-      if ('function' == typeof ret.value) {
-        var called = false;
-        try {
-          ret.value.call(ctx, function(){
-            if (called) return;
-            called = true;
-            next.apply(ctx, arguments);
-          });
-        } catch (e) {
-          setImmediate(function(){
-            if (called) return;
-            called = true;
-            next(e);
-          });
-        }
-        return;
-      }
-
-      // invalid
-      next(new TypeError('You may only yield a function, promise, generator, array, or object, '
-        + 'but the following was passed: "' + String(ret.value) + '"'));
-    }
-  }
-}
-
-/**
- * Convert `obj` into a normalized thunk.
- *
- * @param {Mixed} obj
- * @param {Mixed} ctx
- * @return {Function}
- * @api private
- */
-
-function toThunk(obj, ctx) {
-
-  if (isGeneratorFunction(obj)) {
-    return co(obj.call(ctx));
-  }
-
-  if (isGenerator(obj)) {
-    return co(obj);
-  }
-
-  if (isPromise(obj)) {
-    return promiseToThunk(obj);
-  }
-
-  if ('function' == typeof obj) {
-    return obj;
-  }
-
-  if (isObject(obj) || Array.isArray(obj)) {
-    return objectToThunk.call(ctx, obj);
-  }
-
-  return obj;
-}
-
-/**
- * Convert an object of yieldables to a thunk.
- *
- * @param {Object} obj
- * @return {Function}
- * @api private
- */
-
-function objectToThunk(obj){
-  var ctx = this;
-  var isArray = Array.isArray(obj);
-
-  return function(done){
-    var keys = Object.keys(obj);
-    var pending = keys.length;
-    var results = isArray
-      ? new Array(pending) // predefine the array length
-      : new obj.constructor();
-    var finished;
-
-    if (!pending) {
-      setImmediate(function(){
-        done(null, results)
-      });
-      return;
-    }
-
-    // prepopulate object keys to preserve key ordering
-    if (!isArray) {
-      for (var i = 0; i < pending; i++) {
-        results[keys[i]] = undefined;
-      }
-    }
-
-    for (var i = 0; i < keys.length; i++) {
-      run(obj[keys[i]], keys[i]);
-    }
-
-    function run(fn, key) {
-      if (finished) return;
-      try {
-        fn = toThunk(fn, ctx);
-
-        if ('function' != typeof fn) {
-          results[key] = fn;
-          return --pending || done(null, results);
-        }
-
-        fn.call(ctx, function(err, res){
-          if (finished) return;
-
-          if (err) {
-            finished = true;
-            return done(err);
-          }
-
-          results[key] = res;
-          --pending || done(null, results);
-        });
-      } catch (err) {
-        finished = true;
-        done(err);
-      }
-    }
-  }
-}
-
-/**
- * Convert `promise` to a thunk.
- *
- * @param {Object} promise
- * @return {Function}
- * @api private
- */
-
-function promiseToThunk(promise) {
-  return function(fn){
-    promise.then(function(res) {
-      fn(null, res);
-    }, fn);
-  }
-}
-
-/**
- * Check if `obj` is a promise.
- *
- * @param {Object} obj
- * @return {Boolean}
- * @api private
- */
-
-function isPromise(obj) {
-  return obj && 'function' == typeof obj.then;
-}
-
-/**
- * Check if `obj` is a generator.
- *
- * @param {Mixed} obj
- * @return {Boolean}
- * @api private
- */
-
-function isGenerator(obj) {
-  return obj && 'function' == typeof obj.next && 'function' == typeof obj.throw;
-}
-
-/**
- * Check if `obj` is a generator function.
- *
- * @param {Mixed} obj
- * @return {Boolean}
- * @api private
- */
-
-function isGeneratorFunction(obj) {
-  return obj && obj.constructor && 'GeneratorFunction' == obj.constructor.name;
-}
-
-/**
- * Check for plain object.
- *
- * @param {Mixed} val
- * @return {Boolean}
- * @api private
- */
-
-function isObject(val) {
-  return val && Object == val.constructor;
-}
-
-/**
- * Throw `err` in a new stack.
- *
- * This is used when co() is invoked
- * without supplying a callback, which
- * should only be for demonstrational
- * purposes.
- *
- * @param {Error} err
- * @api private
- */
-
-function error(err) {
-  if (!err) return;
-  setImmediate(function(){
-    throw err;
-  });
-}
-
-},{}],147:[function(require,module,exports){
+},{}],104:[function(require,module,exports){
 /*!
  * jQuery JavaScript Library v3.1.1
  * https://jquery.com/
@@ -48494,7 +43698,7 @@ if ( !noGlobal ) {
 return jQuery;
 } );
 
-},{}],148:[function(require,module,exports){
+},{}],105:[function(require,module,exports){
 (function (global){
 /* nlp_compromise v6.5.3 MIT*/
 (function(f){if(typeof exports==="object"&&typeof module!=="undefined"){module.exports=f()}else if(typeof define==="function"&&define.amd){define([],f)}else{var g;if(typeof window!=="undefined"){g=window}else if(typeof global!=="undefined"){g=global}else if(typeof self!=="undefined"){g=self}else{g=this}g.nlp_compromise = f()}})(function(){var define,module,exports;return (function e(t,n,r){function s(o,u){if(!n[o]){if(!t[o]){var a=typeof require=="function"&&require;if(!u&&a)return a(o,!0);if(i)return i(o,!0);var f=new Error("Cannot find module '"+o+"'");throw f.code="MODULE_NOT_FOUND",f}var l=n[o]={exports:{}};t[o][0].call(l.exports,function(e){var n=t[o][1][e];return s(n?n:e)},l,l.exports,e,t,n,r)}return n[o].exports}var i=typeof require=="function"&&require;for(var o=0;o<r.length;o++)s(r[o]);return s})({1:[function(_dereq_,module,exports){
@@ -58168,7 +53372,7 @@ module.exports = Text;
 },{"../fns.js":23,"../sentence/question/question.js":57,"../sentence/statement/statement.js":63,"./sentence_parser.js":113}]},{},[24])(24)
 });
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{}],149:[function(require,module,exports){
+},{}],106:[function(require,module,exports){
 /*! nouislider - 9.1.0 - 2016-12-10 16:00:32 */
 
 (function (factory) {
@@ -60301,11 +55505,9 @@ function closure ( target, options, originalOptions ){
 	};
 
 }));
-},{}],150:[function(require,module,exports){
+},{}],107:[function(require,module,exports){
 
-},{}],151:[function(require,module,exports){
-arguments[4][150][0].apply(exports,arguments)
-},{"dup":150}],152:[function(require,module,exports){
+},{}],108:[function(require,module,exports){
 (function (global){
 /*!
  * The buffer module from node.js, for the browser.
@@ -62098,7 +57300,7 @@ function isnan (val) {
 }
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"base64-js":153,"ieee754":154,"isarray":155}],153:[function(require,module,exports){
+},{"base64-js":109,"ieee754":110,"isarray":111}],109:[function(require,module,exports){
 'use strict'
 
 exports.byteLength = byteLength
@@ -62214,7 +57416,7 @@ function fromByteArray (uint8) {
   return parts.join('')
 }
 
-},{}],154:[function(require,module,exports){
+},{}],110:[function(require,module,exports){
 exports.read = function (buffer, offset, isLE, mLen, nBytes) {
   var e, m
   var eLen = nBytes * 8 - mLen - 1
@@ -62300,14 +57502,14 @@ exports.write = function (buffer, value, offset, isLE, mLen, nBytes) {
   buffer[offset + i - d] |= s * 128
 }
 
-},{}],155:[function(require,module,exports){
+},{}],111:[function(require,module,exports){
 var toString = {}.toString;
 
 module.exports = Array.isArray || function (arr) {
   return toString.call(arr) == '[object Array]';
 };
 
-},{}],156:[function(require,module,exports){
+},{}],112:[function(require,module,exports){
 // Copyright Joyent, Inc. and other Node contributors.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a
@@ -62611,9 +57813,9 @@ function isUndefined(arg) {
   return arg === void 0;
 }
 
-},{}],157:[function(require,module,exports){
-arguments[4][88][0].apply(exports,arguments)
-},{"dup":88}],158:[function(require,module,exports){
+},{}],113:[function(require,module,exports){
+arguments[4][91][0].apply(exports,arguments)
+},{"dup":91}],114:[function(require,module,exports){
 /*!
  * Determine if an object is a Buffer
  *
@@ -62636,7 +57838,7 @@ function isSlowBuffer (obj) {
   return typeof obj.readFloatLE === 'function' && typeof obj.slice === 'function' && isBuffer(obj.slice(0, 0))
 }
 
-},{}],159:[function(require,module,exports){
+},{}],115:[function(require,module,exports){
 (function (process){
 // Copyright Joyent, Inc. and other Node contributors.
 //
@@ -62864,7 +58066,7 @@ var substr = 'ab'.substr(-1) === 'b'
 ;
 
 }).call(this,require('_process'))
-},{"_process":160}],160:[function(require,module,exports){
+},{"_process":116}],116:[function(require,module,exports){
 // shim for using process in browser
 var process = module.exports = {};
 
@@ -63046,10 +58248,10 @@ process.chdir = function (dir) {
 };
 process.umask = function() { return 0; };
 
-},{}],161:[function(require,module,exports){
+},{}],117:[function(require,module,exports){
 module.exports = require("./lib/_stream_duplex.js")
 
-},{"./lib/_stream_duplex.js":162}],162:[function(require,module,exports){
+},{"./lib/_stream_duplex.js":118}],118:[function(require,module,exports){
 // a duplex stream is just a stream that is both readable and writable.
 // Since JS doesn't have multiple prototypal inheritance, this class
 // prototypally inherits from Readable, and then parasitically from
@@ -63125,7 +58327,7 @@ function forEach(xs, f) {
     f(xs[i], i);
   }
 }
-},{"./_stream_readable":164,"./_stream_writable":166,"core-util-is":169,"inherits":157,"process-nextick-args":171}],163:[function(require,module,exports){
+},{"./_stream_readable":120,"./_stream_writable":122,"core-util-is":125,"inherits":113,"process-nextick-args":127}],119:[function(require,module,exports){
 // a passthrough stream.
 // basically just the most minimal sort of Transform stream.
 // Every written chunk gets output as-is.
@@ -63152,7 +58354,7 @@ function PassThrough(options) {
 PassThrough.prototype._transform = function (chunk, encoding, cb) {
   cb(null, chunk);
 };
-},{"./_stream_transform":165,"core-util-is":169,"inherits":157}],164:[function(require,module,exports){
+},{"./_stream_transform":121,"core-util-is":125,"inherits":113}],120:[function(require,module,exports){
 (function (process){
 'use strict';
 
@@ -64096,7 +59298,7 @@ function indexOf(xs, x) {
   return -1;
 }
 }).call(this,require('_process'))
-},{"./_stream_duplex":162,"./internal/streams/BufferList":167,"_process":160,"buffer":152,"buffer-shims":168,"core-util-is":169,"events":156,"inherits":157,"isarray":170,"process-nextick-args":171,"string_decoder/":178,"util":151}],165:[function(require,module,exports){
+},{"./_stream_duplex":118,"./internal/streams/BufferList":123,"_process":116,"buffer":108,"buffer-shims":124,"core-util-is":125,"events":112,"inherits":113,"isarray":126,"process-nextick-args":127,"string_decoder/":134,"util":107}],121:[function(require,module,exports){
 // a transform stream is a readable/writable stream where you do
 // something with the data.  Sometimes it's called a "filter",
 // but that's not a great name for it, since that implies a thing where
@@ -64279,7 +59481,7 @@ function done(stream, er, data) {
 
   return stream.push(null);
 }
-},{"./_stream_duplex":162,"core-util-is":169,"inherits":157}],166:[function(require,module,exports){
+},{"./_stream_duplex":118,"core-util-is":125,"inherits":113}],122:[function(require,module,exports){
 (function (process){
 // A bit simpler than readable streams.
 // Implement an async ._write(chunk, encoding, cb), and it'll handle all
@@ -64836,7 +60038,7 @@ function CorkedRequest(state) {
   };
 }
 }).call(this,require('_process'))
-},{"./_stream_duplex":162,"_process":160,"buffer":152,"buffer-shims":168,"core-util-is":169,"events":156,"inherits":157,"process-nextick-args":171,"util-deprecate":172}],167:[function(require,module,exports){
+},{"./_stream_duplex":118,"_process":116,"buffer":108,"buffer-shims":124,"core-util-is":125,"events":112,"inherits":113,"process-nextick-args":127,"util-deprecate":128}],123:[function(require,module,exports){
 'use strict';
 
 var Buffer = require('buffer').Buffer;
@@ -64901,7 +60103,7 @@ BufferList.prototype.concat = function (n) {
   }
   return ret;
 };
-},{"buffer":152,"buffer-shims":168}],168:[function(require,module,exports){
+},{"buffer":108,"buffer-shims":124}],124:[function(require,module,exports){
 (function (global){
 'use strict';
 
@@ -65013,7 +60215,7 @@ exports.allocUnsafeSlow = function allocUnsafeSlow(size) {
 }
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"buffer":152}],169:[function(require,module,exports){
+},{"buffer":108}],125:[function(require,module,exports){
 (function (Buffer){
 // Copyright Joyent, Inc. and other Node contributors.
 //
@@ -65124,9 +60326,9 @@ function objectToString(o) {
 }
 
 }).call(this,{"isBuffer":require("../../../../insert-module-globals/node_modules/is-buffer/index.js")})
-},{"../../../../insert-module-globals/node_modules/is-buffer/index.js":158}],170:[function(require,module,exports){
-arguments[4][155][0].apply(exports,arguments)
-},{"dup":155}],171:[function(require,module,exports){
+},{"../../../../insert-module-globals/node_modules/is-buffer/index.js":114}],126:[function(require,module,exports){
+arguments[4][111][0].apply(exports,arguments)
+},{"dup":111}],127:[function(require,module,exports){
 (function (process){
 'use strict';
 
@@ -65173,7 +60375,7 @@ function nextTick(fn, arg1, arg2, arg3) {
 }
 
 }).call(this,require('_process'))
-},{"_process":160}],172:[function(require,module,exports){
+},{"_process":116}],128:[function(require,module,exports){
 (function (global){
 
 /**
@@ -65244,10 +60446,10 @@ function config (name) {
 }
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{}],173:[function(require,module,exports){
+},{}],129:[function(require,module,exports){
 module.exports = require("./lib/_stream_passthrough.js")
 
-},{"./lib/_stream_passthrough.js":163}],174:[function(require,module,exports){
+},{"./lib/_stream_passthrough.js":119}],130:[function(require,module,exports){
 (function (process){
 var Stream = (function (){
   try {
@@ -65267,13 +60469,13 @@ if (!process.browser && process.env.READABLE_STREAM === 'disable' && Stream) {
 }
 
 }).call(this,require('_process'))
-},{"./lib/_stream_duplex.js":162,"./lib/_stream_passthrough.js":163,"./lib/_stream_readable.js":164,"./lib/_stream_transform.js":165,"./lib/_stream_writable.js":166,"_process":160}],175:[function(require,module,exports){
+},{"./lib/_stream_duplex.js":118,"./lib/_stream_passthrough.js":119,"./lib/_stream_readable.js":120,"./lib/_stream_transform.js":121,"./lib/_stream_writable.js":122,"_process":116}],131:[function(require,module,exports){
 module.exports = require("./lib/_stream_transform.js")
 
-},{"./lib/_stream_transform.js":165}],176:[function(require,module,exports){
+},{"./lib/_stream_transform.js":121}],132:[function(require,module,exports){
 module.exports = require("./lib/_stream_writable.js")
 
-},{"./lib/_stream_writable.js":166}],177:[function(require,module,exports){
+},{"./lib/_stream_writable.js":122}],133:[function(require,module,exports){
 // Copyright Joyent, Inc. and other Node contributors.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a
@@ -65402,18 +60604,18 @@ Stream.prototype.pipe = function(dest, options) {
   return dest;
 };
 
-},{"events":156,"inherits":157,"readable-stream/duplex.js":161,"readable-stream/passthrough.js":173,"readable-stream/readable.js":174,"readable-stream/transform.js":175,"readable-stream/writable.js":176}],178:[function(require,module,exports){
-arguments[4][90][0].apply(exports,arguments)
-},{"buffer":152,"dup":90}],179:[function(require,module,exports){
-arguments[4][88][0].apply(exports,arguments)
-},{"dup":88}],180:[function(require,module,exports){
+},{"events":112,"inherits":113,"readable-stream/duplex.js":117,"readable-stream/passthrough.js":129,"readable-stream/readable.js":130,"readable-stream/transform.js":131,"readable-stream/writable.js":132}],134:[function(require,module,exports){
+arguments[4][93][0].apply(exports,arguments)
+},{"buffer":108,"dup":93}],135:[function(require,module,exports){
+arguments[4][91][0].apply(exports,arguments)
+},{"dup":91}],136:[function(require,module,exports){
 module.exports = function isBuffer(arg) {
   return arg && typeof arg === 'object'
     && typeof arg.copy === 'function'
     && typeof arg.fill === 'function'
     && typeof arg.readUInt8 === 'function';
 }
-},{}],181:[function(require,module,exports){
+},{}],137:[function(require,module,exports){
 (function (process,global){
 // Copyright Joyent, Inc. and other Node contributors.
 //
@@ -66003,4 +61205,4 @@ function hasOwnProperty(obj, prop) {
 }
 
 }).call(this,require('_process'),typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"./support/isBuffer":180,"_process":160,"inherits":179}]},{},[15]);
+},{"./support/isBuffer":136,"_process":116,"inherits":135}]},{},[18]);

@@ -2,14 +2,17 @@
 * 
 * TODO:
 * - Cache whole page text when possible/read
-* - Cache options and prevent them from being reset on
-* 	close of extension
 * - Cache reading progress?
-* - Trigger pause on clicking of central element, not
-* 	just text
-* - Add function "cleanHTML" to get rid of unwanted elements
 * - Remove html parsing from sbd node module
 * - Break this up into more descrete modules
+* 
+* DONE:
+* - Cache options and prevent them from being reset on
+* 	close of extension
+* - Trigger pause on clicking of central element, not
+* 	just text
+* - Add function "cleanNode" to get rid of unwanted elements
+* 
 * 
 * WARNING:
 * Storage is all user settings. Too cumbersome otherwise for now.
@@ -18,11 +21,11 @@
 (function(){
 
 	// ============== SETUP ============== \\
-	var unfluff 	= require('@knod/unfluff'),
-		detect 		= require('detect-lang'),
-		$ 			= require('jquery');
+	var $ 			= require('jquery');
 
-	// var Queue 		= require('./lib/Queue.js'),
+	var Parser 		= require('./lib/parse/Parser.js'),
+		ParserSetup = require('./lib/ParserSetup.js');
+
 	var Words 		= require('./lib/parse/Words.js'),
 		WordNav 	= require('./lib/parse/WordNav.js'),
 		Storage 	= require('./lib/ReaderlyStorage.js'),
@@ -33,8 +36,7 @@
 		Settings 	= require('./lib/settings/ReaderlySettings.js'),
 		Speed 		= require('./lib/settings/SpeedSettings.js');
 
-	var words, wordNav, storage, delayer, timer, coreDisplay, playback, settings, speed;
-	// var queue, storage, delayer, timer, coreDisplay, playback, settings, speed;
+	var parser, words, wordNav, storage, delayer, timer, coreDisplay, playback, settings, speed;
 
 
 	var afterLoadSettings = function ( oldSettings ) {
@@ -52,8 +54,24 @@
 	};  // End addEvents()
 
 
+	var getParser = function () {
+		var pSup = new ParserSetup();
+		// FOR TESTING
+		pSup.debug = true;
+
+		// Functions to pass to parser
+		var cleanNode 		= pSup.cleanNode,
+			detectLanguage 	= pSup.detectLanguage,
+			findArticle 	= pSup.findArticle,
+			cleanText 		= pSup.cleanText,
+			splitSentences 	= pSup.splitSentences;
+
+		return new Parser( cleanNode, detectLanguage, findArticle, cleanText, splitSentences );
+	};  // End getParser()
+
+
 	var init = function () {
-		// queue 	= new Queue();
+		parser  = getParser();
 		words 	= new Words();
 		wordNav = new WordNav();
 		storage = new Storage();
@@ -69,61 +87,20 @@
 
 
 	// ============== RUNTIME ============== \\
-	var read = function ( text ) {
-		// TODO: If there's already a `words`, start where we left off
-		words.process( text );
-		
-        // Help non-coders identify some bugs (if their browser allows this)
-        try {
-            console.log('~~~~~~~~~ If any of those tests failed, the problem isn\'t with Readerly, it\'s with one of the other libraries. That problem will have to be fixed later.');
-        } catch (err) {}
+	var read = function ( node ) {
+
+		var sentences = parser.parse( node );
+        if (parser.debug) {  // Help non-coder devs identify some bugs
+    	    console.log('~~~~~parse debug~~~~~ If any of those tests failed, the problem isn\'t with Readerly, it\'s with one of the other libraries. That problem will have to be fixed later.');
+        }
+
+		// TODO: If there's already a `words` (if this isn't new), start where we left off
+		words.process( sentences );
 		
 		wordNav.process( words );
 		timer.start( wordNav );
 		return true;
 	};
-
-
-	var cleanHTML = function ( $node ) {
-	// Remove unwanted nodes from the text
-		$node.find('sup').remove();
-		// These have English, skewing language detection results
-		$node.find('script').remove();
-		$node.find('style').remove();
-		return $node;
-	};
-
-
-	var smallSample = function ( $node, desiredSampleLength ) {
-	/* ( jQuery Node, [int] ) -> Str
-	* 
-	* Get a sample of the text (probably to use in detecting language)
-	* A hack for language detection for now until language detection
-	* is made lazy.
-	*/
-		var halfSampleLength = desiredSampleLength/2 || 500;
-
-		var text = $node.text();
-		text = text.replace(/\s\s+/g, ' ');
-
-		// Average letter length of an English word = ~5 characters + a space
-		var aproxNumWords 	= Math.floor(text.length/6),
-			halfNumWords 	= aproxNumWords/2;
-
-		// Want to get as close to 1k words as possible
-		var startingPoint, length;
-		if ( halfNumWords > halfSampleLength ) {
-			length = halfSampleLength * 2;
-			startingPoint = halfNumWords - halfSampleLength;
-		} else {
-			length = text.length;
-			startingPoint = 0;
-		}
-
-		var sample = text.slice( startingPoint, startingPoint + length );
-
-		return sample;
-	};  // End smallSample()
 
 
 
@@ -137,31 +114,14 @@
 		if ( func === "readSelectedText" ) {
 			
 			var contents = document.getSelection().getRangeAt(0).cloneContents();
-			var container = $('<div></div>');
-			container.append(contents);
-			container.find('sup').remove();
-			read( container.text() );
+			var $container = $('<div></div>');
+			$container.append(contents);
+			read( $container[0] );
 
 		} else if ( func === "readFullPage" ) {
 
-			var $clone = $('html').clone(),
-				$clean = cleanHTML( $clone );
-
-			var sampleText = smallSample( $clean );
-
-			detect( sampleText ).then(function afterLanguageDetection(data) {
-				var lang = data.iso6391 || 'en',
-					cmds = unfluff.lazy( $clean.html(), lang ),
-					text = cmds.text();
-
-				// Help non-coders identify some bugs (if their browser allows this)
-				try {
-					console.log('~~~~~~~~~ detect-language test. Has it detected the correct language?', lang);
-					console.log('~~~~~~~~~ unfulff test. Is this showing the correct text?', text);
-				} catch (err) {}
-
-				read( text )
-			});
+			var $clone = $('html').clone();
+			read( $clone[0] );
 
 		}  // end if event is ___
 
