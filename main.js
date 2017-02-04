@@ -21,9 +21,7 @@
 (function(){
 
 	// ============== SETUP ============== \\
-	var unfluff 	= require('@knod/unfluff'),
-		detect 		= require('detect-lang'),
-		$ 			= require('jquery');
+	var $ 			= require('jquery');
 
 	var Parser 		= require('./lib/parse/Parser.js'),
 		ParserSetup = require('./lib/ParserSetup.js');
