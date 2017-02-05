@@ -1,5 +1,5 @@
 {
-    "author": "James Tomasino",
+    "author": "knod & synapse25",
     "background": {
         "scripts": [
             "background.js"
@@ -12,6 +12,7 @@
     },
     "content_scripts": [
         {
+            "all_frames": true,
             "css": [
                 "lib/readerly-main.css",
                 "lib/playback/readerly-playback.css",
@@ -28,15 +29,15 @@
             ]
         }
     ],
-    "description": "Read - Speed Reading via RSVP",
-    "homepage_url": "http://github.com/jamestomasino/read_plugin",
+    "description": "Readerly - Speed/Accessible Reading via RSVP",
+    "homepage_url": "http://github.com/knod/read_plugin",
     "icons": {
         "128": "icon128.png",
         "16": "icon16.png",
         "48": "icon48.png"
     },
     "manifest_version": 2,
-    "name": "Read",
+    "name": "Readerly",
     "offline_enabled": true,
     "permissions": [
         "contextMenus",
@@ -44,9 +45,8 @@
 		"storage",
         "<all_urls>"
     ],
-    "short_name": "Read",
-    "update_url": "https://clients2.google.com/service/update2/crx",
-    "version": "2.0.5",
+    "short_name": "Readerly",
+    "version": "0.1.30",
 	"web_accessible_resources": [
 		"fonts/DroidSans-webfont.eot",
 		"fonts/DroidSans-webfont.svg",
