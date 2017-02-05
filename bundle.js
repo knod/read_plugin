@@ -6136,7 +6136,7 @@ module.exports={
 
 	// ============== SETUP ============== \\
 	var $ 			= require('jquery');
-console.log('bleh');
+
 	var Parser 		= require('./lib/parse/Parser.js'),
 		ParserSetup = require('./lib/ParserSetup.js');
 
