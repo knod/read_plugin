@@ -36,7 +36,7 @@
 		Settings 	= require('./lib/settings/ReaderlySettings.js'),
 		Speed 		= require('./lib/settings/SpeedSettings.js');
 
-	var parser, words, wordNav, storage, delayer, timer, coreDisplay, playback, settings, speed;
+	var parser, language, words, wordNav, storage, delayer, timer, coreDisplay, playback, settings, speed;
 
 
 	var afterLoadSettings = function ( oldSettings ) {
@@ -57,7 +57,7 @@
 	var getParser = function () {
 		var pSup = new ParserSetup();
 		// FOR TESTING
-		pSup.debug = true;
+		pSup.debug = false;
 
 		// Functions to pass to parser
 		var cleanNode 		= pSup.cleanNode,
@@ -71,9 +71,14 @@
 
 
 	var init = function () {
-		parser  = getParser();
+		// TESTING
+		storage.set('maxNumCharacters', 5);
+
+		parser   = getParser();
+		language = parser.language;
+
 		words 	= new Words();
-		wordNav = new WordNav();
+		wordNav = new WordNav();  // Maybe pass Words to WordNav
 		storage = new Storage();
 		storage.loadAll( afterLoadSettings );
 
