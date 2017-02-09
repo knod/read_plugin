@@ -976,6 +976,8 @@ body {\
     */
     	var rPar = {};
 
+    	rPar.language = 'en';
+
 
 		rPar.cleanHTML = function ( $node ) {
 		// Remove unwanted nodes from the text
@@ -1042,7 +1044,8 @@ body {\
 
 		    	var sampleText 	= rPar.smallSample( clean ),
 		    		lang 		= detectLanguage( sampleText );
-
+		    	rPar.language 	= lang;
+		    	
 		    	rawText = findArticle( clean, lang );
 	    	}
 
@@ -1106,23 +1109,27 @@ body {\
         var wNav = {};
 
         // Contains .text, .sentenceFragments, .positions
-        wNav.words 		= null;
+        wNav.words = null;
 
-        wNav.index 		= 0;
-        wNav.position   = [0, 0];
+        wNav.index 		 = 0;
+        wNav.position    = [0, 0, 0],
+        wNav.currentWord = null;
+        wNav.fragmentor  = null;
 
         // ==== Internal ==== \\
         wNav._progress 	= 0;
-        var sentences 	= null,
-        	positions 	= null;;
+        var sentences 	= wNav.sentences = null;
+        var positions 	= wNav.positions = null;
 
 
-       	wNav.process = function ( words ) {
+       	wNav.process = function ( words, fragmentor ) {
        		if (!words) { console.error('WordNav needs dataz to .process(). You gave it dis:', words); }
 
 	        wNav.words 	= words;
 	        sentences 	= words.sentenceFragments;
 	    	positions 	= words.positions;
+
+            wNav.fragmentor = fragmentor;
 
 	       return wNav;
        	};
@@ -1132,41 +1139,264 @@ body {\
         wNav.restart = function () {
             // Will be normalized by the next operation called (next, prev, current)
             wNav.index    = 0;
-            wNav.position = [0, 0];
+            wNav.position = [0, 0, 0];
             return wNav;
         };
 
+
+        // wNav.getFragment = function ( changesOrIndex ) {
+        // // ( [int, int] or int ) -> Fragment
+        //     wNav.index       = wNav._step( changesOrIndex );
+        //     wNav.position    = positions[ wNav.index ];
+        //     return sentences[ wNav.position[0] ][ wNav.position[1] ];
+        // }  // End wNav.getFragment()
+
+
+
+        wNav.currentWord = null;
         wNav.getFragment = function ( changesOrIndex ) {
-        // ( [#, #] or # ) -> Fragment
-            wNav.index      = wNav._step( changesOrIndex );
-            wNav.position   = positions[ wNav.index ];
-            return sentences[ wNav.position[0] ][ wNav.position[1] ];
-        }
+        /* ( [int, int, int] or int ) -> Fragment
+        * 
+        * Currently it seems that only one of the ints can
+        * be something other than 0.
+        * ??: Are there cases where that isn't true?
+        */
+
+            // wNav.index       = wNav._step( changesOrIndex );
+            // wNav.position    = positions[ wNav.index ];
+            // wNav.position[2] = ??;
+            // wNav.currentWord = sentences[ wNav.position[0] ][ wNav.position[1] ];
+
+            // var index = wNav._step( changesOrIndex );
 
 
-        wNav._step = function ( changesOrIndex ) {
-        // ( [#, #] or # ) -> Fragment
-            var index = wNav.index;
 
+            // Need:
+            // overall index to get current word
+            // index in word fragments of current word
+            // Need fragment index in order to get overall index...
+
+
+            // --------------------------------
+
+            // Pseudo
+            // If maxNumCharacters changed, re-fragment word and start at
+            // the beginning of word
+
+            // !!! CAN ONLY CHANGE ONE INDEX AT A TIME !!! \\
+            // if plain index change
+                // get new word( index )
+            // if fragment change
+                // if current fragment starts new word
+                    // index += 1
+                    // ***get new word( index )
+                // If current fragment possible
+                    // don't change index
+                    // change fragi/position[2]
+            // if word change
+                // index += change
+                // ***get new word( index )
+            // if sentence change
+                // get new sentence (all that stuff)
+                // get new index
+                // ***get new word( index )
+
+            // return currentWord[ position[2] ]
+
+
+            // ***get new word( index )
+                // normalize given index
+                // change actual index
+                // position[2] = 0 (fragi = 0)
+                // get new fragments
+
+            // --------------------------------
+            // Pseudo
+            // If maxNumCharacters changed, re-fragment word and start at
+            // the beginning of word
+
+            // if fragment change
+                // if current fragment starts new word
+                    // index += 1
+                    // ***get new word( index )
+                // If current fragment possible
+                    // don't change index
+                    // change fragi/position
+                    // get current fragment
+            // if word change
+                // index += change
+                // ***get new word( index )
+            // if sentence change
+                // get new sentence (all that stuff)
+                // get new index
+                // ***get new word( index )
+
+
+            // ***get new word( index )
+                // normalize given index
+                // change actual index
+                // ***get new word as fragments
+
+
+            var frag        = null;
+            var pos         = wNav.position,
+            // wNav.currentWord isn't just a string. It's not from the sentence/word
+            // array, it's a word once it has been fragmented into a list of strings
+                currentWord = wNav.currentWord;
+
+            // TODO:
+            // If maxNumCharacters changed, re-fragment word and start at
+            // the beginning of word
+
+            // if plain index change/jump
             if ( typeof changesOrIndex === 'number' ) {
-                index = wNav.normalizeIndex( changesOrIndex );
-            } else {
-                // If there's a sentence level change, we're traveling
-                // sentences, not words (this assumes we never do both)
-                if ( changesOrIndex[0] ) {
-                    index = wNav._stepSentence( changesOrIndex[0] );
+                currentWord = wNav._stepWord( changesOrIndex );
+                pos[2]      = 0;
+
+            // !!! CAN ONLY CHANGE ONE POSITION AT A TIME !!! \\
+
+            // if sentence change
+            } else if ( changesOrIndex[0] !== 0 ) {
+
+                // find new sentence and get the new index
+                var index   = wNav._stepSentence( changesOrIndex[0] );
+                currentWord = wNav._stepWord( index );
+                pos[2]      = 0;
+
+            // if word change
+            } else if ( changesOrIndex[1] !== 0 ) {
+
+                index       = wNav.index + changesOrIndex[1];
+                currentWord = wNav._stepWord( index );
+                pos[2]      = 0;
+
+            // if fragment change
+            } else if ( changesOrIndex[2] > 0 ) {  // No provision for backwards fragment travel
+
+                var fragi = pos[2] + changesOrIndex[2];
+
+                // if current fragment starts new word
+                if ( fragi >= currentWord.length ) {
+                    
+                    currentWord = wNav._stepWord( wNav.index + 1 );
+                    pos[2]      = 0;
+                
                 } else {
-                    index += changesOrIndex[1];
-                    index = wNav.normalizeIndex( index );
+
+                    // don't change index or current word, just current fragment position
+                    pos[2] = fragi;
+
                 }
-            }  // end if index or change array
-            return index;
-        };  // end wNav._step();
+
+            } else {
+                currentWord = wNav._stepWord( wNav.index );
+                pos[2]      = 0;
+            } // end if index or which position changed
+
+
+            wNav.currentWord = currentWord;
+            frag             = currentWord[ pos[2] ];
+
+            return frag;
+        }  // End wNav.getFragment()
+
+
+
+
+
+        wNav._stepWord = function ( index ) {
+        // ( int ) -> 
+            wNav.index      = wNav.normalizeIndex( index );
+            var pos         = positions[ wNav.index ];
+            wNav.position[0]= pos[0];
+            wNav.position[1]= pos[1];
+            // wNav.position[2] = ??;
+            // wNav.currentWord = sentences[ wNav.position[0] ][ wNav.position[1] ];
+            var word        = sentences[ wNav.position[0] ][ wNav.position[1] ],
+                // fragmented  = wNav.fragmentor.fragment( word );
+                fragmented  = [word];
+
+            return fragmented;
+        };  // End wNav._stepWord()
+
+
+
+        // wNav._step = function ( changesOrIndex ) {
+        // // ( [int, int] or int ) -> #
+        //     var index = wNav.index;
+
+        //     if ( typeof changesOrIndex === 'number' ) {
+        //         index = wNav.normalizeIndex( changesOrIndex );
+        //     } else {
+        //         // If there's a sentence level change, we're traveling
+        //         // sentences, not words (this assumes we never do both)
+        //         if ( changesOrIndex[0] !== 0 ) {
+        //             index = wNav._stepSentence( changesOrIndex[0] );
+        //         } else if ( changesOrIndex[1] !== 0 ) {
+        //             index += changesOrIndex[1];
+        //             index = wNav.normalizeIndex( index );
+        //         }
+        //     }  // end if index or change array
+        //     return index;
+        // };  // end wNav._step();
+
+
+        // wNav._getChange = function ( changeAttempt ) {
+        // // ( [#, #, #] or # ) -> [#, #, #]
+
+        // };  // End wNav._getChange()
+
+
+        // wNav._step = function ( changesOrIndex ) {
+        // // ( [#, #, #] ) -> ?
+        // // ??: Changes index if needed?
+        //     var index = wNav.index;
+
+        //     if ( typeof changesOrIndex === 'number' ) {
+        //         index = wNav.normalizeIndex( changesOrIndex );
+        //     } else {
+        //         // If there's a sentence level change, we're traveling
+        //         // sentences, not words (this assumes we never do both)
+        //         if ( changesOrIndex[0] !== 0 ) {
+        //             index = wNav._stepSentence( changesOrIndex[0] );
+        //         } else if ( changesOrIndex[1] !== 0 ) {
+        //             index += changesOrIndex[1];
+        //             index = wNav.normalizeIndex( index );
+        //         } else {
+        //             // Word fragment change is only ever positive?
+        //             // That's what's assumed here
+        //             if ( changesOrIndex[2] > wNav.currentWord.length ) {
+        //                 index += 1;
+        //             }
+        //         }
+        //     }  // end if index or change array
+
+        //     wNav.index = index;
+
+        //     return index;
+        // };  // end wNav._step()
+
+
+        // wNav._stepFragment = function ( fragChange ) {
+
+        //     // If the change goes past the end of the word,
+        //     // go on to the next word instead
+
+        //     // Otherwise, get the next fragment
+
+
+        // };  // End wNav._stepFragment()
+
+
+        // wNav._stepWord = function ( wordChange ) {
+        //     var index += wordChange;
+        //     index = wNav.normalizeIndex( index );
+        //     return index;
+        // }  // end wNav._stepWord()
 
 
         wNav._stepSentence = function ( sentenceChange ) {
         // ( [int, int] ) -> int
-        // TODO: Account for right arrow on last sentence
             if ( sentenceChange === 0 ) {return};
 
             var pos     = [ wNav.position[0], wNav.position[1] ],
@@ -1195,6 +1425,7 @@ body {\
 
             return newIndex;
         };  // End wNav._stepSentence
+
 
         wNav._sentenceChangeToIndex = function ( sentenceChange, newPos ) {
         /* ( int, [int, int] ) -> int or null
@@ -1227,6 +1458,7 @@ body {\
 
             return tempi;
         };  // End wNav._sentenceChangeToIndex()
+
 
         wNav._positionToIndex = function ( pos ) {
         /* ( [int, int] ) -> int
@@ -1395,7 +1627,7 @@ body {\
                             let frag = new Fragment(subsubWords[k]);
 
                             sentence.push( frag );
-                            positions.push( [ sentenceIndex, fragIndex ] );
+                            positions.push( [ sentenceIndex, fragIndex, 0 ] );
                             // positions.push( { sentence: sentenceIndex, fragment: fragIndex } );
                             fragIndex++;
                             
@@ -1405,7 +1637,7 @@ body {\
                     } else {
                         let frag = new Fragment(subWords[j]);
                         sentence.push( frag );
-                        positions.push( [ sentenceIndex, fragIndex ] );
+                        positions.push( [ sentenceIndex, fragIndex, 0 ] );
                         // positions.push( { sentence: sentenceIndex, fragment: fragIndex } );
 
                        fragIndex++;
@@ -4084,15 +4316,24 @@ module.exports={
 		// ============== RUNTIME ============== \\
 
 		rDel.calcDelay = function ( frag, justOnce ) {
+		/* ( Str || Obj, [bool] ) -> #
+		* 
+		*/
 		// !!! TODO: `justOnce` is an issue because it's actually just whether
 		// or not a function has been passed into the loop, nothing else
 			var delay = rDel.delay;
 
-			if ( frag.hasPeriod ) 	 delay *= _rSetts.sentenceDelay;
-			if ( frag.hasOtherPunc ) delay *= _rSetts.otherPuncDelay;
-			if ( frag.isShort() ) 	 delay *= _rSetts.shortWordDelay;
-			if ( frag.isLong() ) 	 delay *= _rSetts.longWordDelay;
-			if ( frag.isNumeric ) 	 delay *= _rSetts.numericDelay;
+			var processed = frag;
+			// !!! TEMPORARY UNTIL CONVERTED TO ONLY STRINGS !!!
+			// If a string was passed in instead of an object, assess the string
+			if ( typeof frag === 'string' ) { processed = rDel._process( frag ); }
+			var processed = rDel._process( frag );
+
+			if ( processed.hasPeriod ) 	 delay 	*= _rSetts.sentenceDelay;
+			if ( processed.hasOtherPunc ) delay *= _rSetts.otherPuncDelay;
+			if ( processed.isShort() ) 	 delay 	*= _rSetts.shortWordDelay;
+			if ( processed.isLong() ) 	 delay 	*= _rSetts.longWordDelay;
+			if ( processed.isNumeric ) 	 delay 	*= _rSetts.numericDelay;
 
 			// Just after starting up again, go slowly, then speed up a bit
 			// each time the loop is called
@@ -4118,6 +4359,44 @@ module.exports={
 			return rDel;
 		};
 
+
+		// ======= PROCESSING STRING ======== \\
+		rDel._process = function ( chars ) {
+		/* ( Str ) -> {}
+		* 
+		* Assesses the properties of a string, saving them in an object
+		*/
+			var frag = { chars: chars };
+
+	        rDel._setPuncProps( frag );
+
+			// TODO: Get from storage (with callback)
+			var shortLength = 2,
+				longLength 	= 8;
+
+			// TODO: Change to non-functions when you have a min
+			frag.isShort = function () { return chars.length <= shortLength; };
+	        frag.isLong = function () { return chars.length >= longLength; };
+
+			frag.isNumeric = /\d/.test(chars);
+
+			return frag;
+		};  // End rDel._process()
+
+
+		rDel._setPuncProps = function ( frag ) {
+		/* ( Str ) -> {}
+		* 
+		* Tests and sets the punctuation properties
+		*/
+			var str = frag.chars;
+
+			frag.hasPeriod 	  = /[.!?]/.test(str);
+			// TODO: test for non-alphameric/period characters
+			frag.hasOtherPunc = /["'()”’:;,_]/.test(str);
+
+			return rDel;
+		};  // end rDel._setPuncProps()
 
 
 		// ============== SET OPTIONS ============== \\
@@ -4621,7 +4900,7 @@ module.exports={
 
 			// Moving around
 			rTim._jumping 	 		= false;
-			rTim._incrementors 		= [0, 1];
+			rTim._incrementors 		= [0, 0, 1];  // This is a regular 1 step forward move
 			rTim._skipWhitespace 	= false;
 			rTim._whitespaceRegex 	= new RegExp('[\n\r]', 'g');
 
@@ -4707,13 +4986,13 @@ module.exports={
 		* ??: Just one eventName which gets + 'Begin' and + 'Finish' where appropriate?
 		*/
 			// "play" will always be forward. "rewind" can be play, but with "prev".
-			rTim._incrementors = [0, 1];
+			rTim._incrementors = [0, 0, 1];
 
 			if ( startEventName ) $(rTim).trigger( startEventName, [rTim] );
 			
 			if ( !rTim._isPlaying ) {
 				rTim._isPlaying = true;
-				rTim._loop( [0, 0], false );
+				rTim._loop( [0, 0, 0], false );
 			}
 
 			if ( endEventName ) $(rTim).trigger( endEventName, [rTim] );
@@ -4789,20 +5068,20 @@ module.exports={
 		};  // End rTim._oneStepUntimed()
 
 		rTim.nextWord = function () {
-			rTim._oneStepUntimed( [0, 1] );
+			rTim._oneStepUntimed( [0, 1, 0] );
 			return rTim;
 		};
 		rTim.nextSentence = function() {
-			rTim._oneStepUntimed( [1, 0] );
+			rTim._oneStepUntimed( [1, 0, 0] );
 			return rTim;
 		};
 
 		rTim.prevWord = function () {
-			rTim._oneStepUntimed( [0, -1] );
+			rTim._oneStepUntimed( [0, -1, 0] );
 			return rTim;
 		};
 		rTim.prevSentence = function() {
-			rTim._oneStepUntimed( [-1, 0] );
+			rTim._oneStepUntimed( [-1, 0, 0] );
 			return rTim;
 		};
 
@@ -4822,7 +5101,7 @@ module.exports={
 
 				var newIndex = playbackObj.amount,
 					oldIndex = rTim._queue.getIndex();
-				rTim.once( [0, newIndex - oldIndex] );
+				rTim.once( [0, newIndex - oldIndex, 0] );
 			}
 			return rTim;
 		};  // End rTim.jumpTo()
@@ -4865,14 +5144,15 @@ module.exports={
 
 
         rTim._skipDirection = function ( incrementors, frag ) {
-			var vector = [0, 0];
+			var vector = [0, 0, 0];
 
 			var hasOnlyNewLines = false,
 				chars 			= frag.chars,  // Doesn't change frag.chars
 				noWhitespace 	= chars.replace(rTim._whitespaceRegex, '');
 
 			// If it's time to skip whitespace and there's nothing but whitespace
-			// in the fragment, figure out which direction to move in
+			// in the fragment, figure out which direction to move in, and 
+			// send info to move once in that direction
 			if ( rTim._skipWhitespace && noWhitespace.length === 0 ) {
 
 				var senti = rTim._queue.position[0];
@@ -4883,10 +5163,13 @@ module.exports={
 				} else if( incrementors[1] !== 0 ) {
 					vector[1] = rTim.signOf(incrementors[1]);
 
-				// For when play passes [0, 0]. ??: Does anything else ever do this?
+				} else if( incrementors[2] !== 0 ) {
+					vector[2] = rTim.signOf(incrementors[2]);
+
+				// For when play passes [0, 0, 0]. ??: Does anything else ever do this?
 				// We're going to have to skip in some direction or we'll never get anywhere
 				} else {
-					vector = [0, 1];  // ??: Always true?
+					vector = [0, 0, 1];  // ??: Always true?
 				}
 			}
 
@@ -4913,7 +5196,7 @@ module.exports={
 			// !!! KEEP THIS even though it's not currently needed for sentences. I hope
 			// to make paragraphs their own sentences for reasons of accessibility.
 			// It's actually useful when navigating by word fragment.
-    	    if ( skipDir[0] !== 0 || skipDir[1] !== 0 ) {
+    	    if ( skipDir[0] !== 0 || skipDir[1] !== 0 || skipDir[2] !== 0 ) {
 
 				$(rTim).trigger( 'loopSkip', [rTim, frag] );
     	    	rTim._loop( skipDir, justOnce );
@@ -6140,9 +6423,10 @@ module.exports={
 	var Parser 		= require('./lib/parse/Parser.js'),
 		ParserSetup = require('./lib/ParserSetup.js');
 
-	var Words 		= require('./lib/parse/Words.js'),
+	var Storage 	= require('./lib/ReaderlyStorage.js'),
+		Words 		= require('./lib/parse/Words.js'),
 		WordNav 	= require('./lib/parse/WordNav.js'),
-		Storage 	= require('./lib/ReaderlyStorage.js'),
+		// WordSplitter= require('/lib/parse/WordSplitter.js'),
 		Delayer 	= require('./lib/playback/Delayer.js')
 		Timer 		= require('./lib/playback/ReaderlyTimer.js'),
 		Display 	= require('./lib/ReaderlyDisplay.js'),
@@ -6150,7 +6434,7 @@ module.exports={
 		Settings 	= require('./lib/settings/ReaderlySettings.js'),
 		Speed 		= require('./lib/settings/SpeedSettings.js');
 
-	var parser, words, wordNav, storage, delayer, timer, coreDisplay, playback, settings, speed;
+	var parser, language, words, wordNav, storage, delayer, timer, coreDisplay, playback, settings, speed;
 
 
 	var afterLoadSettings = function ( oldSettings ) {
@@ -6171,7 +6455,7 @@ module.exports={
 	var getParser = function () {
 		var pSup = new ParserSetup();
 		// FOR TESTING
-		pSup.debug = true;
+		pSup.debug = false;
 
 		// Functions to pass to parser
 		var cleanNode 		= pSup.cleanNode,
@@ -6185,10 +6469,15 @@ module.exports={
 
 
 	var init = function () {
-		parser  = getParser();
+
+		parser   = getParser();
+		language = parser.language;
+
 		words 	= new Words();
-		wordNav = new WordNav();
+		wordNav = new WordNav();  // Maybe pass Words to WordNav
 		storage = new Storage();
+		// TESTING
+		storage.set({'maxNumCharacters': 5});
 		storage.loadAll( afterLoadSettings );
 
 		addEvents();

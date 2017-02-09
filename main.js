@@ -26,9 +26,10 @@
 	var Parser 		= require('./lib/parse/Parser.js'),
 		ParserSetup = require('./lib/ParserSetup.js');
 
-	var Words 		= require('./lib/parse/Words.js'),
+	var Storage 	= require('./lib/ReaderlyStorage.js'),
+		Words 		= require('./lib/parse/Words.js'),
 		WordNav 	= require('./lib/parse/WordNav.js'),
-		Storage 	= require('./lib/ReaderlyStorage.js'),
+		// WordSplitter= require('/lib/parse/WordSplitter.js'),
 		Delayer 	= require('./lib/playback/Delayer.js')
 		Timer 		= require('./lib/playback/ReaderlyTimer.js'),
 		Display 	= require('./lib/ReaderlyDisplay.js'),
@@ -71,8 +72,6 @@
 
 
 	var init = function () {
-		// TESTING
-		storage.set('maxNumCharacters', 5);
 
 		parser   = getParser();
 		language = parser.language;
@@ -80,6 +79,8 @@
 		words 	= new Words();
 		wordNav = new WordNav();  // Maybe pass Words to WordNav
 		storage = new Storage();
+		// TESTING
+		storage.set({'maxNumCharacters': 5});
 		storage.loadAll( afterLoadSettings );
 
 		addEvents();
