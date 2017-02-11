@@ -29,7 +29,7 @@
 	var Storage 	= require('./lib/ReaderlyStorage.js'),
 		Words 		= require('./lib/parse/Words.js'),
 		WordNav 	= require('./lib/parse/WordNav.js'),
-		// WordSplitter= require('/lib/parse/WordSplitter.js'),
+		WordSplitter= require('./lib/parse/WordSplitter.js'),
 		Delayer 	= require('./lib/playback/Delayer.js')
 		Timer 		= require('./lib/playback/ReaderlyTimer.js'),
 		Display 	= require('./lib/ReaderlyDisplay.js'),
@@ -37,7 +37,12 @@
 		Settings 	= require('./lib/settings/ReaderlySettings.js'),
 		Speed 		= require('./lib/settings/SpeedSettings.js');
 
-	var parser, language, words, wordNav, storage, delayer, timer, coreDisplay, playback, settings, speed;
+	var parser, fragmentor, words, wordNav, storage, delayer, timer, coreDisplay, playback, settings, speed;
+
+
+	var addEvents = function () {
+		$(timer).on( 'starting', function showLoading() { playback.wait(); })
+	};  // End addEvents()
 
 
 	var afterLoadSettings = function ( oldSettings ) {
@@ -47,12 +52,12 @@
 		playback 	= new Playback( timer, coreDisplay );
 		settings 	= new Settings( timer, coreDisplay );
 		speed 		= new Speed( delayer, settings );
+
+		textElem 	= coreDisplay.nodes.textElements;
+		fragmentor 	= new WordSplitter( textElem, storage );
+
+		addEvents();
 	};  // End afterLoadSettings()
-
-
-	var addEvents = function () {
-		$(timer).on( 'starting', function showLoading() { playback.wait(); })
-	};  // End addEvents()
 
 
 	var getParser = function () {
@@ -73,17 +78,14 @@
 
 	var init = function () {
 
-		parser   = getParser();
-		language = parser.language;
+		parser  = getParser();
 
 		words 	= new Words();
 		wordNav = new WordNav();  // Maybe pass Words to WordNav
 		storage = new Storage();
 		// TESTING
-		storage.set({'maxNumCharacters': 5});
+		storage.set({'maxNumCharacters': 10});
 		storage.loadAll( afterLoadSettings );
-
-		addEvents();
 	};  // End init()
 
 
@@ -95,15 +97,20 @@
 	// ============== RUNTIME ============== \\
 	var read = function ( node ) {
 
-		var sentences = parser.parse( node );
+		var sentenceWords = parser.parse( node );  // [[Str]]
+		// var sentences = parser.parse( node );
         if (parser.debug) {  // Help non-coder devs identify some bugs
     	    console.log('~~~~~parse debug~~~~~ If any of those tests failed, the problem isn\'t with Readerly, it\'s with one of the other libraries. That problem will have to be fixed later.');
         }
 
+        // TODO: ??: Combine Words.js and WordNav.js since Words.js now does so little?
+
 		// TODO: If there's already a `words` (if this isn't new), start where we left off
-		words.process( sentences );
+		var sentenceData = words.process( sentenceWords );
+		// words.process( sentences );
 		
-		wordNav.process( words );
+		wordNav.process( sentenceData, fragmentor );
+		// wordNav.process( words );
 		timer.start( wordNav );
 		return true;
 	};
