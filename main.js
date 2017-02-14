@@ -105,11 +105,12 @@
 
         // TODO: ??: Combine Words.js and WordNav.js since Words.js now does so little?
 
-		// TODO: If there's already a `words` (if this isn't new), start where we left off
-		var sentenceData = words.process( sentenceWords );
-		// words.process( sentences );
+		// // TODO: If there's already a `words` (if this isn't new), start where we left off
+		// var sentenceData = words.process( sentenceWords );
+		// // words.process( sentences );
 		
-		wordNav.process( sentenceData, fragmentor );
+		wordNav.process( sentenceWords, fragmentor );
+		// wordNav.process( sentenceData, fragmentor );
 		// wordNav.process( words );
 		timer.start( wordNav );
 		return true;

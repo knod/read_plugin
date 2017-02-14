@@ -1079,12 +1079,14 @@ body {\
 * Based on https://github.com/jamestomasino/read_plugin/blob/master/ReadBlock.js
 * 
 * TODO:
+* - ??: Add delay for paragraph?
+* - Reset values non-destructively
+* 
+* DONE:
 * - Go back a sentence - array of indexes where sentences start?
 * - Change max word length - recombine split words (record of which
 * words were split) and address each word that is longer than
 * the max-word length.
-* - ??: Add delay for paragraph?
-* - Reset values non-destructively
 * - Split Qeue into
 *   Words and...
 *   Word(s) Navigator/Trotter/Transporter/Traveler/Traverse/Walker/Explorer
@@ -1114,7 +1116,7 @@ body {\
     * 
     * Provides commands for getting the words/fragments passed into
     * its `.process()`. 
-    * Always use .getFragment
+    * Always use .getFragment()
     */
         var wNav = {};
 
@@ -1126,128 +1128,50 @@ body {\
         wNav.currentWord = null;
         wNav.fragmentor  = null;
 
+
         // ==== Internal ==== \\
         wNav._progress 	= 0;
-        var sentences 	= wNav.sentences = null;
-        var positions 	= wNav.positions = null;
+        var sentences 	= wNav._sentences = null;
+        var positions 	= wNav._positions = [];
 
 
-       	wNav.process = function ( words, fragmentor ) {
-       		if (!words) { console.error('WordNav needs dataz to .process(). You gave it dis:', words); }
-
-	        wNav.words 	= words;
-	        sentences 	= words.sentences;
-	    	positions 	= words.positions;
+       	wNav.process = function ( senteceArray, fragmentor ) {
+       		if (!senteceArray) { console.error('WordNav needs dataz to .process(). You gave it dis:', senteceArray); }
 
             wNav.fragmentor = fragmentor;
+
+            sentences = wNav.sentences = senteceArray;  
+            positions = wNav.positions = [];  // TODO: ??: Empty non-destructively??
+
+            for ( let senti = 0; senti < sentences.length; senti++ ) {
+                
+                let sentence  = sentences[senti];
+                for (let wordi = 0; wordi < sentence.length; wordi++) {
+                    positions.push([ senti, wordi ]);
+                };
+            }
 
 	       return wNav;
        	};
 
+
+
         // ========= RUNTIME: TRAVELING THE WORDS/SENTENCES (for external use) ========= \\
 
         wNav.restart = function () {
-            // Will be normalized by the next operation called (next, prev, current)
             wNav.index    = 0;
             wNav.position = [0, 0, 0];
             return wNav;
         };
 
 
-        // wNav.getFragment = function ( changesOrIndex ) {
-        // // ( [int, int] or int ) -> Fragment
-        //     wNav.index       = wNav._step( changesOrIndex );
-        //     wNav.position    = positions[ wNav.index ];
-        //     return sentences[ wNav.position[0] ][ wNav.position[1] ];
-        // }  // End wNav.getFragment()
-
-
-
-        wNav.currentWord = null;
         wNav.getFragment = function ( changesOrIndex ) {
-        /* ( [int, int, int] or int ) -> Fragment
+        /* ( [int, int, int] or int ) -> Str
         * 
-        * Currently it seems that only one of the ints can
-        * be something other than 0.
-        * ??: Are there cases where that isn't true?
+        * Currently it seems that only one of the ints can be something
+        * other than 0.
+        * ??: Find cases where that isn't true.
         */
-
-            // wNav.index       = wNav._step( changesOrIndex );
-            // wNav.position    = positions[ wNav.index ];
-            // wNav.position[2] = ??;
-            // wNav.currentWord = sentences[ wNav.position[0] ][ wNav.position[1] ];
-
-            // var index = wNav._step( changesOrIndex );
-
-
-
-            // Need:
-            // overall index to get current word
-            // index in word fragments of current word
-            // Need fragment index in order to get overall index...
-
-
-            // --------------------------------
-
-            // Pseudo
-            // If maxNumCharacters changed, re-fragment word and start at
-            // the beginning of word
-
-            // !!! CAN ONLY CHANGE ONE INDEX AT A TIME !!! \\
-            // if plain index change
-                // get new word( index )
-            // if fragment change
-                // if current fragment starts new word
-                    // index += 1
-                    // ***get new word( index )
-                // If current fragment possible
-                    // don't change index
-                    // change fragi/position[2]
-            // if word change
-                // index += change
-                // ***get new word( index )
-            // if sentence change
-                // get new sentence (all that stuff)
-                // get new index
-                // ***get new word( index )
-
-            // return currentWord[ position[2] ]
-
-
-            // ***get new word( index )
-                // normalize given index
-                // change actual index
-                // position[2] = 0 (fragi = 0)
-                // get new fragments
-
-            // --------------------------------
-            // Pseudo
-            // If maxNumCharacters changed, re-fragment word and start at
-            // the beginning of word
-
-            // if fragment change
-                // if current fragment starts new word
-                    // index += 1
-                    // ***get new word( index )
-                // If current fragment possible
-                    // don't change index
-                    // change fragi/position
-                    // get current fragment
-            // if word change
-                // index += change
-                // ***get new word( index )
-            // if sentence change
-                // get new sentence (all that stuff)
-                // get new index
-                // ***get new word( index )
-
-
-            // ***get new word( index )
-                // normalize given index
-                // change actual index
-                // ***get new word as fragments
-
-
             var frag        = null;
             var pos         = wNav.position,
             // wNav.currentWord isn't just a string. It's not from the sentence/word
@@ -1312,102 +1236,23 @@ body {\
 
 
 
-
-
         wNav._stepWord = function ( index ) {
-        // ( int ) -> 
+        // ( int ) -> [ Str ]
             wNav.index      = wNav.normalizeIndex( index );
             var pos         = positions[ wNav.index ];
             wNav.position[0]= pos[0];
             wNav.position[1]= pos[1];
-            // wNav.position[2] = ??;
-            // wNav.currentWord = sentences[ wNav.position[0] ][ wNav.position[1] ];
             var word        = sentences[ wNav.position[0] ][ wNav.position[1] ],
                 fragmented  = wNav.fragmentor.process( word );
-                // fragmented  = [word];
 
             return fragmented;
         };  // End wNav._stepWord()
 
 
 
-        // wNav._step = function ( changesOrIndex ) {
-        // // ( [int, int] or int ) -> #
-        //     var index = wNav.index;
-
-        //     if ( typeof changesOrIndex === 'number' ) {
-        //         index = wNav.normalizeIndex( changesOrIndex );
-        //     } else {
-        //         // If there's a sentence level change, we're traveling
-        //         // sentences, not words (this assumes we never do both)
-        //         if ( changesOrIndex[0] !== 0 ) {
-        //             index = wNav._stepSentence( changesOrIndex[0] );
-        //         } else if ( changesOrIndex[1] !== 0 ) {
-        //             index += changesOrIndex[1];
-        //             index = wNav.normalizeIndex( index );
-        //         }
-        //     }  // end if index or change array
-        //     return index;
-        // };  // end wNav._step();
-
-
-        // wNav._getChange = function ( changeAttempt ) {
-        // // ( [#, #, #] or # ) -> [#, #, #]
-
-        // };  // End wNav._getChange()
-
-
-        // wNav._step = function ( changesOrIndex ) {
-        // // ( [#, #, #] ) -> ?
-        // // ??: Changes index if needed?
-        //     var index = wNav.index;
-
-        //     if ( typeof changesOrIndex === 'number' ) {
-        //         index = wNav.normalizeIndex( changesOrIndex );
-        //     } else {
-        //         // If there's a sentence level change, we're traveling
-        //         // sentences, not words (this assumes we never do both)
-        //         if ( changesOrIndex[0] !== 0 ) {
-        //             index = wNav._stepSentence( changesOrIndex[0] );
-        //         } else if ( changesOrIndex[1] !== 0 ) {
-        //             index += changesOrIndex[1];
-        //             index = wNav.normalizeIndex( index );
-        //         } else {
-        //             // Word fragment change is only ever positive?
-        //             // That's what's assumed here
-        //             if ( changesOrIndex[2] > wNav.currentWord.length ) {
-        //                 index += 1;
-        //             }
-        //         }
-        //     }  // end if index or change array
-
-        //     wNav.index = index;
-
-        //     return index;
-        // };  // end wNav._step()
-
-
-        // wNav._stepFragment = function ( fragChange ) {
-
-        //     // If the change goes past the end of the word,
-        //     // go on to the next word instead
-
-        //     // Otherwise, get the next fragment
-
-
-        // };  // End wNav._stepFragment()
-
-
-        // wNav._stepWord = function ( wordChange ) {
-        //     var index += wordChange;
-        //     index = wNav.normalizeIndex( index );
-        //     return index;
-        // }  // end wNav._stepWord()
-
-
         wNav._stepSentence = function ( sentenceChange ) {
-        // ( [int, int] ) -> int
-            if ( sentenceChange === 0 ) {return};
+        // ( [int, int] ) -> Int
+            if ( sentenceChange === 0 ) { return 0; }
 
             var pos     = [ wNav.position[0], wNav.position[1] ],
                 senti   = pos[0],
@@ -1438,14 +1283,14 @@ body {\
 
 
         wNav._sentenceChangeToIndex = function ( sentenceChange, newPos ) {
-        /* ( int, [int, int] ) -> int or null
+        /* ( int ) -> Int or null
         * 
         * Given the direction of change and the position desired, find the
         * index of the new position.
         * Only used for sentence changes. If we need something else,
-        * we'll see about that then. Just trying to speed up the search
+        * we'll see about that then. Just trying to speed up the search.
         */
-            if ( sentenceChange === 0 ) {return null;}  // signOf shouldn't return NaN now
+            if ( sentenceChange === 0 ) { return 0; }  // signOf shouldn't return NaN now
 
             var incrementor = signOf( sentenceChange ),  // 1 or -1
                 tempi       = wNav.index,
@@ -1471,7 +1316,7 @@ body {\
 
 
         wNav._positionToIndex = function ( pos ) {
-        /* ( [int, int] ) -> int
+        /* ( [int, int] ) -> Int
         * 
         * Given a [sentence, word] position, find the index of that
         * configuration in the positions list. If none found, return
@@ -1481,11 +1326,12 @@ body {\
         * This is different from ._sentenceChangeToIndex() because this
         * one searches the whole array, it doesn't start from the current
         * position and work in a direction (back of forward) from there.
+        * TODO: Performance analysis on long texts
         */
             var index = positions.findIndex( function matchPosToIndex( potential ) {
                 var sent = (pos[0] === potential[0]),
                     frag = (pos[1] === potential[1]);
-                return sent && frag
+                return sent && frag;
             })
             return index;
         }
@@ -1502,7 +1348,6 @@ body {\
             index = Math.min( index, positions.length - 1 );  // max
             return Math.max( index, 0 );  // min
         };
-
         wNav.normalizeSentencePos = function ( senti ) {
             senti = Math.min( senti, (sentences.length - 1) );
             return Math.max( senti, 0 );
@@ -1516,14 +1361,9 @@ body {\
             wNav._progress = wNav.index / (positions.length - 1);
             return wNav._progress;
         };
+        wNav.getLength = function () { return positions.length; };
+        wNav.getIndex = function () { return wNav.index; }
 
-        wNav.getLength = function () {
-            return positions.length;
-        };
-
-        wNav.getIndex = function () {
-            return wNav.index;
-        }
 
         return wNav;
     };  // End WordNav() -> {}
@@ -1756,10 +1596,12 @@ body {\
 * Based on https://github.com/jamestomasino/read_plugin/blob/master/ReadBlock.js
 * 
 * TODO:
+* - ??: Should be called Sentences instead? A bit long :/
+* 
+* DONE:
 * - Split Queue into
 *   Words and...
 *   Word(s) Navigator/Trotter/Transporter/Traveler/Traverse/Walker/Explorer
-* - ??: Should be called Sentences instead? A bit long :/
 */
 
 (function (root, wordsFactory) {  // root is usually `window`
@@ -1778,31 +1620,17 @@ body {\
 
     "use strict";
 
-    // var wordRegex = /([^\s\-\—\/]+[\-\—\/]?|[\r\n]+)/g;
-    // var presuf = /^(\W*)(anti|auto|ab|an|ax|al|as|bi|bet|be|contra|cat|cath|cir|cum|cog|col|com|con|cor|could|co|desk|de|dis|did|dif|di|eas|every|ever|extra|ex|end|en|em|epi|evi|func|fund|fin|hyst|hy|han|il|in|im|ir|just|jus|loc|lig|lit|li|mech|manu|man|mal|mis|mid|mono|multi|mem|micro|non|nano|ob|oc|of|opt|op|over|para|per|post|pre|peo|pro|retro|rea|re|rhy|should|some|semi|sen|sol|sub|suc|suf|super|sup|sur|sus|syn|sym|syl|tech|trans|tri|typo|type|uni|un|van|vert|with|would|won)?(.*?)(weens?|widths?|icals?|ables?|ings?|tions?|ions?|ies|isms?|ists?|ful|ness|ments?|ly|ify|ize|ise|ity|en|ers?|ences?|tures?|ples?|als?|phy|puts?|phies|ry|ries|cy|cies|mums?|ous|cents?)?(\W*)$/i;
-    // var vowels = 'aeiouyAEIOUY'+
-    //     'ẚÁáÀàĂăẮắẰằẴẵẲẳÂâẤấẦầẪẫẨẩǍǎÅåǺǻÄäǞǟÃãȦȧǠǡĄąĀāẢảȀȁȂȃẠạẶặẬậḀḁȺⱥ'+
-    //     'ǼǽǢǣÉƏƎǝéÈèĔĕÊêẾếỀềỄễỂểĚěËëẼẽĖėȨȩḜḝĘęĒēḖḗḔḕẺẻȄȅȆȇẸẹỆệḘḙḚḛɆɇɚɝÍíÌìĬĭÎîǏǐÏ'+
-    //     'ïḮḯĨĩİiĮįĪīỈỉȈȉȊȋỊịḬḭIıƗɨÓóÒòŎŏÔôỐốỒồỖỗỔổǑǒÖöȪȫŐőÕõṌṍṎṏȬȭȮȯȰȱØøǾǿǪǫǬǭŌōṒṓ'+
-    //     'ṐṑỎỏȌȍȎȏƠơỚớỜờỠỡỞởỢợỌọỘộƟɵÚúÙùŬŭÛûǓǔŮůÜüǗǘǛǜǙǚǕǖŰűŨũṸṹŲųŪūṺṻỦủȔȕȖȗƯưỨứỪừ'+
-    //     'ỮữỬửỰựỤụṲṳṶṷṴṵɄʉÝýỲỳŶŷY̊ẙŸÿỸỹẎẏȲȳỶỷỴỵʏɎɏƳƴ';
-    // var c = '[^'+vowels+']';
-    // var v = '['+vowels+']';
-    // var vccv = new RegExp('('+v+c+')('+c+v+')', 'g');
-    // var simple = new RegExp('(.{2,4}'+v+')'+'('+c+')', 'g');  // Currently not used
-    // var puncSplit = /(.+?)(\.[^\w]\b|,[^\w]\b)(.+?)/;
 
-
-    // TODO: Do this without needing a new object each time
     var Words = function () {
-    /* 
+    /* ( None ) -> Words()
     * 
-    * 
+    * Will turn arrays of arrays of words into an object containing
+    * the same /plus/ an array of positions of those arrays and words -
+    * The positions of words and their place in each sentence.
     */
         var wrds = {};
 
         // ========= (for external use) ========= \\
-        // wrds.text      = null;  // Is this useful?
         wrds.sentences = [];  // TODO: Change to .sentences
         // Since data will be in arrays of sentences with words, this will
         // tell us which index corresponds to which sentence/word position
@@ -1811,9 +1639,13 @@ body {\
 
         // ========= BUILD THE QUEUE (internal) ========= \\
         wrds.process = function ( sentences ) {
-        // No automatic `._init()` this time. ??: Convert all to this format?
-
- 			// Array of arrays of fragment objects (just words later)
+        /* ( [[Str]] ) -> Words
+        * 
+        * Accepts array of array of strings (which should represent
+        * words in sentences). Returnsan object containing the same
+        * /plus/ an array of positions of those arrays and words -
+        * The positions of words and their place in each sentence.
+        */
             var wordObjs   	= wrds.sentences = sentences;  
             var positions   = wrds.positions = [];
 
@@ -1828,90 +1660,6 @@ body {\
             return wrds;
         };  // End wrds.process()
 
-        // wrds._processSentence = function ( text, sentenceIndex ) {
-
-        //     var sentence    = [],
-        //         positions   = wrds.positions;
-
-        //     // Build word chain
-        //     var rawWords    = text.match(wordRegex),
-        //         fragIndex   = 0;
-        //     var pos         = positions.length;  // 1 past the previous index
-
-        //     // Extra splits on odd punctuation situations
-        //     let i = 0;
-        //     while (i < rawWords.length) {
-        //         let w 		 = rawWords[i];
-        //         w 			 = wrds._puncBreak(w);
-        //         let subWords = w.match(wordRegex);
-        //         let j = 0;
-        //         while (j < subWords.length) {
-        //             if (subWords[j].length > 13) {
-        //                 let subw 		= wrds._break(subWords[j]);
-        //                 let subsubWords = subw.match(wordRegex);
-        //                 let k = 0;
-        //                 while (k < subsubWords.length) {
-        //                     let frag = new Fragment(subsubWords[k]);
-
-        //                     sentence.push( frag );
-        //                     positions.push( [ sentenceIndex, fragIndex, 0 ] );
-        //                     // positions.push( { sentence: sentenceIndex, fragment: fragIndex } );
-        //                     fragIndex++;
-                            
-        //                     k++;
-        //                 }  // end for every sub sub word
-
-        //             } else {
-        //                 let frag = new Fragment(subWords[j]);
-        //                 sentence.push( frag );
-        //                 positions.push( [ sentenceIndex, fragIndex, 0 ] );
-        //                 // positions.push( { sentence: sentenceIndex, fragment: fragIndex } );
-
-        //                fragIndex++;
-        //             }  // end if long word
-
-        //             j++;
-        //         }  // end for every subword
-
-        //         i++;
-        //     }  // end for every raw word
-
-        //     // TODO: Change this format
-        //     return sentence;
-        // };  // End wrds._processSentence()
-
-        // wrds._puncBreak = function (word) {  // Recursive
-        //     var parts = puncSplit.exec(word);
-        //     var ret = [];
-        //     if (parts) {
-        //         ret.push (parts[1]+parts[2]);
-        //         ret = ret.concat(wrds._puncBreak(parts[3]));
-        //     } else {
-        //         ret = [word];
-        //     }
-        //     return ret.join(' ');
-        // };
-
-        // wrds._break = function (word) {
-        // /* ( str ) -> other Str
-        // * 
-        // * Break up longer words into shorter fragments.
-        // * TODO: Deal with words that are non-English or nonsense
-        // */
-        //     // punctuation, prefix, center, suffix, punctuation
-        //     var parts = presuf.exec(word);
-        //     var ret   = [];
-        //     if (parts[2]) {
-        //         ret.push(parts[2]);
-        //     }
-        //     if (parts[3]) {
-        //         ret.push(parts[3].replace(vccv, '$1-$2'));
-        //     }
-        //     if (parts[4]) {
-        //         ret.push(parts[4]);
-        //     }
-        //     return (parts[1]||'') + ret.join('-') + (parts[5]||'');
-        // };
 
         return wrds;
     };  // End Words() -> {}
@@ -4859,10 +4607,9 @@ module.exports={
 		var whiteSpaceRegexp = /[\n\r\s]/;
 		var paragraphSymbol  = '';
 		rPUI._showNewFragment = function ( evnt, timer, fragment ) {
-			// TOOD: Deal with line breaks in timer instead?
 			var chars = fragment;
-			// var chars = fragment.chars;
 			// Adds pauses for line breaks
+			// TOOD: Deal with line breaks in timer instead?
 			if ( !whiteSpaceRegexp.test(chars) ) {
 				$(textButton).html( chars );
 			} else {
@@ -5080,16 +4827,17 @@ module.exports={
 * Based on https://github.com/jamestomasino/read_plugin/blob/master/Read.js
 * 
 * TODO;
+* - Speed up with long ff or rewind
 * - ??: Make length delay proportional to word length?
 * - Long word delay not working? How about otherPunc? And do more
 * 	symbols need to be included in that set of otherPunc?
-* - Implement more robust pausing (store in bool and wait for appropriate time)
+* - Implement more robust pausing? (store in bool and wait for appropriate time)
 * 
 * DONE:
 * - Add extra paragraph pause back in
 * - Scrubbing doesn't restart the slow-start value
 * 
-* NOTES:
+* NOTES/GUIDES:
 * - Always return Timer so functions can be chained
 * - Always send Timer as the first argument to events to
 * 	stay consistent.
@@ -5376,8 +5124,7 @@ module.exports={
 			var vector = [0, 0, 0];
 
 			var hasOnlyNewLines = false,
-				chars 			= frag,  // Doesn't change frag.chars
-				// chars 			= frag.chars,  // Doesn't change frag.chars
+				chars 			= frag,  // Doesn't change frag
 				noWhitespace 	= chars.replace(rTim._whitespaceRegex, '');
 
 			// If it's time to skip whitespace and there's nothing but whitespace
@@ -5451,6 +5198,7 @@ module.exports={
 
 			return rTim;  // Return timeout id instead?
         };  // End rTim._loop()
+
 
 		rTim.once = function ( incrementors ) {
 
@@ -6732,11 +6480,12 @@ module.exports={
 
         // TODO: ??: Combine Words.js and WordNav.js since Words.js now does so little?
 
-		// TODO: If there's already a `words` (if this isn't new), start where we left off
-		var sentenceData = words.process( sentenceWords );
-		// words.process( sentences );
+		// // TODO: If there's already a `words` (if this isn't new), start where we left off
+		// var sentenceData = words.process( sentenceWords );
+		// // words.process( sentences );
 		
-		wordNav.process( sentenceData, fragmentor );
+		wordNav.process( sentenceWords, fragmentor );
+		// wordNav.process( sentenceData, fragmentor );
 		// wordNav.process( words );
 		timer.start( wordNav );
 		return true;
