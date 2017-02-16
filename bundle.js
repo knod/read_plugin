@@ -220,12 +220,18 @@
     	* 
     	* Removes unwanted elements from the node and returns it.
 	    */
-    		var $node = $(node);
+    		var $node     = $(node),
+            // 'script' and 'style' have English, skewing language detection results
+                toRemove  = ['sup', 'script', 'style'];
 
-    		$node.find('sup').remove();
-    		// These have English, skewing language detection results
-    		$node.find('script').remove();
-    		$node.find('style').remove();
+            for (let tagi = 0; tagi < toRemove.length; tagi++) {
+                let tag = toRemove[tagi];
+                $node.find(tag).remove();
+            };
+
+    		// $node.find('sup').remove();
+    		// $node.find('script').remove();
+    		// $node.find('style').remove();
     		return $node[0];
     	};
 
@@ -261,6 +267,11 @@
 	    	var html = $(node).html(),
 				cmds = unfluff.lazy( html, lang ),
 				text = cmds.text();
+
+            // Last ditch effort to get something if unfluff doesn't
+            // get anything
+            // if (!text) { text = $(node).text(); }
+
     		if (rSup.debug) {  // Help non-coder devs identify some bugs
         	    console.log( '~~~parse debug~~~ article text identified:', text );
     		}
