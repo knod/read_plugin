@@ -35,7 +35,8 @@
 		Display 	= require('./lib/ReaderlyDisplay.js'),
 		Playback 	= require('./lib/playback/PlaybackUI.js'),
 		Settings 	= require('./lib/settings/ReaderlySettings.js'),
-		Speed 		= require('./lib/settings/SpeedSettings.js');
+		SpeedSets 	= require('./lib/settings/SpeedSettings.js'),
+		WordSets 	= require('./lib/settings/WordSettings.js');
 
 	var parser, fragmentor, words, wordNav, storage, delayer, timer, coreDisplay, playback, settings, speed;
 
@@ -49,12 +50,14 @@
 		delayer 	= new Delayer( oldSettings, storage );
 		timer 		= new Timer( delayer, oldSettings, storage );
 		coreDisplay = new Display( timer );
-		playback 	= new Playback( timer, coreDisplay );
-		settings 	= new Settings( timer, coreDisplay );
-		speed 		= new Speed( delayer, settings );
 
 		textElem 	= coreDisplay.nodes.textElements;
-		fragmentor 	= new WordSplitter( textElem, storage );
+		fragmentor 	= new WordSplitter( textElem, oldSettings, storage );
+
+		playback 	= new Playback( timer, coreDisplay );
+		settings 	= new Settings( timer, coreDisplay );
+		speedSets 	= new SpeedSets( delayer, settings );
+		wordSets	= new WordSets( fragmentor, settings );
 
 		addEvents();
 	};  // End afterLoadSettings()
