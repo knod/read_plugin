@@ -12,7 +12,6 @@
     },
     "content_scripts": [
         {
-            "all_frames": true,
             "css": [
                 "lib/readerly-main.css",
                 "lib/playback/readerly-playback.css",
