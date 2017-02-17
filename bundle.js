@@ -1064,7 +1064,7 @@ body {\
 	    	}
 
 	    	var refinedText = cleanText( rawText ),
-	    		sentences = splitSentences( rawText );
+	    		sentences = splitSentences( refinedText );
 
 	    	return sentences;
 		};  // End rPar.parse()
@@ -6203,6 +6203,8 @@ module.exports={
 
 	var init = function () {
 		parser  = getParser();
+		parser.debug = true;
+
 		words 	= new Words();
 		wordNav = new WordNav();
 		storage = new Storage();

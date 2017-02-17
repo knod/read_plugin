@@ -72,6 +72,8 @@
 
 	var init = function () {
 		parser  = getParser();
+		parser.debug = true;
+
 		words 	= new Words();
 		wordNav = new WordNav();
 		storage = new Storage();
