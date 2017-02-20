@@ -850,6 +850,23 @@ body {\
 	text-transform: none;\
 }\
 \
+/* Since using img src attribute, must change color in file */\
+/*button svg,\
+button path,\
+button polygon {\
+	fill: black;\
+	stroke: black;\
+}*/\
+button {\
+    display: flex;\
+    justify-content: center;\
+    align-items: center;\
+}\
+button img {\
+    width: 70%;\
+    margin-left: -9%;\
+}\
+\
 #__rdly {\
 	/*border: 1px solid gray;*/\
 	/*border-left: 0;*/\
@@ -4283,7 +4300,12 @@ module.exports={
 // 	<button id="__rdly_fastforward_sentence" class="__rdly-playback-button"></button>\
 // </div>';
 
-		var rewindSentenceStr = '<button id="__rdly_rewind-sentence" class="__rdly-big-menu-button"><<</button>';
+		var browser = chrome || browser,
+			rewPath = browser.extension.getURL('images/rewind.svg');
+		// TODO: Credit for icon (color altered): <div>Icons made by <a href="http://www.flaticon.com/authors/madebyoliver" title="Madebyoliver">Madebyoliver</a> from <a href="http://www.flaticon.com" title="Flaticon">www.flaticon.com</a> is licensed by <a href="http://creativecommons.org/licenses/by/3.0/" title="Creative Commons BY 3.0" target="_blank">CC 3.0 BY</a></div>
+		var rewindSentenceStr = '<button id="__rdly_rewind-sentence" class="__rdly-big-menu-button">\
+	<img src="' + rewPath + '"></img>\
+</button>';
 
 
 
@@ -5750,7 +5772,7 @@ module.exports={
 .noUi-stacking + .noUi-origin {\
   /* Fix stacking order in IE7, which incorrectly\
      creates a new context for the origins. */\
-  /* *z-index: -1; <- Original. Meant to be this way? */\
+  /* *z-index: -1; - Original. Meant to be this way? */\
   z-index: -1;\
 }\
 \

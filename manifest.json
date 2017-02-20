@@ -45,11 +45,12 @@
         "<all_urls>"
     ],
     "short_name": "Readerly",
-    "version": "0.1.30",
+    "version": "0.1.31",
 	"web_accessible_resources": [
 		"fonts/DroidSans-webfont.eot",
 		"fonts/DroidSans-webfont.svg",
 		"fonts/DroidSans-webfont.ttf",
-		"fonts/DroidSans-webfont.woff"
+		"fonts/DroidSans-webfont.woff",
+        "images/*"
 	]
 }
