@@ -105,25 +105,45 @@
 	};
 
 
-
-
-	chrome.extension.onMessage.addListener(function (request, sender, sendResponse) {
-
+	var openReaderly = function () {
 		coreDisplay.open();
 		playback.wait();  // Do we need this?
+	};
+
+
+	var readSelectedText = function () {
+		openReaderly();
+		var contents = document.getSelection().getRangeAt(0).cloneContents();
+		var $container = $('<div></div>');
+		$container.append(contents);
+		read( $container[0] );
+	};
+
+
+	var readArticle = function () {
+		openReaderly();
+		var $clone = $('html').clone();
+		read( $clone[0] );
+	};
+
+
+
+	// ==============================
+	// EXTENSION EVENT LISTENER
+	// ==============================
+	var browser = chrome || browser;
+
+	browser.extension.onMessage.addListener(function (request, sender, sendResponse) {
+
 
 		var func = request.functiontoInvoke;
 		if ( func === "readSelectedText" ) {
 			
-			var contents = document.getSelection().getRangeAt(0).cloneContents();
-			var $container = $('<div></div>');
-			$container.append(contents);
-			read( $container[0] );
+			readSelectedText();
 
 		} else if ( func === "readFullPage" ) {
 
-			var $clone = $('html').clone();
-			read( $clone[0] );
+			readArticle();
 
 		}  // end if event is ___
 

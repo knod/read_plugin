@@ -1048,7 +1048,7 @@ button img {\
 			var sample = text.slice( startingPoint, startingPoint + length );
 
     		if (rPar.debug) {  // Help non-coder devs identify some bugs
-        	    console.log( '~~~parse debug~~~ text sample to send to language detection:', sample );
+        	    console.log( '~~~parse debug~~~ text sample to send to language detection (Readerly code, not from a library or package):', sample );
     		}
 
 			return sample;
@@ -6258,25 +6258,45 @@ module.exports={
 	};
 
 
-
-
-	chrome.extension.onMessage.addListener(function (request, sender, sendResponse) {
-
+	var openReaderly = function () {
 		coreDisplay.open();
 		playback.wait();  // Do we need this?
+	};
+
+
+	var readSelectedText = function () {
+		openReaderly();
+		var contents = document.getSelection().getRangeAt(0).cloneContents();
+		var $container = $('<div></div>');
+		$container.append(contents);
+		read( $container[0] );
+	};
+
+
+	var readArticle = function () {
+		openReaderly();
+		var $clone = $('html').clone();
+		read( $clone[0] );
+	};
+
+
+
+	// ==============================
+	// EXTENSION EVENT LISTENER
+	// ==============================
+	var browser = chrome || browser;
+
+	browser.extension.onMessage.addListener(function (request, sender, sendResponse) {
+
 
 		var func = request.functiontoInvoke;
 		if ( func === "readSelectedText" ) {
 			
-			var contents = document.getSelection().getRangeAt(0).cloneContents();
-			var $container = $('<div></div>');
-			$container.append(contents);
-			read( $container[0] );
+			readSelectedText();
 
 		} else if ( func === "readFullPage" ) {
 
-			var $clone = $('html').clone();
-			read( $clone[0] );
+			readArticle();
 
 		}  // end if event is ___
 
