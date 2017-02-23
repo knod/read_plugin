@@ -300,7 +300,7 @@
     	rSup.splitSentences = function ( text ) {
     	/* ( Str ) -> [Str]
     	* 
-    	* Returns a list of sentence arrays containing words (strings).
+    	* Returns a list of sentences, which are each a list of words (strings).
         * Best results with English.
 	    */
 	    	var sentenceObjs  = nlp_compromise.text( text ).sentences,
@@ -1501,7 +1501,7 @@ button img {\
 			storage.set( toSave );  // Should this be all lowercase too?
 
 			_wSetts[ settingName ] = val;
-			console.trace(_wSetts)
+			// console.trace(_wSetts)
 			return rSpt;
 		};  // End rSpt.set()
 
