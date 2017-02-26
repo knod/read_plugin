@@ -1267,21 +1267,6 @@ button img {\
 		var defaults 	= { maxNumCharacters: 10 };
 
 
-		// var setSettingsAtStart = function ( maxObj ) {
-		// /* 
-		// * Get settings established in this WordSplitter and set default max in storage if needed
-		// * Async
-		// */
-		// 	if ( maxObj ) {
-		// 		rSpt.set( 'maxNumCharacters', maxObj.maxNumCharacters );
-		// 	} else {
-		// 		storage.set( defaults );
-		// 		rSpt.set( 'maxNumCharacters', defaults.maxNumCharacters );
-		// 	}
-		// }
-
-		// storage.loadAll( setSettingsAtStart );
-
 		rSpt._init = function ( settings ) {
 
 			var maxNumCharacters = settings.maxNumCharacters || defaults.maxNumCharacters;
@@ -1299,7 +1284,7 @@ button img {\
 
 		// ============= USER INPUT ============= \\
 
-		rSpt.settingsAvailable = ['maxNumCharcters'];
+		rSpt.settingsAvailable = ['maxNumCharacters'];
 
 		rSpt.set = function ( settingName, value) {
 			// If we just go off of lowercase, we can remove at
@@ -1307,7 +1292,7 @@ button img {\
 			var op = '_set' + settingName;
 			if ( !rSpt[ op ] ) {
 				console.error('There is no approved setting by the name of "' + operation + '". Maybe check your capitalization. Also, you can check `yourWordSplitterObj.settingsAvailable` to see what setting names are available to you.');
-				return null;
+				return false;
 			}
 			
 			// The value after it has been normalized
@@ -1320,7 +1305,7 @@ button img {\
 			storage.set( toSave );  // Should this be all lowercase too?
 
 			_wSetts[ settingName ] = val;
-			// console.trace(_wSetts)
+
 			return rSpt;
 		};  // End rSpt.set()
 
@@ -4268,8 +4253,7 @@ module.exports={
 		// ============== SET OPTIONS ============== \\
 
 		// Not needed, but might be nice to have:
-		rDel.settingsAvailable = ['wpm', 'sentenceDelay', 'otherPuncDelay', 'shortWordDelay',
-						'longWordDelay', 'numericDelay', 'slowStartDelay'];
+		rDel.settingsAvailable = ['wpm', 'sentenceDelay', 'otherPuncDelay', 'shortWordDelay', 'longWordDelay', 'numericDelay', 'slowStartDelay'];
 
 		rDel.set = function ( settingName, value) {
 			// If we just go off of lowercase, we can remove at
@@ -4293,7 +4277,6 @@ module.exports={
 
 			return rDel;
 		};  // End rDel.set()
-
 
 
 		rDel._withinLimits = function ( val, min, max ) {
@@ -5367,8 +5350,10 @@ module.exports={
 		*/
 			if ( Object.keys(rSet.menuNodes).length <= 1 ) {
 				$(tabs).addClass( '__rdly-hidden' );
+				$(tabs).css( {'display': 'none'} );
 			} else {
 				$(tabs).removeClass( '__rdly-hidden' );
+				$(tabs).css( {'display': 'flex'} );
 			}
 			return rSet;
 		};
@@ -5379,12 +5364,16 @@ module.exports={
 			var $thisTab = $(evnt.target),
 				id 		 = evnt.target.id.replace(/_tab$/, ''),
 				$menus 	 = $(menus).find( '.__rdly-settings-menu' ),
-				$tabs 	 = $(tabs),
+				$tabs 	 = $(tabs).children(),
 				thisMenu = rSet.menuNodes[ id ];
 
 			// Hide all, then show this one
+			// $menus.addClass( '__rdly-hidden' );
+			// $(thisMenu).removeClass( '__rdly-hidden' );
 			$menus.addClass( '__rdly-hidden' );
+				$menus.css( {'display': 'none'} );
 			$(thisMenu).removeClass( '__rdly-hidden' );
+				$(thisMenu).css( {'display': 'flex'} );
 			// There should only be one (for now...). It's height gets adjusted.
 			// Should only have one child, which can grow.
 			$menus.removeClass( '__rdly-to-grow' );
@@ -5446,7 +5435,7 @@ module.exports={
 
 			var $tab = rSet._addTab( id, tabText );
 
-			// Show the first menu added
+			// Show the first menu added each time, just in case?
 			$($(tabs).children()[0]).trigger( 'click' );
 
 			return rSet;
@@ -5664,9 +5653,8 @@ module.exports={
 				setts 	= delayer._settings;
 
 			slider({
-				sliderNode: 	nodes.wpmSlider,
+				sliderNode: nodes.wpmSlider,
 				range: 		{ min: 1, max: 1500 },
-				// // Shouldthis be some none "_" value? Passed in?
 				startVal: 	setts.wpm,
 				step: 		25,
 				inputNode: 	nodes.wpmInput,
@@ -5858,18 +5846,6 @@ module.exports={
 
 		nodes.maxCharsInput 	= null;
 		nodes.maxCharsSlider 	= null;
-		// nodes.slowStartInput 		= null;
-		// nodes.slowStartSlider 		= null;
-		// nodes.sentenceDelayInput 	= null;
-		// nodes.sentenceDelaySlider 	= null;
-		// nodes.puncDelayInput 		= null;
-		// nodes.puncDelaySlider 		= null;
-		// nodes.shortWordDelayInput 	= null;
-		// nodes.shortWordDelaySlider 	= null;
-		// nodes.longWordDelayInput 	= null;
-		// nodes.longWordDelaySlider 	= null;
-		// nodes.numericDelayInput 	= null;
-		// nodes.numericDelaySlider 	= null;
 
 
 		wSets._oneSlider = function ( data ) {
@@ -5887,7 +5863,6 @@ module.exports={
 				connect: 'lower',
 				handles: 1,
 				behaviour: 'extend-tap',
-				// Not sure the below does anything
 				serialization: {
 					to: [data.inputNode],
 					resolution: data.resolution
@@ -5896,12 +5871,12 @@ module.exports={
 
 			data.sliderNode.noUiSlider.on('update', function( values, handle ) {
 				data.inputNode.value = values[handle];
-				fragmentor.set( data.setting, values[handle] );
+				fragmentor.set( data.operation, values[handle] );
 			});
 
 			data.inputNode.addEventListener('change', function(){
 				data.sliderNode.noUiSlider.set(this.value);
-				fragmentor.set( data.setting, this.value );
+				fragmentor.set( data.operation, this.value );
 			});
 
 			return data.sliderNode;
@@ -5921,7 +5896,7 @@ module.exports={
 				step: 		1,
 				inputNode: 	nodes.maxCharsInput,
 				resolution: 1,
-				setting: 	'maxNumCharacters'
+				operation: 	'maxNumCharacters'
 			});
 
 			return wSets;
@@ -5935,18 +5910,6 @@ module.exports={
 
 			nodes.maxCharsInput 	= $menu.find('#__rdly_maxchars_input')[0];
 			nodes.maxCharsSlider 	= $menu.find('#__rdly_maxchars_slider')[0];
-			// nodes.slowStartInput 		= $menu.find('#__rdly_slowstart_input')[0];
-			// nodes.slowStartSlider 		= $menu.find('#__rdly_slowstart_slider')[0];
-			// nodes.sentenceDelayInput 	= $menu.find('#__rdly_sentencedelay_input')[0];
-			// nodes.sentenceDelaySlider 	= $menu.find('#__rdly_sentencedelay_slider')[0];
-			// nodes.puncDelayInput 		= $menu.find('#__rdly_puncdelay_input')[0];
-			// nodes.puncDelaySlider 		= $menu.find('#__rdly_puncdelay_slider')[0];
-			// nodes.shortWordDelayInput 	= $menu.find('#__rdly_shortworddelay_input')[0];
-			// nodes.shortWordDelaySlider 	= $menu.find('#__rdly_shortworddelay_slider')[0];
-			// nodes.longWordDelayInput 	= $menu.find('#__rdly_longworddelay_input')[0];
-			// nodes.longWordDelaySlider 	= $menu.find('#__rdly_longworddelay_slider')[0];
-			// nodes.numericDelayInput 		= $menu.find('#__rdly_numericdelay_input')[0];
-			// nodes.numericDelaySlider 	= $menu.find('#__rdly_numericdelay_slider')[0];
 
 			return wSets;
 		};  // End wSets._assignSettingItems()
@@ -5962,7 +5925,7 @@ module.exports={
 					</div>')
 		};  // End wSets._oneSetting()
 
-		wSets._addNodes = function ( coreSettings ) {
+		wSets._addNodes = function () {
 
 			var one = wSets._oneSetting;
 
@@ -5970,17 +5933,8 @@ module.exports={
 			var $menu = $('<div id="__rdly_word_settings_menu"></div>');
 			wSets.node = $menu[0];
 
-			coreSettings.addMenu( wSets );
-
 			wSets._nodes.menu = $menu[0];
-
 			one( 'maxchars', 'Max Letters Shown' ).appendTo($menu);
-			// one( 'slowstart', 'Slow Start Speed' ).appendTo($menu);
-			// one( 'sentencedelay', 'Sentence Delay' ).appendTo($menu);
-			// one( 'puncdelay', 'Other Punctuation Delay' ).appendTo($menu);
-			// one( 'shortworddelay', 'Short Word Delay' ).appendTo($menu);
-			// one( 'longworddelay', 'Long Word Delay' ).appendTo($menu);
-			// one( 'numericdelay', 'Numeric Delay' ).appendTo($menu);
 
 			return wSets;
 		};  // End wSets._addNodes()
@@ -5989,6 +5943,10 @@ module.exports={
 		wSets._init = function ( coreSettings ) {
 
 			wSets._addNodes( coreSettings );
+			// Have to add this to the iframe DOM /before/ setting up the
+			// slider, otherwise wrong #document owns it
+			coreSettings.addMenu( wSets );
+
 			wSets._assignSettingItems();
 			wSets._makeSliders();
 
@@ -6352,12 +6310,12 @@ module.exports={
 \
 #__rdly_settings_tabs {\
 	display: flex;\
-	align-items: center;\
+	justify-content: center;\
 	height: 1.2em;\
 	overflow: hidden;\
 }\
-/* Need flex to shape them correctly :/ */\
-#__rdly_settings_tab {\
+\
+.__rdly-settings-tab {\
 	flex-grow: 1;\
 	padding: 0.1em;\
 }\
@@ -6529,7 +6487,7 @@ module.exports={
 	var getParser = function () {
 		var pSup = new ParserSetup();
 		// FOR TESTING
-		pSup.debug = true;
+		pSup.debug = false;
 
 		// Functions to pass to parser
 		var cleanNode 		= pSup.cleanNode,
@@ -6545,7 +6503,7 @@ module.exports={
 	var init = function () {
 
 		parser  = getParser();
-		parser.debug = true;
+		parser.debug = false;
 
 		words 	= new Words();
 		wordNav = new WordNav();  // Maybe pass Words to WordNav
@@ -45216,7 +45174,6 @@ function closure ( target, options, originalOptions ){
 
 	// Unbind move events on document, call callbacks.
 	function eventEnd ( event, data ) {
-// console.log(event.target);
 // var document = event.target.ownerDocument;
 		// The handle is no longer active, so remove the class.
 		if ( scope_ActiveHandle ) {
@@ -45249,7 +45206,6 @@ function closure ( target, options, originalOptions ){
 
 	// Bind move events on document.
 	function eventStart ( event, data ) {
-// console.log(event.target);
 // var document = event.target.ownerDocument;
 		if ( data.handleNumbers.length === 1 ) {
 
@@ -45270,7 +45226,6 @@ function closure ( target, options, originalOptions ){
 
 		// A drag should never propagate up to the 'tap' event.
 		event.stopPropagation();
-
 		// Attach the move and end events.
 		var moveEvent = attachEvent(actions.move, document.documentElement, eventMove, {
 			startCalcPoint: event.calcPoint,
@@ -45837,6 +45792,7 @@ function closure ( target, options, originalOptions ){
 	// Run the standard initializer
 	function initialize ( target, originalOptions ) {
 		document = target.ownerDocument;
+
 		if ( !target.nodeName ) {
 			throw new Error('noUiSlider.create requires a single element.');
 		}

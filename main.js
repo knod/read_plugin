@@ -66,7 +66,7 @@
 	var getParser = function () {
 		var pSup = new ParserSetup();
 		// FOR TESTING
-		pSup.debug = true;
+		pSup.debug = false;
 
 		// Functions to pass to parser
 		var cleanNode 		= pSup.cleanNode,
@@ -82,7 +82,7 @@
 	var init = function () {
 
 		parser  = getParser();
-		parser.debug = true;
+		parser.debug = false;
 
 		words 	= new Words();
 		wordNav = new WordNav();  // Maybe pass Words to WordNav
