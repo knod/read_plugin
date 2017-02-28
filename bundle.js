@@ -1,186 +1,4 @@
 (function e(t,n,r){function s(o,u){if(!n[o]){if(!t[o]){var a=typeof require=="function"&&require;if(!u&&a)return a(o,!0);if(i)return i(o,!0);var f=new Error("Cannot find module '"+o+"'");throw f.code="MODULE_NOT_FOUND",f}var l=n[o]={exports:{}};t[o][0].call(l.exports,function(e){var n=t[o][1][e];return s(n?n:e)},l,l.exports,e,t,n,r)}return n[o].exports}var i=typeof require=="function"&&require;for(var o=0;o<r.length;o++)s(r[o]);return s})({1:[function(require,module,exports){
-/* Fragment.js
-* 
-* Build the necessary data for one fragment/unit of
-* the text (e.g. a unit that will be displayed on its
-* own)
-* 
-* Based on https://github.com/jamestomasino/read_plugin/blob/master/ReadWord.js
-* 
-* TODO:
-* ??: Include ability to set what lengths make words long or
-* short? `frag.options = { shortLength: int, longLength: int }`
-*/
-
-(function (root, fragFactory) {  // root is usually `window`
-    if (typeof define === 'function' && define.amd) {
-        // AMD. Register as an anonymous module.
-        define( [], function () { return ( root.Fragment = fragFactory() ); });
-    } else if (typeof module === 'object' && module.exports) {
-        // Node. Does not work with strict CommonJS, but only CommonJS-like
-        // environments that support module.exports, like Node.
-        module.exports = fragFactory();
-    } else {
-        // Browser globals
-        root.Fragment = fragFactory();
-    }
-}(this, function () {
-
-	"use strict";
-
-	var wordRegex = /\w/g;
-	var numRegex  = /\d/g;
-
-	var Fragment = function ( chars ) {
-	/* ( Str ) -> {}
-	* 
-	* A fragment of a sentence. Returns an object that can
-	* be assessed to determine how long to display it.
-	*/
-		var frag = {};
-
-        // ========= (for external use) ========= \\
-		frag.chars = chars;
-
-		// Center value for alignment
-		frag.index 	= 0;  // Is this necessary now? What does it do?
-		frag.length = 0;
-
-		// To be added to options at some point
-    	// !!! Not properly implemented yet. Do not change lengths.
-    	// Also, very crazy to implement changing of lengths.
-		frag.shortLength = 4;
-		frag.longLength  = 13;
-
-		// Fragment Status Values
-		frag.isNumeric 			= false;
-		frag.hasLeadingQuote 	= false;
-		frag.hasTrailingQuote 	= false;
-		frag.hasPeriod 			= false;
-		frag.hasOtherPunc 		= false;
-		// frag.isShort 			= false;
-		// frag.isLong 			= false;
-
-
-        // ========= RUNTIME UPDATE (external) ========= \\
-        frag.isShort = function () {
-        	return frag.length <= frag.shortLength;
-        };  // End frag.isShort()
-
-
-        frag.isLong = function () {
-        	return frag.length >= frag.longLength;
-        };  // End frag.isLong()
-
-
-
-        // ========= BUILD THE FRAGMENT (internal) ========= \\
-		frag._process = function ( chars ) {
-		/* ( Str ) -> this Fragment
-		* 
-		* Assigns properties to the fragment object based on
-		* the characters it contains.
-		*/
-			frag.isNumeric = /\d/.test(chars);
-
-			frag._setPuncProps( chars );
-			frag._setLengthProps( chars );
-			
-			return frag;
-		};  // End frag._process()
-
-
-		frag._setLengthProps = function ( chars, hasLeading ) {
-		/* ( Str ) -> this Fragment
-		* 
-		* Tests and sets the properties based on fragment length
-		* ??: Punctuation, etc, are not counted in length?
-		* 
-		* TODO: ??: Allow (runtime) customization of word lengths?
-		*/
-			var match 	= chars.match(wordRegex);
-			frag.length = (match) ? match.length : 0;
-
-			// // If we find index is no longer of use:
-			// var length  = frag.length;
-			// if ( length <= frag.shortLength ) { frag.isShort = true; }
-			// else if ( length >= frag.longLength ) { frag.isLong = true; }
-
-			// Determine length and index settings
-			switch (frag.length) {
-				case 0:
-				case 1:
-					frag.index = 0;
-					// frag.isShort = true;
-					break;
-				case 2:
-				case 3:
-				case 4:
-					frag.index = 1;
-					// frag.isShort = true;
-					break;
-				case 5:
-				case 6:
-				case 7:
-				case 8:
-					frag.index = 2;
-					break;
-				case 9:
-				case 10:
-				case 11:
-				case 12:
-				case 13:
-					frag.index = 3;
-					// frag.isLong = true;
-					break;
-				default:
-					frag.index = 4;
-					// frag.isLong = true;
-					break;
-			}  // end based on length
-
-			// Adjust index for leading quote
-			if (frag.hasLeadingQuote) {
-				frag.index++;
-			}
-
-			return frag;
-		};  // end frag._setLengthProps()
-
-
-		frag._setPuncProps = function ( chars ) {
-		/* ( Str ) -> this Fragment
-		* 
-		* Tests and sets the punctuation properties
-		*/
-			var lastChar 	= chars.substr(-1);
-			var firstChar 	= chars[0];
-
-			// Quotes or parenthesis
-			// ??: These aren't currently used. Plans for future use?
-			frag.hasLeadingQuote 	= /["'(”’]/.test(firstChar);
-			frag.hasTrailingQuote 	= /["')”’]/.test(lastChar);
-
-			// If there are "quotes" at the end, test the character before the "quotes"
-			if (frag.hasTrailingQuote) { lastChar = chars.substr(-2,1); }
-
-			frag.hasPeriod 		= /[.!?]/.test(lastChar);
-			// ??: "Trailing quote" isn't considered other punctuation?
-			frag.hasOtherPunc 	= frag.hasLeadingQuote || /[:;,_]/.test(lastChar);
-
-			return frag;
-		};  // end frag._setPuncProps()
-
-
-        // ========= MAKE IT ========= \\
-		frag._process( chars )
-		return frag;
-	};  // End Fragment() -> {}
-
-    return Fragment;
-}));
-
-},{}],2:[function(require,module,exports){
 /* ParserSetup.js
 * 
 * Sets up options/functions for parser
@@ -190,17 +8,17 @@
 (function (root, setupFactory) {  // root is usually `window`
     if ( typeof define === 'function' && define.amd) {  // amd if possible
         // AMD. Register as an anonymous module.
-        define( ['jquery', '../third-party/franc-all.js', 'iso-639.json', '@knod/unfluff', 'nlp_compromise'], function (jQuery, franc, langCodes, unfluff, nlp_compromise) { return (root.Parser = setupFactory(jQuery, franc, langCodes, unfluff, nlp_compromise) ); });
+        define( ['jquery', '../third-party/franc-all.js', 'iso-639.json', '@knod/unfluff', '@knod/sbd'], function (jQuery, franc, langCodes, unfluff, sbd) { return (root.Parser = setupFactory(jQuery, franc, langCodes, unfluff, sbd) ); });
     } else if ( typeof module === 'object' && module.exports) {  // Node-ish next
         // Node. Does not work with strict CommonJS, but only CommonJS-like
         // environments that support module.exports, like Node.
-        module.exports = setupFactory( require('jquery'), require('../third-party/franc-all.js'), require('./parse/iso-639.json'), require('@knod/unfluff'), require('nlp_compromise') );
+        module.exports = setupFactory( require('jquery'), require('../third-party/franc-all.js'), require('./parse/iso-639.json'), require('@knod/unfluff'), require('@knod/sbd') );
     } else {  // Global if nothing else
         // Browser globals
         console.warn('If this isn\'t running off browserify, I\'m not sure how to get these libs in here.')
         // root.Parser = setupFactory( JQuery );
     }
-}( this, function ( $, franc, langCodes, unfluff, nlp_compromise ) {
+}( this, function ( $, franc, langCodes, unfluff, sbd ) {
 	/* (jQuery, {}, {}, {}) -> Parser Constructor */
 
     "use strict";
@@ -249,6 +67,7 @@
     		if (lang === 'und') {lang = 'eng';}
 
     		var iso6391Lang = langCodes[lang].iso6391;
+
     		if (rSup.debug) {  // Help non-coder devs identify some bugs
         	    console.log( '~~~parse debug~~~ language detected:', lang, '->', iso6391Lang );
     		}
@@ -272,7 +91,7 @@
             if (!text) { text = $(node).text(); }
 
     		if (rSup.debug) {  // Help non-coder devs identify some bugs
-        	    console.log( '~~~parse debug~~~ article text identified:', text );
+        	    console.log( '~~~parse debug~~~ article text identified (a string):', text );
     		}
 
 			return text;
@@ -289,7 +108,7 @@
 
     		// Add your code here
     		if (rSup.debug) {  // Help non-coder devs identify some bugs
-        	    console.log( '~~~parse debug~~~ plain text cleaned:', cleaned );
+        	    console.log( '~~~parse debug~~~ plain text cleaned (a string):', cleaned );
     		}
 
     		return cleaned;
@@ -299,21 +118,31 @@
     	rSup.splitSentences = function ( text ) {
     	/* ( Str ) -> [Str]
     	* 
-    	* Returns a list of strings that are the sentences. Best with English.
-    	* TODO: Make this return a list of lists of words instead?
+    	* Returns a list of sentences, which are each a list of words (strings).
+        * Best results with English.
 	    */
-	    	var sentences = nlp_compromise.text( text ).sentences;
-	    	var strs = [];
-	    	for (let senti = 0; senti < sentences.length; senti++) {
-	    		let sent = sentences[senti];
-	    		strs.push( sent.str );
-	    	};
+	    	// var sentenceObjs  = sbd.text( text ).sentences,
+      //           sentences     = [];
+
+	    	// for (let senti = 0; senti < sentenceObjs.length; senti++) {
+	    		
+      //           let sentObj  = sentenceObjs[senti],
+      //               terms    = sentObj.terms,
+      //               sentence = [];
+      //           for (var wordi = 0; wordi < terms.length; wordi++) {
+      //               var word = terms[wordi].text;
+      //               sentence.push( word );
+      //           };
+	    		
+      //           sentences.push( sentence );
+	    	// };
+            var sentences = sbd.sentences( text, {parse_type: 'words'} );
 
     		if (rSup.debug) {  // Help non-coder devs identify some bugs
-        	    console.log( '~~~parse debug~~~ sentences:', strs );
+        	    console.log( '~~~parse debug~~~ sentences (an array of arrays of strings):', sentences );
     		}
 
-            return strs;
+            return sentences;
     	};
 
 		return rSup;
@@ -322,7 +151,7 @@
     return ParserSetup;
 }));
 
-},{"../third-party/franc-all.js":101,"./parse/iso-639.json":9,"@knod/unfluff":24,"jquery":98,"nlp_compromise":99}],3:[function(require,module,exports){
+},{"../third-party/franc-all.js":105,"./parse/iso-639.json":9,"@knod/sbd":23,"@knod/unfluff":29,"jquery":103}],2:[function(require,module,exports){
 /* ReaderlyDisplay.js
 * 
 * Just the Readerly text display, including areas for
@@ -595,7 +424,7 @@ if (debug) console.log('scrollable height:', scrollable.style.height)
     return ReaderlyDisplay;
 }));
 
-},{"./core-CSS":5,"./settings/noui-CSS":16,"jquery":98}],4:[function(require,module,exports){
+},{"./core-CSS":4,"./settings/noui-CSS":17,"jquery":103}],3:[function(require,module,exports){
 /* ReaderlyStorage.js
 * 
 * Destructive, unfortunately - doesn't mutate settings,
@@ -635,7 +464,6 @@ if (debug) console.log('scrollable height:', scrollable.style.height)
 		// Set any number of settings values
 			// Docs say no args returned
 			chrome.storage.sync.set( settings, callback );
-			return rSto;
 		};  // End rSto.set()
 
 
@@ -681,7 +509,7 @@ if (debug) console.log('scrollable height:', scrollable.style.height)
 
     return ReaderlyStorage;
 }));
-},{}],5:[function(require,module,exports){
+},{}],4:[function(require,module,exports){
 /* core-CSS.js
 * css that's bundleable
 * 
@@ -959,11 +787,12 @@ button img {\
     return coreCSS;
 }));
 
-},{}],6:[function(require,module,exports){
+},{}],5:[function(require,module,exports){
 /* Parser.js
 * 
 * Make your own parser if you want, as long as
-* its .parse() returns a list of strings.
+* its .parse() returns a list of lists of strings.
+* (list of sentences which are lists of words)
 */
 
 (function (root, parserFactory) {  // root is usually `window`
@@ -999,9 +828,11 @@ button img {\
     * - `cleanText` accepts a string and does something (or nothing) to
     * it, then returns the changed (or same) string
     * - `splitSentences` accepts text (best with English) and returns a
-    * list of sentences
+    * list of sentences containing lists of words
     */
     	var rPar = {};
+
+    	rPar.language = 'en';
 
 
     	rPar.debug = true;
@@ -1076,6 +907,7 @@ button img {\
 
 		    	var sampleText 	= rPar.smallSample( clean ),
 		    		lang 		= detectLanguage( sampleText );
+		    	rPar.language 	= lang;
 
 		    	rawText = findArticle( clean, lang );
 	    	}
@@ -1092,7 +924,7 @@ button img {\
     return Parser;
 }));
 
-},{"jquery":98}],7:[function(require,module,exports){
+},{"jquery":103}],6:[function(require,module,exports){
 /* WordNav.js
 * 
 * Navigate the sentences and words in Words
@@ -1100,12 +932,14 @@ button img {\
 * Based on https://github.com/jamestomasino/read_plugin/blob/master/ReadBlock.js
 * 
 * TODO:
+* - ??: Add delay for paragraph?
+* - Reset values non-destructively
+* 
+* DONE:
 * - Go back a sentence - array of indexes where sentences start?
 * - Change max word length - recombine split words (record of which
 * words were split) and address each word that is longer than
 * the max-word length.
-* - ??: Add delay for paragraph?
-* - Reset values non-destructively
 * - Split Qeue into
 *   Words and...
 *   Word(s) Navigator/Trotter/Transporter/Traveler/Traverse/Walker/Explorer
@@ -1135,73 +969,143 @@ button img {\
     * 
     * Provides commands for getting the words/fragments passed into
     * its `.process()`. 
-    * Always use .getFragment
+    * Always use .getFragment()
     */
         var wNav = {};
 
-        // Contains .text, .sentenceFragments, .positions
-        wNav.words 		= null;
+        // Contains .sentences, .positions
+        wNav.words = null;
 
-        wNav.index 		= 0;
-        wNav.position   = [0, 0];
+        wNav.index 		 = 0;
+        wNav.position    = [0, 0, 0],
+        wNav.currentWord = null;
+        wNav.fragmentor  = null;
+
 
         // ==== Internal ==== \\
         wNav._progress 	= 0;
-        var sentences 	= null,
-        	positions 	= null;;
+        var sentences 	= wNav._sentences = null;
+        var positions 	= wNav._positions = [];
 
 
-       	wNav.process = function ( words ) {
-       		if (!words) { console.error('WordNav needs dataz to .process(). You gave it dis:', words); }
+       	wNav.process = function ( senteceArray, fragmentor ) {
+       		if (!senteceArray) { console.error('WordNav needs dataz to .process(). You gave it dis:', senteceArray); }
 
-	        wNav.words 	= words;
-	        sentences 	= words.sentenceFragments;
-	    	positions 	= words.positions;
+            wNav.fragmentor = fragmentor;
+
+            sentences = wNav.sentences = senteceArray;  
+            positions = wNav.positions = [];  // TODO: ??: Empty non-destructively??
+
+            for ( let senti = 0; senti < sentences.length; senti++ ) {
+                
+                let sentence  = sentences[senti];
+                for (let wordi = 0; wordi < sentence.length; wordi++) {
+                    positions.push([ senti, wordi ]);
+                };
+            }
 
 	       return wNav;
        	};
 
+
+
         // ========= RUNTIME: TRAVELING THE WORDS/SENTENCES (for external use) ========= \\
 
         wNav.restart = function () {
-            // Will be normalized by the next operation called (next, prev, current)
             wNav.index    = 0;
-            wNav.position = [0, 0];
+            wNav.position = [0, 0, 0];
             return wNav;
         };
 
+
         wNav.getFragment = function ( changesOrIndex ) {
-        // ( [#, #] or # ) -> Fragment
-            wNav.index      = wNav._step( changesOrIndex );
-            wNav.position   = positions[ wNav.index ];
-            return sentences[ wNav.position[0] ][ wNav.position[1] ];
-        }
+        /* ( [int, int, int] or int ) -> Str
+        * 
+        * Currently it seems that only one of the ints can be something
+        * other than 0.
+        * ??: Find cases where that isn't true.
+        */
+            var frag        = null;
+            var pos         = wNav.position,
+            // wNav.currentWord isn't just a string. It's not from the sentence/word
+            // array, it's a word once it has been fragmented into a list of strings
+                currentWord = wNav.currentWord;
 
+            // TODO:
+            // If maxNumCharacters changed, re-fragment word and start at
+            // the beginning of word
 
-        wNav._step = function ( changesOrIndex ) {
-        // ( [#, #] or # ) -> Fragment
-            var index = wNav.index;
-
+            // if plain index change/jump
             if ( typeof changesOrIndex === 'number' ) {
-                index = wNav.normalizeIndex( changesOrIndex );
-            } else {
-                // If there's a sentence level change, we're traveling
-                // sentences, not words (this assumes we never do both)
-                if ( changesOrIndex[0] ) {
-                    index = wNav._stepSentence( changesOrIndex[0] );
+                currentWord = wNav._stepWord( changesOrIndex );
+                pos[2]      = 0;
+
+            // !!! CAN ONLY CHANGE ONE POSITION AT A TIME !!! \\
+
+            // if sentence change
+            } else if ( changesOrIndex[0] !== 0 ) {
+
+                // find new sentence and get the new index
+                var index   = wNav._stepSentence( changesOrIndex[0] );
+                currentWord = wNav._stepWord( index );
+                pos[2]      = 0;
+
+            // if word change
+            } else if ( changesOrIndex[1] !== 0 ) {
+
+                index       = wNav.index + changesOrIndex[1];
+                currentWord = wNav._stepWord( index );
+                pos[2]      = 0;
+
+            // if fragment change
+            } else if ( changesOrIndex[2] > 0 ) {  // No provision for backwards fragment travel
+
+                var fragi = pos[2] + changesOrIndex[2];
+
+                // if current fragment starts new word
+                if ( fragi >= currentWord.length ) {
+                    
+                    currentWord = wNav._stepWord( wNav.index + 1 );
+                    pos[2]      = 0;
+                
                 } else {
-                    index += changesOrIndex[1];
-                    index = wNav.normalizeIndex( index );
+
+                    // don't change index or current word, just current fragment position
+                    pos[2] = fragi;
+
                 }
-            }  // end if index or change array
-            return index;
-        };  // end wNav._step();
+
+            } else {
+                currentWord = wNav._stepWord( wNav.index );
+                pos[2]      = 0;
+            } // end if index or which position changed
+
+
+            wNav.currentWord = currentWord;
+            frag             = currentWord[ pos[2] ];
+
+            return frag;
+        }  // End wNav.getFragment()
+
+
+
+        wNav._stepWord = function ( index ) {
+        // ( int ) -> [ Str ]
+            wNav.index      = wNav.normalizeIndex( index );
+            var pos         = positions[ wNav.index ];
+            wNav.position[0]= pos[0];
+            wNav.position[1]= pos[1];
+            var word        = sentences[ wNav.position[0] ][ wNav.position[1] ],
+                fragmented  = wNav.fragmentor.process( word );
+
+            return fragmented;
+        };  // End wNav._stepWord()
+
 
 
         wNav._stepSentence = function ( sentenceChange ) {
-        // ( [int, int] ) -> int
-        // TODO: Account for right arrow on last sentence
-            if ( sentenceChange === 0 ) {return};
+        // ( [int, int] ) -> Int
+            if ( sentenceChange === 0 ) { return 0; }
 
             var pos     = [ wNav.position[0], wNav.position[1] ],
                 senti   = pos[0],
@@ -1230,15 +1134,16 @@ button img {\
             return newIndex;
         };  // End wNav._stepSentence
 
+
         wNav._sentenceChangeToIndex = function ( sentenceChange, newPos ) {
-        /* ( int, [int, int] ) -> int or null
+        /* ( int ) -> Int or null
         * 
         * Given the direction of change and the position desired, find the
         * index of the new position.
         * Only used for sentence changes. If we need something else,
-        * we'll see about that then. Just trying to speed up the search
+        * we'll see about that then. Just trying to speed up the search.
         */
-            if ( sentenceChange === 0 ) {return null;}  // signOf shouldn't return NaN now
+            if ( sentenceChange === 0 ) { return 0; }  // signOf shouldn't return NaN now
 
             var incrementor = signOf( sentenceChange ),  // 1 or -1
                 tempi       = wNav.index,
@@ -1262,8 +1167,9 @@ button img {\
             return tempi;
         };  // End wNav._sentenceChangeToIndex()
 
+
         wNav._positionToIndex = function ( pos ) {
-        /* ( [int, int] ) -> int
+        /* ( [int, int] ) -> Int
         * 
         * Given a [sentence, word] position, find the index of that
         * configuration in the positions list. If none found, return
@@ -1273,11 +1179,12 @@ button img {\
         * This is different from ._sentenceChangeToIndex() because this
         * one searches the whole array, it doesn't start from the current
         * position and work in a direction (back of forward) from there.
+        * TODO: Performance analysis on long texts
         */
             var index = positions.findIndex( function matchPosToIndex( potential ) {
                 var sent = (pos[0] === potential[0]),
                     frag = (pos[1] === potential[1]);
-                return sent && frag
+                return sent && frag;
             })
             return index;
         }
@@ -1294,7 +1201,6 @@ button img {\
             index = Math.min( index, positions.length - 1 );  // max
             return Math.max( index, 0 );  // min
         };
-
         wNav.normalizeSentencePos = function ( senti ) {
             senti = Math.min( senti, (sentences.length - 1) );
             return Math.max( senti, 0 );
@@ -1308,19 +1214,254 @@ button img {\
             wNav._progress = wNav.index / (positions.length - 1);
             return wNav._progress;
         };
+        wNav.getLength = function () { return positions.length; };
+        wNav.getIndex = function () { return wNav.index; }
 
-        wNav.getLength = function () {
-            return positions.length;
-        };
-
-        wNav.getIndex = function () {
-            return wNav.index;
-        }
 
         return wNav;
     };  // End WordNav() -> {}
 
     return WordNav;
+}));
+
+},{}],7:[function(require,module,exports){
+/* WordSplitter.js
+* 
+* Based on https://github.com/jamestomasino/read_plugin/blob/master/ReadBlock.js
+* 
+* Split a word into fragments based on... its length?
+*/
+
+(function (root, splitFactory) {  // root is usually `window`
+    if (typeof define === 'function' && define.amd) {
+        // AMD. Register as an anonymous module.
+        define( [], function () { return ( root.WordSplitter = splitFactory() ); });
+    } else if (typeof module === 'object' && module.exports) {
+        // Node. Does not work with strict CommonJS, but only CommonJS-like
+        // environments that support module.exports, like Node.
+        module.exports = splitFactory();
+    } else {
+        // Browser globals
+        root.WordSplitter = splitFactory();
+    }
+}(this, function () {
+
+	"use strict";
+
+
+	var WordSplitter = function ( charsNode, settings, storage ) {
+	/* ( DOM Node, async {} ) -> WordSplitter
+	* 
+	* Returns an object that takes a string and returns an array
+	* of strings, each of which isn't longer than it should
+	* be.
+	*/
+		var rSpt = {};
+
+
+		// ============= SETUP ============= \\
+
+		rSpt.charsNode 	= charsNode;  // No reason I can see for this to change
+		rSpt._settings 	= {};
+		var _wSetts 	= rSpt._settings;
+		var defaults 	= { maxNumCharacters: 10 };
+
+
+		rSpt._init = function ( settings ) {
+
+			var maxNumCharacters = settings.maxNumCharacters || defaults.maxNumCharacters;
+
+			// !!!FOR DEBUGGING ONLY!!!
+			if ( false ) storage.clear()
+			
+			// Update settings based on what's passed in
+			rSpt.set( 'maxNumCharacters', maxNumCharacters);
+
+			return rSpt;
+		};  // End rSpt._init()
+
+
+
+		// ============= USER INPUT ============= \\
+
+		rSpt.settingsAvailable = ['maxNumCharacters'];
+
+		rSpt.set = function ( settingName, value) {
+			// If we just go off of lowercase, we can remove at
+			// least some typo mistakes and uncertainties
+			var op = '_set' + settingName;
+			if ( !rSpt[ op ] ) {
+				console.error('There is no approved setting by the name of "' + operation + '". Maybe check your capitalization. Also, you can check `yourWordSplitterObj.settingsAvailable` to see what setting names are available to you.');
+				return null;
+			}
+			
+			// The value after it has been normalized
+			var val = rSpt[ op ]( value );
+
+			// Create object for data so we can use the value of `op` as a key
+			// instead of the literal word "op"
+			var toSave 				= {};
+			toSave[ settingName ] 	= val;
+			storage.set( toSave );  // Should this be all lowercase too?
+
+			_wSetts[ settingName ] = val;
+
+			return rSpt;
+		};  // End rSpt.set()
+
+
+		rSpt._setmaxNumCharacters = function ( max ) {
+			return Math.max(max, 1);  // Minimum allowed length = 1
+		};  // End rSpt.setMaxNumCharacters()
+
+
+
+		// ============= RUNTIME ============= \\
+
+		rSpt._getMaxLength = function ( word, styles ) {
+
+			// Get the max letters that can fit in the width
+			var pxWidth		= parseFloat( styles['width'].replace('px', '') ),
+				fontSize 	= parseFloat( styles['font-size'].replace('px', '') );
+
+			var remWidth 	= Math.floor( pxWidth/fontSize );
+			// Get the max letters that are allowed by the user
+			var userMaxChars = rSpt._settings.maxNumCharacters;
+			// Get the smaller of the two (the limiting factor)
+			var maxChars 	 = Math.min( userMaxChars, remWidth );
+
+			return maxChars;
+		};  // End rSpt._getMaxLength()
+
+
+		rSpt._makeCharsMap = function ( chars, maxWithHyphen ) {
+		/* ( str, int ) -> [Int]
+		* 
+		* Return an array of how many groups of how many strings
+		* the final word array should contain.
+		*/
+			var splitGroupLengths 	= [],
+				evenly 				= Math.floor(chars.length/maxWithHyphen);
+
+			// If we were to split the word evenly, how many letters would
+			// go in each group? How many groups would there be? (not counting the remainder)
+			for (let numi = 0; numi < evenly; numi++) {
+				splitGroupLengths.push( maxWithHyphen );
+			};
+
+			// Find how much would remain after dividing the string evenly
+			// If there's an imbalance, redistribute a bit
+			var remainder = chars.length % maxWithHyphen,
+				// How many letters are missing
+				needed 	  = maxWithHyphen - remainder,
+				// We'll add some back in by taking away letters from others
+				halved 	  = Math.floor(needed/2),
+				// `havled` removes characters counts from other items
+				// Have to remember to add them to the very end (the remainder)
+				toAddBack = halved + remainder;
+
+			// And add that back into the mix, distributed in a... sensical? way
+			// Right now: letters are removed from the starting strings in
+			// order to make up for the last string (really I'd rather take from
+			// every other group, visiting all eventually, but this is just
+			// proof of concept)
+			// Do that before adding the last group so we don't mess with the last group amount
+			var lastIndx = splitGroupLengths.length,
+				indx 	 = 0;
+			while ( halved > 0 ) {
+
+				splitGroupLengths[indx] = splitGroupLengths[indx] - 1;
+
+				indx 	= indx + 1;
+				// Start from the beginning string again if more need to be redistributed
+				indx 	= indx % lastIndx;
+				halved 	= halved - 1;
+			}
+
+			splitGroupLengths.push( toAddBack );
+
+			return splitGroupLengths;
+		};  // End rSpt._makeCharsMap()
+
+
+		rSpt._splitWord = function ( chars, maxChars ) {
+		/* ( str, int ) -> [ str ]
+		* 
+		* Returns `chars` as string split into, ideally, syllables,
+		* but in actual fact, just into parts of aproximately a
+		* certain length that each isn't longer than `maxChars`
+		* 
+		* Note: Hyphens are added and accounted for.
+		*/
+			var split = [];
+
+			// If it doesn't need to be broken up at all, just return what we have in an array
+			if ( chars.length <= maxChars ) { return [chars]; }
+
+			// TODO: Allow custom inclusion of hyphens. If hyphens are excluded
+			// suggest whitespace indicators instead.
+			// ??: If maxChars < 4, suggest space indicators instead of hypens?
+
+			// If it's just one character long, it's super easy. There's
+			// not even room for a hyphen. ??: Suggest whitespace indicators?
+			if ( maxChars === 1 ) { return chars.split(''); }
+
+			// Remember we're adding a dash to break up words
+			var maxWithHyphen = maxChars - 1,
+				maybeHyphen   = '-';
+			// No dash for less than 4 characters
+			if ( maxChars < 4 ) {
+				maxWithHyphen 	= maxChars;
+				maybeHyphen 	= '';
+			}
+
+			var splitMap = rSpt._makeCharsMap( chars, maxWithHyphen );
+
+			// Build the list of strings with the right number of letters
+			// as determined by the map
+			var start = 0;
+			for (let numi = 0; numi < splitMap.length; numi++) {
+				let str = chars.slice( start, start + splitMap[numi] );
+
+				// Make sure last string doesn't get a hyphen
+				if (numi < splitMap.length - 1) {
+					// A string that already ends with a hyphen shouldn't get /another/ hypen
+					if ( !/-/.test(str) ) { str = str + maybeHyphen }
+				}
+
+				split.push(str);
+				// Start the next one where we finished this one
+				start = start + splitMap[numi];
+			};
+
+			return split;
+		};  // End rSpt._splitWord()
+
+
+
+		// ========== EXTERNAL ========== \\
+
+		rSpt.process = function( chars ) {
+			// Check the chars' container node each time in case its size has changed
+			// var charsNode 	= document.getElementByID( '__rdly_text_button' ),
+			var styles 		= window.getComputedStyle( rSpt.charsNode ),
+				maxLength 	= rSpt._getMaxLength( chars, styles );
+
+			var split 		= rSpt._splitWord( chars, maxLength );
+
+			return split;
+		};  // End rSpt.process()
+
+
+
+		// ========= DO IT ========== \\
+
+		rSpt._init( settings );
+
+		return rSpt;
+	};  // End WordSplitter() -> {}
+
+    return WordSplitter;
 }));
 
 },{}],8:[function(require,module,exports){
@@ -1333,54 +1474,42 @@ button img {\
 * Based on https://github.com/jamestomasino/read_plugin/blob/master/ReadBlock.js
 * 
 * TODO:
+* - ??: Should be called Sentences instead? A bit long :/
+* 
+* DONE:
 * - Split Queue into
 *   Words and...
 *   Word(s) Navigator/Trotter/Transporter/Traveler/Traverse/Walker/Explorer
-* - ??: Should be called Sentences instead? A bit long :/
 */
 
 (function (root, wordsFactory) {  // root is usually `window`
     if (typeof define === 'function' && define.amd) {  // amd if possible
         // AMD. Register as an anonymous module.
-        define( ['lib/Fragment', 'nlp_compromise'], function (Fragment, npl) { return (root.Words = wordsFactory(Fragment, npl) ); });
+        define( [], function () { return (root.Words = wordsFactory() ); });
     } else if (typeof module === 'object' && module.exports) {  // Node-ish next
         // Node. Does not work with strict CommonJS, but only CommonJS-like
         // environments that support module.exports, like Node.
-        module.exports = wordsFactory( require('../Fragment.js'), require('nlp_compromise') );
+        module.exports = wordsFactory();
     } else {  // Global if nothing else
         // Browser globals
-        root.Words = wordsFactory( Fragment, root );  // root.sentences is undefined :P Not sure what to provide there
+        root.Words = wordsFactory();
     }
-}(this, function ( Fragment, sentenceParser ) {
+}(this, function () {
 
     "use strict";
 
-    var wordRegex = /([^\s\-\—\/]+[\-\—\/]?|[\r\n]+)/g;
-    var presuf = /^(\W*)(anti|auto|ab|an|ax|al|as|bi|bet|be|contra|cat|cath|cir|cum|cog|col|com|con|cor|could|co|desk|de|dis|did|dif|di|eas|every|ever|extra|ex|end|en|em|epi|evi|func|fund|fin|hyst|hy|han|il|in|im|ir|just|jus|loc|lig|lit|li|mech|manu|man|mal|mis|mid|mono|multi|mem|micro|non|nano|ob|oc|of|opt|op|over|para|per|post|pre|peo|pro|retro|rea|re|rhy|should|some|semi|sen|sol|sub|suc|suf|super|sup|sur|sus|syn|sym|syl|tech|trans|tri|typo|type|uni|un|van|vert|with|would|won)?(.*?)(weens?|widths?|icals?|ables?|ings?|tions?|ions?|ies|isms?|ists?|ful|ness|ments?|ly|ify|ize|ise|ity|en|ers?|ences?|tures?|ples?|als?|phy|puts?|phies|ry|ries|cy|cies|mums?|ous|cents?)?(\W*)$/i;
-    var vowels = 'aeiouyAEIOUY'+
-        'ẚÁáÀàĂăẮắẰằẴẵẲẳÂâẤấẦầẪẫẨẩǍǎÅåǺǻÄäǞǟÃãȦȧǠǡĄąĀāẢảȀȁȂȃẠạẶặẬậḀḁȺⱥ'+
-        'ǼǽǢǣÉƏƎǝéÈèĔĕÊêẾếỀềỄễỂểĚěËëẼẽĖėȨȩḜḝĘęĒēḖḗḔḕẺẻȄȅȆȇẸẹỆệḘḙḚḛɆɇɚɝÍíÌìĬĭÎîǏǐÏ'+
-        'ïḮḯĨĩİiĮįĪīỈỉȈȉȊȋỊịḬḭIıƗɨÓóÒòŎŏÔôỐốỒồỖỗỔổǑǒÖöȪȫŐőÕõṌṍṎṏȬȭȮȯȰȱØøǾǿǪǫǬǭŌōṒṓ'+
-        'ṐṑỎỏȌȍȎȏƠơỚớỜờỠỡỞởỢợỌọỘộƟɵÚúÙùŬŭÛûǓǔŮůÜüǗǘǛǜǙǚǕǖŰűŨũṸṹŲųŪūṺṻỦủȔȕȖȗƯưỨứỪừ'+
-        'ỮữỬửỰựỤụṲṳṶṷṴṵɄʉÝýỲỳŶŷY̊ẙŸÿỸỹẎẏȲȳỶỷỴỵʏɎɏƳƴ';
-    var c = '[^'+vowels+']';
-    var v = '['+vowels+']';
-    var vccv = new RegExp('('+v+c+')('+c+v+')', 'g');
-    var simple = new RegExp('(.{2,4}'+v+')'+'('+c+')', 'g');  // Currently not used
-    var puncSplit = /(.+?)(\.[^\w]\b|,[^\w]\b)(.+?)/;
 
-
-    // TODO: Do this without needing a new object each time
     var Words = function () {
-    /* 
+    /* ( None ) -> Words()
     * 
-    * 
+    * Will turn arrays of arrays of words into an object containing
+    * the same /plus/ an array of positions of those arrays and words -
+    * The positions of words and their place in each sentence.
     */
         var wrds = {};
 
         // ========= (for external use) ========= \\
-        wrds.text      = null;  // Is this useful?
-        wrds.sentenceFragments = [];  // TODO: Change to .sentences
+        wrds.sentences = [];  // TODO: Change to .sentences
         // Since data will be in arrays of sentences with words, this will
         // tell us which index corresponds to which sentence/word position
         wrds.positions = [];
@@ -1388,105 +1517,27 @@ button img {\
 
         // ========= BUILD THE QUEUE (internal) ========= \\
         wrds.process = function ( sentences ) {
-        // No automatic `._init()` this time. ??: Convert all to this format?
-
- 			// Array of arrays of fragment objects (just words later)
-            var sFrags   	= wrds.sentenceFragments = [];  
-            wrds.positions 	= [];
+        /* ( [[Str]] ) -> Words
+        * 
+        * Accepts array of array of strings (which should represent
+        * words in sentences). Returnsan object containing the same
+        * /plus/ an array of positions of those arrays and words -
+        * The positions of words and their place in each sentence.
+        */
+            var wordObjs   	= wrds.sentences = sentences;  
+            var positions   = wrds.positions = [];
 
             for ( let senti = 0; senti < sentences.length; senti++ ) {
-                let sentence     = sentences[senti],
-                    fragmented   = wrds._processSentence( sentence, senti );
-                sFrags.push( fragmented );
+                
+                let sentence  = sentences[senti];
+                for (let wordi = 0; wordi < sentence.length; wordi++) {
+                    positions.push([ senti, wordi ]);
+                };
             }
 
             return wrds;
         };  // End wrds.process()
 
-        wrds._processSentence = function ( text, sentenceIndex ) {
-
-            var sentence    = [],
-                positions   = wrds.positions;
-
-            // Build word chain
-            var rawWords    = text.match(wordRegex),
-                fragIndex   = 0;
-            var pos         = positions.length;  // 1 past the previous index
-
-            // Extra splits on odd punctuation situations
-            let i = 0;
-            while (i < rawWords.length) {
-                let w 		 = rawWords[i];
-                w 			 = wrds._puncBreak(w);
-                let subWords = w.match(wordRegex);
-                let j = 0;
-                while (j < subWords.length) {
-                    if (subWords[j].length > 13) {
-                        let subw 		= wrds._break(subWords[j]);
-                        let subsubWords = subw.match(wordRegex);
-                        let k = 0;
-                        while (k < subsubWords.length) {
-                            let frag = new Fragment(subsubWords[k]);
-
-                            sentence.push( frag );
-                            positions.push( [ sentenceIndex, fragIndex ] );
-                            // positions.push( { sentence: sentenceIndex, fragment: fragIndex } );
-                            fragIndex++;
-                            
-                            k++;
-                        }  // end for every sub sub word
-
-                    } else {
-                        let frag = new Fragment(subWords[j]);
-                        sentence.push( frag );
-                        positions.push( [ sentenceIndex, fragIndex ] );
-                        // positions.push( { sentence: sentenceIndex, fragment: fragIndex } );
-
-                       fragIndex++;
-                    }  // end if long word
-
-                    j++;
-                }  // end for every subword
-
-                i++;
-            }  // end for every raw word
-
-            // TODO: Change this format
-            return sentence;
-        };  // End wrds._processSentence()
-
-        wrds._puncBreak = function (word) {  // Recursive
-            var parts = puncSplit.exec(word);
-            var ret = [];
-            if (parts) {
-                ret.push (parts[1]+parts[2]);
-                ret = ret.concat(wrds._puncBreak(parts[3]));
-            } else {
-                ret = [word];
-            }
-            return ret.join(' ');
-        };
-
-        wrds._break = function (word) {
-        /* ( str ) -> other Str
-        * 
-        * Break up longer words into shorter fragments.
-        * TODO: Deal with words that are non-English or nonsense
-        */
-            // punctuation, prefix, center, suffix, punctuation
-            var parts = presuf.exec(word);
-            var ret   = [];
-            if (parts[2]) {
-                ret.push(parts[2]);
-            }
-            if (parts[3]) {
-                ret.push(parts[3].replace(vccv, '$1-$2'));
-            }
-            if (parts[4]) {
-                ret.push(parts[4]);
-            }
-            return (parts[1]||'') + ret.join('-') + (parts[5]||'');
-        };
 
         return wrds;
     };  // End Words() -> {}
@@ -1495,7 +1546,7 @@ button img {\
 }));
 
 
-},{"../Fragment.js":1,"nlp_compromise":99}],9:[function(require,module,exports){
+},{}],9:[function(require,module,exports){
 module.exports={
   "aar": {
     "terminologic": null,
@@ -4118,15 +4169,24 @@ module.exports={
 		// ============== RUNTIME ============== \\
 
 		rDel.calcDelay = function ( frag, justOnce ) {
+		/* ( Str || Obj, [bool] ) -> #
+		* 
+		*/
 		// !!! TODO: `justOnce` is an issue because it's actually just whether
 		// or not a function has been passed into the loop, nothing else
 			var delay = rDel.delay;
 
-			if ( frag.hasPeriod ) 	 delay *= _rSetts.sentenceDelay;
-			if ( frag.hasOtherPunc ) delay *= _rSetts.otherPuncDelay;
-			if ( frag.isShort() ) 	 delay *= _rSetts.shortWordDelay;
-			if ( frag.isLong() ) 	 delay *= _rSetts.longWordDelay;
-			if ( frag.isNumeric ) 	 delay *= _rSetts.numericDelay;
+			var processed = frag;
+			// !!! TEMPORARY UNTIL CONVERTED TO ONLY STRINGS !!!
+			// If a string was passed in instead of an object, assess the string
+			if ( typeof frag === 'string' ) { processed = rDel._process( frag ); }
+			var processed = rDel._process( frag );
+
+			if ( processed.hasPeriod ) 	 delay 	*= _rSetts.sentenceDelay;
+			if ( processed.hasOtherPunc ) delay *= _rSetts.otherPuncDelay;
+			if ( processed.isShort() ) 	 delay 	*= _rSetts.shortWordDelay;
+			if ( processed.isLong() ) 	 delay 	*= _rSetts.longWordDelay;
+			if ( processed.isNumeric ) 	 delay 	*= _rSetts.numericDelay;
 
 			// Just after starting up again, go slowly, then speed up a bit
 			// each time the loop is called
@@ -4153,12 +4213,50 @@ module.exports={
 		};
 
 
+		// ======= PROCESSING STRING ======== \\
+		rDel._process = function ( chars ) {
+		/* ( Str ) -> {}
+		* 
+		* Assesses the properties of a string, saving them in an object
+		*/
+			var frag = { chars: chars };
+
+	        rDel._setPuncProps( frag );
+
+			// TODO: Get from storage (with callback)
+			var shortLength = 2,
+				longLength 	= 8;
+
+			// TODO: Change to non-functions when you have a min
+			frag.isShort = function () { return chars.length <= shortLength; };
+	        frag.isLong = function () { return chars.length >= longLength; };
+
+			frag.isNumeric = /\d/.test(chars);
+
+			return frag;
+		};  // End rDel._process()
+
+
+		rDel._setPuncProps = function ( frag ) {
+		/* ( Str ) -> {}
+		* 
+		* Tests and sets the punctuation properties
+		*/
+			var str = frag.chars;
+
+			frag.hasPeriod 	  = /[.!?]/.test(str);
+			// TODO: test for non-alphameric/period characters
+			frag.hasOtherPunc = /["'()”’:;,_]/.test(str);
+
+			return rDel;
+		};  // end rDel._setPuncProps()
+
 
 		// ============== SET OPTIONS ============== \\
 
 		// Not needed, but might be nice to have:
 		rDel.settingsAvailable = ['wpm', 'sentenceDelay', 'otherPuncDelay', 'shortWordDelay',
-						'longWordDelay', 'numericDelay', 'slowStartDelay'];
+								  'longWordDelay', 'numericDelay', 'slowStartDelay'];
 
 		rDel.set = function ( settingName, value) {
 			// If we just go off of lowercase, we can remove at
@@ -4178,9 +4276,10 @@ module.exports={
 			toSave[ settingName ] 	= val;
 			storage.set( toSave );  // Should this be all lowercase too?
 
+			// _rSetts[settingName] = val;
+
 			return rDel;
 		};  // End rDel.set()
-
 
 
 		rDel._withinLimits = function ( val, min, max ) {
@@ -4383,7 +4482,8 @@ module.exports={
 
 
 		rPUI._rewindSentence = function () {
-			timer.prevSentence()
+			timer.prevSentence();
+			return rPUI;
 		};
 
 
@@ -4391,9 +4491,9 @@ module.exports={
 		var whiteSpaceRegexp = /[\n\r\s]/;
 		var paragraphSymbol  = '';
 		rPUI._showNewFragment = function ( evnt, timer, fragment ) {
-			// TOOD: Deal with line breaks in Queue instead
-			var chars = fragment.chars;
+			var chars = fragment;
 			// Adds pauses for line breaks
+			// TOOD: Deal with line breaks in timer instead?
 			if ( !whiteSpaceRegexp.test(chars) ) {
 				$(textButton).html( chars );
 			} else {
@@ -4602,7 +4702,7 @@ module.exports={
     return PlaybackUI;
 }));
 
-},{"./playback-CSS":13,"jquery":98,"nouislider":100}],12:[function(require,module,exports){
+},{"./playback-CSS":13,"jquery":103,"nouislider":104}],12:[function(require,module,exports){
 /* ReaderlyTimer.js
 * 
 * Transmits fragments from Queue. Uses `delayer` to determine time
@@ -4611,16 +4711,17 @@ module.exports={
 * Based on https://github.com/jamestomasino/read_plugin/blob/master/Read.js
 * 
 * TODO;
+* - Speed up with long ff or rewind
 * - ??: Make length delay proportional to word length?
 * - Long word delay not working? How about otherPunc? And do more
 * 	symbols need to be included in that set of otherPunc?
-* - Implement more robust pausing (store in bool and wait for appropriate time)
+* - Implement more robust pausing? (store in bool and wait for appropriate time)
 * 
 * DONE:
 * - Add extra paragraph pause back in
 * - Scrubbing doesn't restart the slow-start value
 * 
-* NOTES:
+* NOTES/GUIDES:
 * - Always return Timer so functions can be chained
 * - Always send Timer as the first argument to events to
 * 	stay consistent.
@@ -4660,7 +4761,7 @@ module.exports={
 
 			// Moving around
 			rTim._jumping 	 		= false;
-			rTim._incrementors 		= [0, 1];
+			rTim._incrementors 		= [0, 0, 1];  // This is a regular 1 step forward move
 			rTim._skipWhitespace 	= false;
 			rTim._whitespaceRegex 	= new RegExp('[\n\r]', 'g');
 
@@ -4746,13 +4847,13 @@ module.exports={
 		* ??: Just one eventName which gets + 'Begin' and + 'Finish' where appropriate?
 		*/
 			// "play" will always be forward. "rewind" can be play, but with "prev".
-			rTim._incrementors = [0, 1];
+			rTim._incrementors = [0, 0, 1];
 
 			if ( startEventName ) $(rTim).trigger( startEventName, [rTim] );
 			
 			if ( !rTim._isPlaying ) {
 				rTim._isPlaying = true;
-				rTim._loop( [0, 0], false );
+				rTim._loop( [0, 0, 0], false );
 			}
 
 			if ( endEventName ) $(rTim).trigger( endEventName, [rTim] );
@@ -4828,20 +4929,20 @@ module.exports={
 		};  // End rTim._oneStepUntimed()
 
 		rTim.nextWord = function () {
-			rTim._oneStepUntimed( [0, 1] );
+			rTim._oneStepUntimed( [0, 1, 0] );
 			return rTim;
 		};
 		rTim.nextSentence = function() {
-			rTim._oneStepUntimed( [1, 0] );
+			rTim._oneStepUntimed( [1, 0, 0] );
 			return rTim;
 		};
 
 		rTim.prevWord = function () {
-			rTim._oneStepUntimed( [0, -1] );
+			rTim._oneStepUntimed( [0, -1, 0] );
 			return rTim;
 		};
 		rTim.prevSentence = function() {
-			rTim._oneStepUntimed( [-1, 0] );
+			rTim._oneStepUntimed( [-1, 0, 0] );
 			return rTim;
 		};
 
@@ -4861,7 +4962,7 @@ module.exports={
 
 				var newIndex = playbackObj.amount,
 					oldIndex = rTim._queue.getIndex();
-				rTim.once( [0, newIndex - oldIndex] );
+				rTim.once( [0, newIndex - oldIndex, 0] );
 			}
 			return rTim;
 		};  // End rTim.jumpTo()
@@ -4904,14 +5005,15 @@ module.exports={
 
 
         rTim._skipDirection = function ( incrementors, frag ) {
-			var vector = [0, 0];
+			var vector = [0, 0, 0];
 
 			var hasOnlyNewLines = false,
-				chars 			= frag.chars,  // Doesn't change frag.chars
+				chars 			= frag,  // Doesn't change frag
 				noWhitespace 	= chars.replace(rTim._whitespaceRegex, '');
 
 			// If it's time to skip whitespace and there's nothing but whitespace
-			// in the fragment, figure out which direction to move in
+			// in the fragment, figure out which direction to move in, and 
+			// send info to move once in that direction
 			if ( rTim._skipWhitespace && noWhitespace.length === 0 ) {
 
 				var senti = rTim._queue.position[0];
@@ -4922,10 +5024,13 @@ module.exports={
 				} else if( incrementors[1] !== 0 ) {
 					vector[1] = rTim.signOf(incrementors[1]);
 
-				// For when play passes [0, 0]. ??: Does anything else ever do this?
+				} else if( incrementors[2] !== 0 ) {
+					vector[2] = rTim.signOf(incrementors[2]);
+
+				// For when play passes [0, 0, 0]. ??: Does anything else ever do this?
 				// We're going to have to skip in some direction or we'll never get anywhere
 				} else {
-					vector = [0, 1];  // ??: Always true?
+					vector = [0, 0, 1];  // ??: Always true?
 				}
 			}
 
@@ -4952,7 +5057,7 @@ module.exports={
 			// !!! KEEP THIS even though it's not currently needed for sentences. I hope
 			// to make paragraphs their own sentences for reasons of accessibility.
 			// It's actually useful when navigating by word fragment.
-    	    if ( skipDir[0] !== 0 || skipDir[1] !== 0 ) {
+    	    if ( skipDir[0] !== 0 || skipDir[1] !== 0 || skipDir[2] !== 0 ) {
 
 				$(rTim).trigger( 'loopSkip', [rTim, frag] );
     	    	rTim._loop( skipDir, justOnce );
@@ -4978,6 +5083,7 @@ module.exports={
 			return rTim;  // Return timeout id instead?
         };  // End rTim._loop()
 
+
 		rTim.once = function ( incrementors ) {
 
 			$(rTim).trigger( 'onceBegin', [rTim] );
@@ -4996,7 +5102,7 @@ module.exports={
     return ReaderlyTimer;
 }));
 
-},{"jquery":98}],13:[function(require,module,exports){
+},{"jquery":103}],13:[function(require,module,exports){
 // playback-CSS.js
 // css that's bundleable
 
@@ -5247,8 +5353,10 @@ module.exports={
 		*/
 			if ( Object.keys(rSet.menuNodes).length <= 1 ) {
 				$(tabs).addClass( '__rdly-hidden' );
+				$(tabs).css( {'display': 'none'} );
 			} else {
 				$(tabs).removeClass( '__rdly-hidden' );
+				$(tabs).css( {'display': 'flex'} );
 			}
 			return rSet;
 		};
@@ -5259,12 +5367,16 @@ module.exports={
 			var $thisTab = $(evnt.target),
 				id 		 = evnt.target.id.replace(/_tab$/, ''),
 				$menus 	 = $(menus).find( '.__rdly-settings-menu' ),
-				$tabs 	 = $(tabs),
+				$tabs 	 = $(tabs).children(),
 				thisMenu = rSet.menuNodes[ id ];
 
 			// Hide all, then show this one
+			// $menus.addClass( '__rdly-hidden' );
+			// $(thisMenu).removeClass( '__rdly-hidden' );
 			$menus.addClass( '__rdly-hidden' );
+				$menus.css( {'display': 'none'} );
 			$(thisMenu).removeClass( '__rdly-hidden' );
+				$(thisMenu).css( {'display': 'flex'} );
 			// There should only be one (for now...). It's height gets adjusted.
 			// Should only have one child, which can grow.
 			$menus.removeClass( '__rdly-to-grow' );
@@ -5318,7 +5430,6 @@ module.exports={
 			// Otherwise keep going
 			var $newNode = $(node);
 			$newNode.addClass( '__rdly-settings-menu' );
-			// $newNode.addClass( '__rdly-settings-menu __rdly-scrollable-y-contents' );
 
 			$(menus).append( $newNode );
 			$newNode[0].addEventListener( 'destroyOneSettingsMenu', rSet._removeMenu, false );  // TODO: Remove this line
@@ -5326,7 +5437,7 @@ module.exports={
 
 			var $tab = rSet._addTab( id, tabText );
 
-			// Show the first menu added
+			// Show the first menu added each time, just in case?
 			$($(tabs).children()[0]).trigger( 'click' );
 
 			return rSet;
@@ -5338,7 +5449,13 @@ module.exports={
 			$(coreDisplay.nodes.below).removeClass('__rdly-hidden');
 			$(opener).addClass( '__rdly-active-ui' );  // different style
 			rSet._isOpen = true;
+
 			coreDisplay.update();
+			// Seems to be a Chrome issue going on. Need to call this twice with a delay.
+			// Don't remember what it is, but it's not from lag. Something really doesn't
+			// work until this is called for the second time. Something to do with height: 0
+			setTimeout(coreDisplay.update, 4);
+
 			return rSet;
 		};
 
@@ -5446,7 +5563,7 @@ module.exports={
     return ReaderlySettings;
 }));
 
-},{"./settings-CSS":17,"jquery":98}],15:[function(require,module,exports){
+},{"./settings-CSS":18,"jquery":103}],15:[function(require,module,exports){
 /* SpeedSettings.js
 * 
 * UI elements for setting various speeds/delays for
@@ -5544,9 +5661,8 @@ module.exports={
 				setts 	= delayer._settings;
 
 			slider({
-				sliderNode: 	nodes.wpmSlider,
+				sliderNode: nodes.wpmSlider,
 				range: 		{ min: 1, max: 1500 },
-				// // Shouldthis be some none "_" value? Passed in?
 				startVal: 	setts.wpm,
 				step: 		25,
 				inputNode: 	nodes.wpmInput,
@@ -5701,7 +5817,167 @@ module.exports={
     return SpeedSettings;
 }));
 
-},{"jquery":98,"nouislider":100}],16:[function(require,module,exports){
+},{"jquery":103,"nouislider":104}],16:[function(require,module,exports){
+/* WordSettings.js
+* 
+* UI elements for setting various word features, like
+* max number of displayed characters.
+*/
+
+(function (root, wordSetsFactory) {  // root is usually `window`
+    if (typeof define === 'function' && define.amd) {
+        // AMD. Register as an anonymous module.
+        define( ['jquery', 'nouislider'], function ( jquery, nouislider ) {
+        	return ( root.WordSettings = wordSetsFactory( jquery ) );
+        });
+    } else if (typeof module === 'object' && module.exports) {
+        // Node. Does not work with strict CommonJS, but only CommonJS-like
+        // environments that support module.exports, like Node.
+        module.exports = wordSetsFactory( require('jquery'), require('nouislider') );
+    } else {
+        // Browser globals
+        root.WordSettings = wordSetsFactory( root.jQuery, root.noUiSlider );  // not sure noUi is here
+    }
+}(this, function ( $, noUiSlider ) {
+
+	"use strict";
+
+	var WordSettings = function ( fragmentor, coreSettings ) {
+
+		var wSets = {};
+
+		wSets.node 	  = null;
+		wSets.tabText = 'Words';
+
+		wSets._nodes  = {};
+		var nodes 	  = wSets._nodes;
+
+		nodes.maxCharsInput 	= null;
+		nodes.maxCharsSlider 	= null;
+
+
+		wSets._oneSlider = function ( data ) {
+		/* ( {} ) -> ?
+		* 
+		* Turn the given data into one noUiSlider slider
+		*/
+			// To keep handles within the bar
+			$(data.sliderNode).addClass('noUi-extended');
+
+			var slider = noUiSlider.create( data.sliderNode, {
+				range: { min: data.range.min, max: data.range.max },
+				start: data.startVal,
+				step: data.step,
+				connect: 'lower',
+				handles: 1,
+				behaviour: 'extend-tap',
+				serialization: {
+					to: [data.inputNode],
+					resolution: data.resolution
+				}
+			});
+
+			data.sliderNode.noUiSlider.on('update', function( values, handle ) {
+				data.inputNode.value = values[handle];
+				fragmentor.set( data.operation, values[handle] );
+			});
+
+			data.inputNode.addEventListener('change', function(){
+				data.sliderNode.noUiSlider.set(this.value);
+				fragmentor.set( data.operation, this.value );
+			});
+
+			return data.sliderNode;
+		};  // End wSets._oneSlider()
+
+
+		wSets._makeSliders = function () {
+
+			var slider 	= wSets._oneSlider,
+				nodes 	= wSets._nodes,
+				setts 	= fragmentor._settings;
+
+			slider({
+				sliderNode: nodes.maxCharsSlider,
+				range: 		{ min: 1, max: 25 },
+				startVal: 	setts.maxNumCharacters,
+				step: 		1,
+				inputNode: 	nodes.maxCharsInput,
+				resolution: 1,
+				operation: 	'maxNumCharacters'
+			});
+
+			return wSets;
+		};  // End wSets._makeSliders()
+
+
+		wSets._assignSettingItems = function () {
+
+			var nodes = wSets._nodes,
+				$menu = $(nodes.menu);
+
+			nodes.maxCharsInput 	= $menu.find('#__rdly_maxchars_input')[0];
+			nodes.maxCharsSlider 	= $menu.find('#__rdly_maxchars_slider')[0];
+
+			return wSets;
+		};  // End wSets._assignSettingItems()
+
+		wSets._oneSetting = function ( idName, label ) {
+			// Should the very specific classes be ids?
+			return $('<div id="__rdly_' + idName + '_setting" class="__rdly-setting">\
+						<label class="__rdly-slider-label">' + label + '</label>\
+						<div class="__rdly-slider-controls">\
+							<input id="__rdly_' + idName + '_input" class="__rdly-slider-input" type="text"/>\
+							<div id="__rdly_' + idName + '_slider" class="__rdly-slider"></div>\
+						</div>\
+					</div>')
+		};  // End wSets._oneSetting()
+
+		wSets._addNodes = function () {
+
+			var one = wSets._oneSetting;
+
+			// Maybe this should belong to something else - a settings manager
+			var $menu = $('<div id="__rdly_word_settings_menu"></div>');
+			wSets.node = $menu[0];
+
+			wSets._nodes.menu = $menu[0];
+			one( 'maxchars', 'Max Letters Shown' ).appendTo($menu);
+
+			return wSets;
+		};  // End wSets._addNodes()
+
+
+		wSets._init = function ( coreSettings ) {
+
+			wSets._addNodes( coreSettings );
+			// Have to add this to the iframe DOM /before/ setting up the
+			// slider, otherwise wrong #document owns it
+			coreSettings.addMenu( wSets );
+
+			wSets._assignSettingItems();
+			wSets._makeSliders();
+
+			// Events assigned with noUiSlider creation
+
+			return wSets;
+		};
+
+
+
+		// =========== ADD NODE, ETC. =========== \\
+		// Don't show at start, only when prompted
+		wSets._init( coreSettings );
+
+		// To be called in a script
+		return wSets;
+	};  // End WordSettings() -> {}
+
+	// To put on the window object, or export into a module
+    return WordSettings;
+}));
+
+},{"jquery":103,"nouislider":104}],17:[function(require,module,exports){
 // noui-CSS.js
 // css that's bundleable
 
@@ -5945,7 +6221,7 @@ module.exports={
     return nouiCSS;
 }));
 
-},{}],17:[function(require,module,exports){
+},{}],18:[function(require,module,exports){
 // settings-CSS.js
 // css that's bundleable
 
@@ -6042,14 +6318,17 @@ module.exports={
 \
 #__rdly_settings_tabs {\
 	display: flex;\
-	align-items: center;\
-	height: 1.2em;\
+	justify-content: center;\
+	height: auto;\
+  font-size: 1.23em\
 	overflow: hidden;\
 }\
-/* Need flex to shape them correctly :/ */\
-#__rdly_settings_tab {\
+\
+.__rdly-settings-tab {\
 	flex-grow: 1;\
 	padding: 0.1em;\
+  display: flex;\
+  justify-content: center;\
 }\
 \
 #__rdly_settings_menus {\
@@ -6150,7 +6429,7 @@ module.exports={
     return settingsCSS;
 }));
 
-},{}],18:[function(require,module,exports){
+},{}],19:[function(require,module,exports){
 /* main.js
 * 
 * Attempting to delete folder
@@ -6181,27 +6460,19 @@ module.exports={
 	var Parser 		= require('./lib/parse/Parser.js'),
 		ParserSetup = require('./lib/ParserSetup.js');
 
-	var Words 		= require('./lib/parse/Words.js'),
+	var Storage 	= require('./lib/ReaderlyStorage.js'),
+		Words 		= require('./lib/parse/Words.js'),
 		WordNav 	= require('./lib/parse/WordNav.js'),
-		Storage 	= require('./lib/ReaderlyStorage.js'),
+		WordSplitter= require('./lib/parse/WordSplitter.js'),
 		Delayer 	= require('./lib/playback/Delayer.js')
 		Timer 		= require('./lib/playback/ReaderlyTimer.js'),
 		Display 	= require('./lib/ReaderlyDisplay.js'),
 		Playback 	= require('./lib/playback/PlaybackUI.js'),
 		Settings 	= require('./lib/settings/ReaderlySettings.js'),
-		Speed 		= require('./lib/settings/SpeedSettings.js');
+		SpeedSets 	= require('./lib/settings/SpeedSettings.js'),
+		WordSets 	= require('./lib/settings/WordSettings.js');
 
-	var parser, words, wordNav, storage, delayer, timer, coreDisplay, playback, settings, speed;
-
-
-	var afterLoadSettings = function ( oldSettings ) {
-		delayer 	= new Delayer( oldSettings, storage );
-		timer 		= new Timer( delayer, oldSettings, storage );
-		coreDisplay = new Display( timer );
-		playback 	= new Playback( timer, coreDisplay );
-		settings 	= new Settings( timer, coreDisplay );
-		speed 		= new Speed( delayer, settings );
-	};  // End afterLoadSettings()
+	var parser, fragmentor, words, wordNav, storage, delayer, timer, coreDisplay, playback, settings, speed;
 
 
 	var addEvents = function () {
@@ -6209,10 +6480,27 @@ module.exports={
 	};  // End addEvents()
 
 
+	var afterLoadSettings = function ( oldSettings ) {
+		delayer 	= new Delayer( oldSettings, storage );
+		timer 		= new Timer( delayer, oldSettings, storage );
+		coreDisplay = new Display( timer );
+
+		textElem 	= coreDisplay.nodes.textElements;
+		fragmentor 	= new WordSplitter( textElem, oldSettings, storage );
+
+		playback 	= new Playback( timer, coreDisplay );
+		settings 	= new Settings( timer, coreDisplay );
+		speedSets 	= new SpeedSets( delayer, settings );
+		wordSets	= new WordSets( fragmentor, settings );
+
+		addEvents();
+	};  // End afterLoadSettings()
+
+
 	var getParser = function () {
 		var pSup = new ParserSetup();
 		// FOR TESTING
-		pSup.debug = true;
+		pSup.debug = false;
 
 		// Functions to pass to parser
 		var cleanNode 		= pSup.cleanNode,
@@ -6226,15 +6514,16 @@ module.exports={
 
 
 	var init = function () {
+
 		parser  = getParser();
-		parser.debug = true;
+		parser.debug = false;
 
 		words 	= new Words();
-		wordNav = new WordNav();
+		wordNav = new WordNav();  // Maybe pass Words to WordNav
 		storage = new Storage();
+		// TESTING
+		storage.set({'maxNumCharacters': 10});
 		storage.loadAll( afterLoadSettings );
-
-		addEvents();
 	};  // End init()
 
 
@@ -6246,15 +6535,21 @@ module.exports={
 	// ============== RUNTIME ============== \\
 	var read = function ( node ) {
 
-		var sentences = parser.parse( node );
+		var sentenceWords = parser.parse( node );  // [[Str]]
+		// var sentences = parser.parse( node );
         if (parser.debug) {  // Help non-coder devs identify some bugs
     	    console.log('~~~~~parse debug~~~~~ If any of those tests failed, the problem isn\'t with Readerly, it\'s with one of the other libraries. That problem will have to be fixed later.');
         }
 
-		// TODO: If there's already a `words` (if this isn't new), start where we left off
-		words.process( sentences );
+        // TODO: ??: Combine Words.js and WordNav.js since Words.js now does so little?
+
+		// // TODO: If there's already a `words` (if this isn't new), start where we left off
+		// var sentenceData = words.process( sentenceWords );
+		// // words.process( sentences );
 		
-		wordNav.process( words );
+		wordNav.process( sentenceWords, fragmentor );
+		// wordNav.process( sentenceData, fragmentor );
+		// wordNav.process( words );
 		timer.start( wordNav );
 		return true;
 	};
@@ -6306,7 +6601,510 @@ module.exports={
 
 })();
 
-},{"./lib/ParserSetup.js":2,"./lib/ReaderlyDisplay.js":3,"./lib/ReaderlyStorage.js":4,"./lib/parse/Parser.js":6,"./lib/parse/WordNav.js":7,"./lib/parse/Words.js":8,"./lib/playback/Delayer.js":10,"./lib/playback/PlaybackUI.js":11,"./lib/playback/ReaderlyTimer.js":12,"./lib/settings/ReaderlySettings.js":14,"./lib/settings/SpeedSettings.js":15,"jquery":98}],19:[function(require,module,exports){
+},{"./lib/ParserSetup.js":1,"./lib/ReaderlyDisplay.js":2,"./lib/ReaderlyStorage.js":3,"./lib/parse/Parser.js":5,"./lib/parse/WordNav.js":6,"./lib/parse/WordSplitter.js":7,"./lib/parse/Words.js":8,"./lib/playback/Delayer.js":10,"./lib/playback/PlaybackUI.js":11,"./lib/playback/ReaderlyTimer.js":12,"./lib/settings/ReaderlySettings.js":14,"./lib/settings/SpeedSettings.js":15,"./lib/settings/WordSettings.js":16,"jquery":103}],20:[function(require,module,exports){
+var abbreviations;
+var englishAbbreviations = [
+    "al",
+    "adj",
+    "assn",
+    "Ave",
+    "BSc", "MSc",
+    "Cell",
+    "Ch",
+    "Co",
+    "cc",
+    "Corp",
+    "Dem",
+    "Dept",
+    "ed",
+    "eg",
+    "Eq",
+    "Eqs",
+    "est",
+    "est",
+    "etc",
+    "Ex",
+    "ext", // + number?
+    "Fig",
+    "fig",
+    "Figs",
+    "figs",
+    "i.e",
+    "ie",
+    "Inc",
+    "inc",
+    "Jan","Feb","Mar","Apr","Jun","Jul","Aug","Sep","Sept","Oct","Nov","Dec",
+    "jr",
+    "mi",
+    "Miss", "Mrs", "Mr", "Ms",
+    "Mol",
+    "mt",
+    "mts",
+    "no",
+    "Nos",
+    "PhD", "MD", "BA", "MA", "MM",
+    "pl",
+    "pop",
+    "pp",
+    "Prof", "Dr",
+    "pt",
+    "Ref",
+    "Refs",
+    "Rep",
+    "repr",
+    "rev",
+    "Sec",
+    "Secs",
+    "Sgt", "Col", "Gen", "Rep", "Sen",'Gov', "Lt", "Maj", "Capt","St",
+    "Sr", "sr", "Jr", "jr", "Rev",
+    "Sun","Mon","Tu","Tue","Tues","Wed","Th","Thu","Thur","Thurs","Fri","Sat",
+    "trans",
+    "Univ",
+    "Viz",
+    "Vol",
+    "vs",
+    "v",
+];
+
+exports.setAbbreviations = function(abbr) {
+    if(abbr){
+        abbreviations = abbr;
+    } else {
+        abbreviations = englishAbbreviations;
+    }
+}
+
+exports.isCapitalized = function(str) {
+    return /^[A-Z][a-z].*/.test(str) || this.isNumber(str);
+}
+
+// Start with opening quotes or capitalized letter
+exports.isSentenceStarter = function(str) {
+    return this.isCapitalized(str) || /``|"|'/.test(str.substring(0,2));
+}
+
+exports.isCommonAbbreviation = function(str) {
+    return ~abbreviations.indexOf(str.replace(/\W+/g, ''));
+}
+
+// This is going towards too much rule based
+exports.isTimeAbbreviation = function(word, next) {
+    if (word === "a.m." || word === "p.m.") {
+        var tmp = next.replace(/\W+/g, '').slice(-3).toLowerCase();
+
+        if (tmp === "day") {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+exports.isDottedAbbreviation = function(word) {
+    var matches = word.replace(/[\(\)\[\]\{\}]/g, '').match(/(.\.)*/);
+    return matches && matches[0].length > 0;
+}
+
+// TODO look for next words, if multiple capitalized -> not sentence ending
+exports.isCustomAbbreviation = function(str) {
+    if (str.length <= 3) {
+        return true;
+    }
+
+    return this.isCapitalized(str);
+}
+
+// Uses current word count in sentence and next few words to check if it is
+// more likely an abbreviation + name or new sentence.
+
+// ~ TODO Perhaps also consider prev. word?
+exports.isNameAbbreviation = function(wordCount, words) {
+    if (words.length > 0) {
+        if (wordCount < 5 && words[0].length < 6 && this.isCapitalized(words[0])) {
+            return true;
+        }
+
+        var capitalized = words.filter(function(str) {
+            return /[A-Z]/.test(str.charAt(0));
+        });
+
+        return capitalized.length >= 3;
+    }
+
+    return false;
+}
+
+exports.isNumber = function(str, dotPos) {
+    if (dotPos) {
+        str = str.slice(dotPos-1, dotPos+2);
+    }
+
+    return !isNaN(str);
+};
+
+// Phone number matching
+// http://stackoverflow.com/a/123666/951517
+exports.isPhoneNr = function(str) {
+    return str.match(/^(?:(?:\+?1\s*(?:[.-]\s*)?)?(?:\(\s*([2-9]1[02-9]|[2-9][02-8]1|[2-9][02-8][02-9])\s*\)|([2-9]1[02-9]|[2-9][02-8]1|[2-9][02-8][02-9]))\s*(?:[.-]\s*)?)?([2-9]1[02-9]|[2-9][02-9]1|[2-9][02-9]{2})\s*(?:[.-]\s*)?([0-9]{4})(?:\s*(?:#|x\.?|ext\.?|extension)\s*(\d+))?$/);
+};
+
+// Match urls / emails
+// http://stackoverflow.com/a/3809435/951517
+exports.isURL = function(str) {
+    return str.match(/[-a-zA-Z0-9@:%._\+~#=]{2,256}\.[a-z]{2,6}\b([-a-zA-Z0-9@:%_\+.~#?&//=]*)/);
+};
+
+// Starting a new sentence if beginning with capital letter
+// Exception: The word is enclosed in brackets
+exports.isConcatenated = function(word) {
+    var i = 0;
+
+    if ((i = word.indexOf(".")) > -1 ||
+        (i = word.indexOf("!")) > -1 ||
+        (i = word.indexOf("?")) > -1)
+    {
+        var c = word.charAt(i + 1);
+
+        // Check if the next word starts with a letter
+        if (c.match(/[a-zA-Z].*/)) {
+            return [word.slice(0, i), word.slice(i+1)];
+        }
+    }
+
+    return false;
+};
+
+exports.isBoundaryChar = function(word) {
+    return word === "." ||
+           word === "!" ||
+           word === "?";
+};
+
+},{}],21:[function(require,module,exports){
+
+exports.endsWithChar = function ends_with_char(word, c) {
+    if (c.length > 1) {
+        return c.indexOf(word.slice(-1)) > -1;
+    }
+
+    return word.slice(-1) === c;
+};
+
+exports.endsWith = function ends_with(word, end) {
+    return word.slice(word.length - end.length) === end;
+};
+},{}],22:[function(require,module,exports){
+
+module.exports = function sanitizeHtml(text, opts) {
+  // Strip HTML from Text using browser HTML parser
+  if (typeof text == 'string' || text instanceof String) {
+    var $div = document.createElement("DIV");
+    $div.innerHTML = text;
+    text =  ($div.textContent || '').trim();
+  }
+  //DOM Object
+  else if (typeof text === 'object' && text.textContent) {
+    text = (text.textContent || '').trim();
+  }
+
+  return text;
+};
+
+},{}],23:[function(require,module,exports){
+/*jshint node:true, laxcomma:true */
+"use strict";
+
+var sanitizeHtml = require('sanitize-html');
+
+var String = require('./String');
+var Match  = require('./Match');
+
+var newline_placeholder = " @~@ ";
+var newline_placeholder_t = newline_placeholder.trim();
+
+
+// Split the entry into sentences.
+var buildSentences = function(text, options) {
+
+    Match.setAbbreviations(options.abbreviations);
+
+    if (options.newline_boundaries) {
+        text = text.replace(/\n+|[-#=_+*]{4,}/g, newline_placeholder);
+    }
+
+    if (options.html_boundaries) {
+        var html_boundaries_regexp = "(<br\\s*\\/?>|<\\/(" + options.html_boundaries_tags.join("|") + ")>)";
+        var re = new RegExp(html_boundaries_regexp, "g");
+        text = text.replace(re, "$1" + newline_placeholder);
+    }
+
+    if (options.sanitize || options.allowed_tags) {
+        if (! options.allowed_tags) {
+            options.allowed_tags = [""];
+        }
+
+        text = sanitizeHtml(text, { "allowedTags" : options.allowed_tags });
+    }
+
+    // Split the text into words
+    // - see http://blog.tompawlak.org/split-string-into-tokens-javascript
+    var words = text.trim().match(/\S+|[\n\r]/g);
+
+    var wordCount = 0;
+    var index = 0;
+    var temp  = [];
+    var sentences = [];
+    var current   = [];
+
+    // If given text is only whitespace (or nothing of \S+)
+    if (!words || !words.length) {
+        return [];
+    }
+
+    for (var i=0, L=words.length; i < L; i++) {
+        wordCount++;
+
+        // A new line counts as a sentence
+        if (  words[i] === '\n' || words[i] === '\r' ) {
+            sentences.push(current);
+            sentences.push( [ words[i] ] )
+            current   = [];
+            wordCount = 0;
+            continue;
+        }
+
+        // Add the word to current sentence
+        current.push(words[i]);
+
+        // Sub-sentences, reset counter
+        if (~words[i].indexOf(',')) {
+            wordCount = 0;
+        }
+
+        if (Match.isBoundaryChar(words[i])      ||
+            String.endsWithChar(words[i], "?!") ||
+            words[i] === newline_placeholder_t)
+        {
+            if ((options.newline_boundaries || options.html_boundaries) && words[i] === newline_placeholder_t) {
+                current.pop();
+            }
+
+            sentences.push(current);
+            wordCount = 0;
+            current   = [];
+
+            continue;
+        }
+
+
+        if (String.endsWithChar(words[i], "\"") || String.endsWithChar(words[i], "”")) {
+            // endQuote = words[i].slice(-1);
+            words[i] = words[i].slice(0, -1);
+        }
+
+        // A dot might indicate the end sentences
+        // Exception: The next sentence starts with a word (non abbreviation)
+        //            that has a capital letter.
+        if (String.endsWithChar(words[i], '.')) {
+            // Check if there is a next word
+            // This probably needs to be improved with machine learning
+            if (i+1 < L) {
+                // Single character abbr.
+                if (words[i].length === 2 && isNaN(words[i].charAt(0))) {
+                    continue;
+                }
+
+                // Common abbr. that often do not end sentences
+                if (Match.isCommonAbbreviation(words[i])) {
+                    continue;
+                }
+
+                // Next word starts with capital word, but current sentence is
+                // quite short
+                if (Match.isSentenceStarter(words[i+1])) {
+                    if (Match.isTimeAbbreviation(words[i], words[i+1])) {
+                        continue;
+                    }
+
+                    // Dealing with names at the start of sentences
+                    if (Match.isNameAbbreviation(wordCount, words.slice(i, 6))) {
+                        continue;
+                    }
+
+                    if (Match.isNumber(words[i+1])) {
+                        if (Match.isCustomAbbreviation(words[i])) {
+                            continue;
+                        }
+                    }
+                }
+                else {
+                    // Skip ellipsis
+                    if (String.endsWith(words[i], "..")) {
+                        continue;
+                    }
+
+                    //// Skip abbreviations
+                    // Short words + dot or a dot after each letter
+                    if (Match.isDottedAbbreviation(words[i])) {
+                        continue;
+                    }
+
+                    if (Match.isNameAbbreviation(wordCount, words.slice(i, 5))) {
+                        continue;
+                    }
+                }
+            }
+
+            sentences.push(current);
+            current   = [];
+            wordCount = 0;
+
+            continue;
+        }
+
+        // Check if the word has a dot in it
+        if ((index = words[i].indexOf(".")) > -1) {
+            if (Match.isNumber(words[i], index)) {
+                continue;
+            }
+
+            // Custom dotted abbreviations (like K.L.M or I.C.T)
+            if (Match.isDottedAbbreviation(words[i])) {
+                continue;
+            }
+
+            // Skip urls / emails and the like
+            if (Match.isURL(words[i]) || Match.isPhoneNr(words[i])) {
+                continue;
+            }
+        }
+
+        if (temp = Match.isConcatenated(words[i])) {
+            current.pop();
+            current.push(temp[0]);
+            sentences.push(current);
+
+            current = [];
+            wordCount = 0;
+            current.push(temp[1]);
+        }
+    }
+
+    if (current.length) {
+        sentences.push(current);
+    }
+
+    // Clear "empty" sentences
+    sentences = sentences.filter(function(s) {
+        return s.length > 0;
+    });
+
+    return sentences;
+};
+
+
+
+var sentenceStrings = function (sentences) {
+/* ( str, obj ) -> [ [Str] ]
+* 
+* Returns a list of words
+*/
+    /** After processing **/
+    var strings  = [];
+    var sentence = "";
+
+    for (var i=0; i < sentences.length; i++) {
+        sentence = sentences[i].join(" ");
+
+        // Single words, could be "enumeration lists"
+        if (sentences[i].length === 1 && sentences[i][0].length < 4 &&
+            sentences[i][0].indexOf('.') > -1)
+        {
+            // Check if there is a next sentence
+            // It should not be another list item
+            if (sentences[i+1] && sentences[i+1][0].indexOf('.') < 0) {
+                sentence += " " + sentences[i+1].join(" ");
+                i++;
+            }
+        }
+
+        strings.push(sentence);
+    }
+
+    return strings;
+};  // End sentenceStrings()
+
+
+var sentenceWords = function (sentences) {
+/* ( str, obj ) -> [ [Str] ]
+* 
+* Returns a list of sentences each of which are a list of words
+*/
+    /** After processing **/
+    var words    = [];
+    var sentence = "";
+
+    for (var i=0; i < sentences.length; i++) {
+
+        sentence = sentences[i];
+
+        // Single words, could be "enumeration lists"
+        if (sentences[i].length === 1 && sentences[i][0].length < 4 &&
+            sentences[i][0].indexOf('.') > -1)
+        {
+            // Check if there is a next sentence
+            // It should not be another list item
+            if (sentences[i+1] && sentences[i+1][0].indexOf('.') < 0) {
+                sentence = sentences[i].concat( sentences[i+1] );
+                i++;
+            }
+        }
+
+        words.push(sentence);
+    }
+
+    return words;
+};  // End sentenceWords()
+
+
+
+
+exports.sentences = function (text, user_options) {
+    if (!text || typeof text !== "string" || !text.length) {
+        return [];
+    }
+
+    var options = {
+        "parse_type"          : "strings",  // ??: "result_type" instead?
+        "newline_boundaries"  : false,
+        "html_boundaries"     : false,
+        "html_boundaries_tags": ["p","div","ul","ol"],
+        "sanitize"            : false,
+        "allowed_tags"        : false,
+        "abbreviations"       : null
+    };
+
+    if (typeof user_options === "boolean") {
+        // Deprecated quick option
+        options.newline_boundaries = true;
+    }
+    else {
+        // Extend options
+        for (var k in user_options) {
+            options[k] = user_options[k];
+        }
+    }
+
+    var sentenceData = buildSentences(text, options);
+
+    if ( options.parse_type === 'words' ) {
+        return sentenceWords(sentenceData);
+    } else {
+        return sentenceStrings(sentenceData);
+    }
+};  // Ends exports.sentences()
+
+},{"./Match":20,"./String":21,"sanitize-html":22}],24:[function(require,module,exports){
 // Generated by CoffeeScript 2.0.0-beta7
 void function () {
   var _, cleanArticleTags, cleanBadTags, cleanCodeBlocks, cleanEmTags, cleaner, cleanErrantLinebreaks, cleanParaSpans, cleanUnderlines, divToPara, getReplacementNodes, removeBodyClasses, removeDropCaps, removeNodesRegex, removeScriptsStyles, replaceWithPara;
@@ -6517,7 +7315,7 @@ void function () {
   };
 }.call(this);
 
-},{"lodash":96}],20:[function(require,module,exports){
+},{"lodash":101}],25:[function(require,module,exports){
 // Generated by CoffeeScript 2.0.0-beta7
 void function () {
   var _, addSiblings, biggestTitleChunk, cleanText, cleanTitle, formatter, getObjectTag, getScore, getSiblingsContent, getSiblingsScore, getVideoAttrs, isBoostable, isHighlinkDensity, isNodescoreThresholdMet, isTableAndNoParaExist, postCleanup, rawTitle, stopwords, updateNodeCount, updateScore;
@@ -7026,7 +7824,7 @@ void function () {
   };
 }.call(this);
 
-},{"./formatter":21,"./stopwords":22,"lodash":96}],21:[function(require,module,exports){
+},{"./formatter":26,"./stopwords":27,"lodash":101}],26:[function(require,module,exports){
 // Generated by CoffeeScript 2.0.0-beta7
 void function () {
   var _, addNewlineToBr, cleanParagraphText, convertToText, formatter, linksToText, removeFewwordsParagraphs, removeNegativescoresNodes, replaceWithText, stopwords, ulToText, XRegExp;
@@ -7149,7 +7947,7 @@ void function () {
   };
 }.call(this);
 
-},{"./stopwords":22,"lodash":96,"xregexp":97}],22:[function(require,module,exports){
+},{"./stopwords":27,"lodash":101,"xregexp":102}],27:[function(require,module,exports){
 // Generated by CoffeeScript 2.0.0-beta7
 void function () {
   var _, cache, candiateWords, removePunctuation, stopwords, stopwordsData;
@@ -7193,7 +7991,7 @@ void function () {
   };
 }.call(this);
 
-},{"./stopwordsdata":23,"lodash":96}],23:[function(require,module,exports){
+},{"./stopwordsdata":28,"lodash":101}],28:[function(require,module,exports){
 // Generated by CoffeeScript 2.0.0-beta7
 module.exports = {
   ar: [
@@ -15551,7 +16349,7 @@ module.exports = {
   ]
 };
 
-},{}],24:[function(require,module,exports){
+},{}],29:[function(require,module,exports){
 // Generated by CoffeeScript 2.0.0-beta7
 void function () {
   var cheerio, cleaner, extractor, getCleanedDoc, getParsedDoc, getTopNode, unfluff;
@@ -15693,7 +16491,7 @@ void function () {
   };
 }.call(this);
 
-},{"./cleaner":19,"./extractor":20,"cheerio":25}],25:[function(require,module,exports){
+},{"./cleaner":24,"./extractor":25,"cheerio":30}],30:[function(require,module,exports){
 /**
  * Export cheerio (with )
  */
@@ -15706,7 +16504,7 @@ exports = module.exports = require('./lib/cheerio');
 
 exports.version = require('./package').version;
 
-},{"./lib/cheerio":30,"./package":95}],26:[function(require,module,exports){
+},{"./lib/cheerio":35,"./package":100}],31:[function(require,module,exports){
 var _ = require('lodash'),
   utils = require('../utils'),
   isTag = utils.isTag,
@@ -16121,7 +16919,7 @@ var is = exports.is = function (selector) {
 };
 
 
-},{"../utils":33,"lodash":96}],27:[function(require,module,exports){
+},{"../utils":38,"lodash":101}],32:[function(require,module,exports){
 var _ = require('lodash'),
     domEach = require('../utils').domEach;
 var toString = Object.prototype.toString;
@@ -16241,7 +17039,7 @@ function parse(styles) {
     }, {});
 }
 
-},{"../utils":33,"lodash":96}],28:[function(require,module,exports){
+},{"../utils":38,"lodash":101}],33:[function(require,module,exports){
 var _ = require('lodash'),
     parse = require('../parse'),
     $ = require('../static'),
@@ -16547,7 +17345,7 @@ var clone = exports.clone = function() {
   return this._make($.html(this));
 };
 
-},{"../parse":31,"../static":32,"../utils":33,"lodash":96}],29:[function(require,module,exports){
+},{"../parse":36,"../static":37,"../utils":38,"lodash":101}],34:[function(require,module,exports){
 var _ = require('lodash'),
     select = require('CSSselect'),
     utils = require('../utils'),
@@ -16910,7 +17708,7 @@ var add = exports.add = function(other, context) {
   return selection;
 };
 
-},{"../utils":33,"CSSselect":34,"htmlparser2":68,"lodash":96}],30:[function(require,module,exports){
+},{"../utils":38,"CSSselect":39,"htmlparser2":73,"lodash":101}],35:[function(require,module,exports){
 /*
   Module dependencies
 */
@@ -17073,7 +17871,7 @@ var isNode = function(obj) {
   return obj.name || obj.type === 'text' || obj.type === 'comment';
 };
 
-},{"./api/attributes":26,"./api/css":27,"./api/manipulation":28,"./api/traversing":29,"./parse":31,"./static":32,"lodash":96,"path":110}],31:[function(require,module,exports){
+},{"./api/attributes":31,"./api/css":32,"./api/manipulation":33,"./api/traversing":34,"./parse":36,"./static":37,"lodash":101,"path":114}],36:[function(require,module,exports){
 (function (Buffer){
 /*
   Module Dependencies
@@ -17170,7 +17968,7 @@ var update = exports.update = function(arr, parent) {
 // module.exports = $.extend(exports);
 
 }).call(this,{"isBuffer":require("../../../../../../../../../../../../usr/local/lib/node_modules/browserify/node_modules/insert-module-globals/node_modules/is-buffer/index.js")})
-},{"../../../../../../../../../../../../usr/local/lib/node_modules/browserify/node_modules/insert-module-globals/node_modules/is-buffer/index.js":109,"./utils":33,"htmlparser2":68}],32:[function(require,module,exports){
+},{"../../../../../../../../../../../../usr/local/lib/node_modules/browserify/node_modules/insert-module-globals/node_modules/is-buffer/index.js":113,"./utils":38,"htmlparser2":73}],37:[function(require,module,exports){
 /**
  * Module dependencies
  */
@@ -17328,7 +18126,7 @@ var contains = exports.contains = function(container, contained) {
   return false;
 };
 
-},{"./cheerio":30,"./parse":31,"CSSselect":34,"dom-serializer":51,"lodash":96}],33:[function(require,module,exports){
+},{"./cheerio":35,"./parse":36,"CSSselect":39,"dom-serializer":56,"lodash":101}],38:[function(require,module,exports){
 /**
  * HTML Tags
  */
@@ -17381,7 +18179,7 @@ exports.domEach = function(cheerio, fn) {
   return cheerio;
 };
 
-},{}],34:[function(require,module,exports){
+},{}],39:[function(require,module,exports){
 "use strict";
 
 module.exports = CSSselect;
@@ -17437,7 +18235,7 @@ CSSselect.is = is;
 CSSselect.parse = compile;
 CSSselect.iterate = selectAll;
 
-},{"./lib/basefunctions.js":36,"./lib/compile.js":37,"./lib/pseudos.js":40,"domutils":43}],35:[function(require,module,exports){
+},{"./lib/basefunctions.js":41,"./lib/compile.js":42,"./lib/pseudos.js":45,"domutils":48}],40:[function(require,module,exports){
 var DomUtils  = require("domutils"),
     hasAttrib = DomUtils.hasAttrib,
     getAttributeValue = DomUtils.getAttributeValue,
@@ -17617,7 +18415,7 @@ module.exports = {
 	rules: attributeRules
 };
 
-},{"./basefunctions.js":36,"domutils":43}],36:[function(require,module,exports){
+},{"./basefunctions.js":41,"domutils":48}],41:[function(require,module,exports){
 module.exports = {
 	trueFunc: function trueFunc(){
 		return true;
@@ -17626,7 +18424,7 @@ module.exports = {
 		return false;
 	}
 };
-},{}],37:[function(require,module,exports){
+},{}],42:[function(require,module,exports){
 /*
 	compiles a selector to an executable function
 */
@@ -17712,7 +18510,7 @@ filters.has = function(next, selector){
 	};
 };
 
-},{"./basefunctions.js":36,"./general.js":38,"./pseudos.js":40,"./sort.js":41,"CSSwhat":42,"domutils":43}],38:[function(require,module,exports){
+},{"./basefunctions.js":41,"./general.js":43,"./pseudos.js":45,"./sort.js":46,"CSSwhat":47,"domutils":48}],43:[function(require,module,exports){
 var DomUtils    = require("domutils"),
     isTag       = DomUtils.isTag,
     getParent   = DomUtils.getParent,
@@ -17793,7 +18591,7 @@ module.exports = {
 		return next;
 	}
 };
-},{"./attributes.js":35,"./pseudos.js":40,"domutils":43}],39:[function(require,module,exports){
+},{"./attributes.js":40,"./pseudos.js":45,"domutils":48}],44:[function(require,module,exports){
 var BaseFuncs = require("./basefunctions.js"),
     trueFunc  = BaseFuncs.trueFunc,
     falseFunc = BaseFuncs.falseFunc;
@@ -17878,7 +18676,7 @@ function compile(parsed){
 		return pos <= b && pos % a === bMod;
 	};
 }
-},{"./basefunctions.js":36}],40:[function(require,module,exports){
+},{"./basefunctions.js":41}],45:[function(require,module,exports){
 /*
 	pseudo selectors
 	
@@ -18218,7 +19016,7 @@ module.exports = {
 	pseudos: pseudos
 };
 
-},{"./attributes.js":35,"./basefunctions.js":36,"./nth-check.js":39,"domutils":43}],41:[function(require,module,exports){
+},{"./attributes.js":40,"./basefunctions.js":41,"./nth-check.js":44,"domutils":48}],46:[function(require,module,exports){
 module.exports = sortByProcedure;
 
 /*
@@ -18278,7 +19076,7 @@ function sortByProcedure(arr){
 	}
 	return arr;
 }
-},{}],42:[function(require,module,exports){
+},{}],47:[function(require,module,exports){
 "use strict";
 
 module.exports = parse;
@@ -18461,7 +19259,7 @@ function parse(selector, options){
 	subselects.push(tokens);
 	return subselects;
 }
-},{}],43:[function(require,module,exports){
+},{}],48:[function(require,module,exports){
 var DomUtils = module.exports;
 
 [
@@ -18477,7 +19275,7 @@ var DomUtils = module.exports;
 	});
 });
 
-},{"./lib/helpers":44,"./lib/legacy":45,"./lib/manipulation":46,"./lib/querying":47,"./lib/stringify":48,"./lib/traversal":49}],44:[function(require,module,exports){
+},{"./lib/helpers":49,"./lib/legacy":50,"./lib/manipulation":51,"./lib/querying":52,"./lib/stringify":53,"./lib/traversal":54}],49:[function(require,module,exports){
 // removeSubsets
 // Given an array of nodes, remove any member that is contained by another.
 exports.removeSubsets = function(nodes) {
@@ -18510,7 +19308,7 @@ exports.removeSubsets = function(nodes) {
 	return nodes;
 };
 
-},{}],45:[function(require,module,exports){
+},{}],50:[function(require,module,exports){
 var ElementType = require("domelementtype");
 var isTag = exports.isTag = ElementType.isTag;
 
@@ -18599,7 +19397,7 @@ exports.getElementsByTagType = function(type, element, recurse, limit){
 	return this.filter(Checks.tag_type(type), element, recurse, limit);
 };
 
-},{"domelementtype":50}],46:[function(require,module,exports){
+},{"domelementtype":55}],51:[function(require,module,exports){
 exports.removeElement = function(elem){
 	if(elem.prev) elem.prev.next = elem.next;
 	if(elem.next) elem.next.prev = elem.prev;
@@ -18678,7 +19476,7 @@ exports.prepend = function(elem, prev){
 
 
 
-},{}],47:[function(require,module,exports){
+},{}],52:[function(require,module,exports){
 var isTag = require("domelementtype").isTag;
 
 module.exports = {
@@ -18774,7 +19572,7 @@ function findAll(test, elems){
 	return result;
 }
 
-},{"domelementtype":50}],48:[function(require,module,exports){
+},{"domelementtype":55}],53:[function(require,module,exports){
 var ElementType = require("domelementtype"),
     isTag = ElementType.isTag;
 
@@ -18868,7 +19666,7 @@ function getText(elem){
 	if(elem.type === ElementType.Text) return elem.data;
 	return "";
 }
-},{"domelementtype":50}],49:[function(require,module,exports){
+},{"domelementtype":55}],54:[function(require,module,exports){
 var getChildren = exports.getChildren = function(elem){
 	return elem.children;
 };
@@ -18894,7 +19692,7 @@ exports.getName = function(elem){
 	return elem.name;
 };
 
-},{}],50:[function(require,module,exports){
+},{}],55:[function(require,module,exports){
 //Types of elements found in the DOM
 module.exports = {
 	Text: "text", //Text
@@ -18911,7 +19709,7 @@ module.exports = {
 	}
 };
 
-},{}],51:[function(require,module,exports){
+},{}],56:[function(require,module,exports){
 /*
   Module dependencies
 */
@@ -19095,7 +19893,7 @@ function renderComment(elem) {
   return '<!--' + elem.data + '-->';
 }
 
-},{"domelementtype":52,"entities":53}],52:[function(require,module,exports){
+},{"domelementtype":57,"entities":58}],57:[function(require,module,exports){
 //Types of elements found in the DOM
 module.exports = {
 	Text: "text", //Text
@@ -19110,7 +19908,7 @@ module.exports = {
 		return elem.type === "tag" || elem.type === "script" || elem.type === "style";
 	}
 };
-},{}],53:[function(require,module,exports){
+},{}],58:[function(require,module,exports){
 var encode = require("./lib/encode.js"),
     decode = require("./lib/decode.js");
 
@@ -19145,7 +19943,7 @@ exports.decodeHTMLStrict = decode.HTMLStrict;
 
 exports.escape = encode.escape;
 
-},{"./lib/decode.js":54,"./lib/encode.js":56}],54:[function(require,module,exports){
+},{"./lib/decode.js":59,"./lib/encode.js":61}],59:[function(require,module,exports){
 var entityMap = require("../maps/entities.json"),
     legacyMap = require("../maps/legacy.json"),
     xmlMap    = require("../maps/xml.json"),
@@ -19218,7 +20016,7 @@ module.exports = {
 	HTML: decodeHTML,
 	HTMLStrict: decodeHTMLStrict
 };
-},{"../maps/entities.json":58,"../maps/legacy.json":59,"../maps/xml.json":60,"./decode_codepoint.js":55}],55:[function(require,module,exports){
+},{"../maps/entities.json":63,"../maps/legacy.json":64,"../maps/xml.json":65,"./decode_codepoint.js":60}],60:[function(require,module,exports){
 var decodeMap = require("../maps/decode.json");
 
 module.exports = decodeCodePoint;
@@ -19246,7 +20044,7 @@ function decodeCodePoint(codePoint){
 	return output;
 }
 
-},{"../maps/decode.json":57}],56:[function(require,module,exports){
+},{"../maps/decode.json":62}],61:[function(require,module,exports){
 var inverseXML = getInverseObj(require("../maps/xml.json")),
     xmlReplacer = getInverseReplacer(inverseXML);
 
@@ -19321,16 +20119,16 @@ function escapeXML(data){
 
 exports.escape = escapeXML;
 
-},{"../maps/entities.json":58,"../maps/xml.json":60}],57:[function(require,module,exports){
+},{"../maps/entities.json":63,"../maps/xml.json":65}],62:[function(require,module,exports){
 module.exports={"0":65533,"128":8364,"130":8218,"131":402,"132":8222,"133":8230,"134":8224,"135":8225,"136":710,"137":8240,"138":352,"139":8249,"140":338,"142":381,"145":8216,"146":8217,"147":8220,"148":8221,"149":8226,"150":8211,"151":8212,"152":732,"153":8482,"154":353,"155":8250,"156":339,"158":382,"159":376}
-},{}],58:[function(require,module,exports){
+},{}],63:[function(require,module,exports){
 module.exports={"Aacute":"\u00C1","aacute":"\u00E1","Abreve":"\u0102","abreve":"\u0103","ac":"\u223E","acd":"\u223F","acE":"\u223E\u0333","Acirc":"\u00C2","acirc":"\u00E2","acute":"\u00B4","Acy":"\u0410","acy":"\u0430","AElig":"\u00C6","aelig":"\u00E6","af":"\u2061","Afr":"\uD835\uDD04","afr":"\uD835\uDD1E","Agrave":"\u00C0","agrave":"\u00E0","alefsym":"\u2135","aleph":"\u2135","Alpha":"\u0391","alpha":"\u03B1","Amacr":"\u0100","amacr":"\u0101","amalg":"\u2A3F","amp":"&","AMP":"&","andand":"\u2A55","And":"\u2A53","and":"\u2227","andd":"\u2A5C","andslope":"\u2A58","andv":"\u2A5A","ang":"\u2220","ange":"\u29A4","angle":"\u2220","angmsdaa":"\u29A8","angmsdab":"\u29A9","angmsdac":"\u29AA","angmsdad":"\u29AB","angmsdae":"\u29AC","angmsdaf":"\u29AD","angmsdag":"\u29AE","angmsdah":"\u29AF","angmsd":"\u2221","angrt":"\u221F","angrtvb":"\u22BE","angrtvbd":"\u299D","angsph":"\u2222","angst":"\u00C5","angzarr":"\u237C","Aogon":"\u0104","aogon":"\u0105","Aopf":"\uD835\uDD38","aopf":"\uD835\uDD52","apacir":"\u2A6F","ap":"\u2248","apE":"\u2A70","ape":"\u224A","apid":"\u224B","apos":"'","ApplyFunction":"\u2061","approx":"\u2248","approxeq":"\u224A","Aring":"\u00C5","aring":"\u00E5","Ascr":"\uD835\uDC9C","ascr":"\uD835\uDCB6","Assign":"\u2254","ast":"*","asymp":"\u2248","asympeq":"\u224D","Atilde":"\u00C3","atilde":"\u00E3","Auml":"\u00C4","auml":"\u00E4","awconint":"\u2233","awint":"\u2A11","backcong":"\u224C","backepsilon":"\u03F6","backprime":"\u2035","backsim":"\u223D","backsimeq":"\u22CD","Backslash":"\u2216","Barv":"\u2AE7","barvee":"\u22BD","barwed":"\u2305","Barwed":"\u2306","barwedge":"\u2305","bbrk":"\u23B5","bbrktbrk":"\u23B6","bcong":"\u224C","Bcy":"\u0411","bcy":"\u0431","bdquo":"\u201E","becaus":"\u2235","because":"\u2235","Because":"\u2235","bemptyv":"\u29B0","bepsi":"\u03F6","bernou":"\u212C","Bernoullis":"\u212C","Beta":"\u0392","beta":"\u03B2","beth":"\u2136","between":"\u226C","Bfr":"\uD835\uDD05","bfr":"\uD835\uDD1F","bigcap":"\u22C2","bigcirc":"\u25EF","bigcup":"\u22C3","bigodot":"\u2A00","bigoplus":"\u2A01","bigotimes":"\u2A02","bigsqcup":"\u2A06","bigstar":"\u2605","bigtriangledown":"\u25BD","bigtriangleup":"\u25B3","biguplus":"\u2A04","bigvee":"\u22C1","bigwedge":"\u22C0","bkarow":"\u290D","blacklozenge":"\u29EB","blacksquare":"\u25AA","blacktriangle":"\u25B4","blacktriangledown":"\u25BE","blacktriangleleft":"\u25C2","blacktriangleright":"\u25B8","blank":"\u2423","blk12":"\u2592","blk14":"\u2591","blk34":"\u2593","block":"\u2588","bne":"=\u20E5","bnequiv":"\u2261\u20E5","bNot":"\u2AED","bnot":"\u2310","Bopf":"\uD835\uDD39","bopf":"\uD835\uDD53","bot":"\u22A5","bottom":"\u22A5","bowtie":"\u22C8","boxbox":"\u29C9","boxdl":"\u2510","boxdL":"\u2555","boxDl":"\u2556","boxDL":"\u2557","boxdr":"\u250C","boxdR":"\u2552","boxDr":"\u2553","boxDR":"\u2554","boxh":"\u2500","boxH":"\u2550","boxhd":"\u252C","boxHd":"\u2564","boxhD":"\u2565","boxHD":"\u2566","boxhu":"\u2534","boxHu":"\u2567","boxhU":"\u2568","boxHU":"\u2569","boxminus":"\u229F","boxplus":"\u229E","boxtimes":"\u22A0","boxul":"\u2518","boxuL":"\u255B","boxUl":"\u255C","boxUL":"\u255D","boxur":"\u2514","boxuR":"\u2558","boxUr":"\u2559","boxUR":"\u255A","boxv":"\u2502","boxV":"\u2551","boxvh":"\u253C","boxvH":"\u256A","boxVh":"\u256B","boxVH":"\u256C","boxvl":"\u2524","boxvL":"\u2561","boxVl":"\u2562","boxVL":"\u2563","boxvr":"\u251C","boxvR":"\u255E","boxVr":"\u255F","boxVR":"\u2560","bprime":"\u2035","breve":"\u02D8","Breve":"\u02D8","brvbar":"\u00A6","bscr":"\uD835\uDCB7","Bscr":"\u212C","bsemi":"\u204F","bsim":"\u223D","bsime":"\u22CD","bsolb":"\u29C5","bsol":"\\","bsolhsub":"\u27C8","bull":"\u2022","bullet":"\u2022","bump":"\u224E","bumpE":"\u2AAE","bumpe":"\u224F","Bumpeq":"\u224E","bumpeq":"\u224F","Cacute":"\u0106","cacute":"\u0107","capand":"\u2A44","capbrcup":"\u2A49","capcap":"\u2A4B","cap":"\u2229","Cap":"\u22D2","capcup":"\u2A47","capdot":"\u2A40","CapitalDifferentialD":"\u2145","caps":"\u2229\uFE00","caret":"\u2041","caron":"\u02C7","Cayleys":"\u212D","ccaps":"\u2A4D","Ccaron":"\u010C","ccaron":"\u010D","Ccedil":"\u00C7","ccedil":"\u00E7","Ccirc":"\u0108","ccirc":"\u0109","Cconint":"\u2230","ccups":"\u2A4C","ccupssm":"\u2A50","Cdot":"\u010A","cdot":"\u010B","cedil":"\u00B8","Cedilla":"\u00B8","cemptyv":"\u29B2","cent":"\u00A2","centerdot":"\u00B7","CenterDot":"\u00B7","cfr":"\uD835\uDD20","Cfr":"\u212D","CHcy":"\u0427","chcy":"\u0447","check":"\u2713","checkmark":"\u2713","Chi":"\u03A7","chi":"\u03C7","circ":"\u02C6","circeq":"\u2257","circlearrowleft":"\u21BA","circlearrowright":"\u21BB","circledast":"\u229B","circledcirc":"\u229A","circleddash":"\u229D","CircleDot":"\u2299","circledR":"\u00AE","circledS":"\u24C8","CircleMinus":"\u2296","CirclePlus":"\u2295","CircleTimes":"\u2297","cir":"\u25CB","cirE":"\u29C3","cire":"\u2257","cirfnint":"\u2A10","cirmid":"\u2AEF","cirscir":"\u29C2","ClockwiseContourIntegral":"\u2232","CloseCurlyDoubleQuote":"\u201D","CloseCurlyQuote":"\u2019","clubs":"\u2663","clubsuit":"\u2663","colon":":","Colon":"\u2237","Colone":"\u2A74","colone":"\u2254","coloneq":"\u2254","comma":",","commat":"@","comp":"\u2201","compfn":"\u2218","complement":"\u2201","complexes":"\u2102","cong":"\u2245","congdot":"\u2A6D","Congruent":"\u2261","conint":"\u222E","Conint":"\u222F","ContourIntegral":"\u222E","copf":"\uD835\uDD54","Copf":"\u2102","coprod":"\u2210","Coproduct":"\u2210","copy":"\u00A9","COPY":"\u00A9","copysr":"\u2117","CounterClockwiseContourIntegral":"\u2233","crarr":"\u21B5","cross":"\u2717","Cross":"\u2A2F","Cscr":"\uD835\uDC9E","cscr":"\uD835\uDCB8","csub":"\u2ACF","csube":"\u2AD1","csup":"\u2AD0","csupe":"\u2AD2","ctdot":"\u22EF","cudarrl":"\u2938","cudarrr":"\u2935","cuepr":"\u22DE","cuesc":"\u22DF","cularr":"\u21B6","cularrp":"\u293D","cupbrcap":"\u2A48","cupcap":"\u2A46","CupCap":"\u224D","cup":"\u222A","Cup":"\u22D3","cupcup":"\u2A4A","cupdot":"\u228D","cupor":"\u2A45","cups":"\u222A\uFE00","curarr":"\u21B7","curarrm":"\u293C","curlyeqprec":"\u22DE","curlyeqsucc":"\u22DF","curlyvee":"\u22CE","curlywedge":"\u22CF","curren":"\u00A4","curvearrowleft":"\u21B6","curvearrowright":"\u21B7","cuvee":"\u22CE","cuwed":"\u22CF","cwconint":"\u2232","cwint":"\u2231","cylcty":"\u232D","dagger":"\u2020","Dagger":"\u2021","daleth":"\u2138","darr":"\u2193","Darr":"\u21A1","dArr":"\u21D3","dash":"\u2010","Dashv":"\u2AE4","dashv":"\u22A3","dbkarow":"\u290F","dblac":"\u02DD","Dcaron":"\u010E","dcaron":"\u010F","Dcy":"\u0414","dcy":"\u0434","ddagger":"\u2021","ddarr":"\u21CA","DD":"\u2145","dd":"\u2146","DDotrahd":"\u2911","ddotseq":"\u2A77","deg":"\u00B0","Del":"\u2207","Delta":"\u0394","delta":"\u03B4","demptyv":"\u29B1","dfisht":"\u297F","Dfr":"\uD835\uDD07","dfr":"\uD835\uDD21","dHar":"\u2965","dharl":"\u21C3","dharr":"\u21C2","DiacriticalAcute":"\u00B4","DiacriticalDot":"\u02D9","DiacriticalDoubleAcute":"\u02DD","DiacriticalGrave":"`","DiacriticalTilde":"\u02DC","diam":"\u22C4","diamond":"\u22C4","Diamond":"\u22C4","diamondsuit":"\u2666","diams":"\u2666","die":"\u00A8","DifferentialD":"\u2146","digamma":"\u03DD","disin":"\u22F2","div":"\u00F7","divide":"\u00F7","divideontimes":"\u22C7","divonx":"\u22C7","DJcy":"\u0402","djcy":"\u0452","dlcorn":"\u231E","dlcrop":"\u230D","dollar":"$","Dopf":"\uD835\uDD3B","dopf":"\uD835\uDD55","Dot":"\u00A8","dot":"\u02D9","DotDot":"\u20DC","doteq":"\u2250","doteqdot":"\u2251","DotEqual":"\u2250","dotminus":"\u2238","dotplus":"\u2214","dotsquare":"\u22A1","doublebarwedge":"\u2306","DoubleContourIntegral":"\u222F","DoubleDot":"\u00A8","DoubleDownArrow":"\u21D3","DoubleLeftArrow":"\u21D0","DoubleLeftRightArrow":"\u21D4","DoubleLeftTee":"\u2AE4","DoubleLongLeftArrow":"\u27F8","DoubleLongLeftRightArrow":"\u27FA","DoubleLongRightArrow":"\u27F9","DoubleRightArrow":"\u21D2","DoubleRightTee":"\u22A8","DoubleUpArrow":"\u21D1","DoubleUpDownArrow":"\u21D5","DoubleVerticalBar":"\u2225","DownArrowBar":"\u2913","downarrow":"\u2193","DownArrow":"\u2193","Downarrow":"\u21D3","DownArrowUpArrow":"\u21F5","DownBreve":"\u0311","downdownarrows":"\u21CA","downharpoonleft":"\u21C3","downharpoonright":"\u21C2","DownLeftRightVector":"\u2950","DownLeftTeeVector":"\u295E","DownLeftVectorBar":"\u2956","DownLeftVector":"\u21BD","DownRightTeeVector":"\u295F","DownRightVectorBar":"\u2957","DownRightVector":"\u21C1","DownTeeArrow":"\u21A7","DownTee":"\u22A4","drbkarow":"\u2910","drcorn":"\u231F","drcrop":"\u230C","Dscr":"\uD835\uDC9F","dscr":"\uD835\uDCB9","DScy":"\u0405","dscy":"\u0455","dsol":"\u29F6","Dstrok":"\u0110","dstrok":"\u0111","dtdot":"\u22F1","dtri":"\u25BF","dtrif":"\u25BE","duarr":"\u21F5","duhar":"\u296F","dwangle":"\u29A6","DZcy":"\u040F","dzcy":"\u045F","dzigrarr":"\u27FF","Eacute":"\u00C9","eacute":"\u00E9","easter":"\u2A6E","Ecaron":"\u011A","ecaron":"\u011B","Ecirc":"\u00CA","ecirc":"\u00EA","ecir":"\u2256","ecolon":"\u2255","Ecy":"\u042D","ecy":"\u044D","eDDot":"\u2A77","Edot":"\u0116","edot":"\u0117","eDot":"\u2251","ee":"\u2147","efDot":"\u2252","Efr":"\uD835\uDD08","efr":"\uD835\uDD22","eg":"\u2A9A","Egrave":"\u00C8","egrave":"\u00E8","egs":"\u2A96","egsdot":"\u2A98","el":"\u2A99","Element":"\u2208","elinters":"\u23E7","ell":"\u2113","els":"\u2A95","elsdot":"\u2A97","Emacr":"\u0112","emacr":"\u0113","empty":"\u2205","emptyset":"\u2205","EmptySmallSquare":"\u25FB","emptyv":"\u2205","EmptyVerySmallSquare":"\u25AB","emsp13":"\u2004","emsp14":"\u2005","emsp":"\u2003","ENG":"\u014A","eng":"\u014B","ensp":"\u2002","Eogon":"\u0118","eogon":"\u0119","Eopf":"\uD835\uDD3C","eopf":"\uD835\uDD56","epar":"\u22D5","eparsl":"\u29E3","eplus":"\u2A71","epsi":"\u03B5","Epsilon":"\u0395","epsilon":"\u03B5","epsiv":"\u03F5","eqcirc":"\u2256","eqcolon":"\u2255","eqsim":"\u2242","eqslantgtr":"\u2A96","eqslantless":"\u2A95","Equal":"\u2A75","equals":"=","EqualTilde":"\u2242","equest":"\u225F","Equilibrium":"\u21CC","equiv":"\u2261","equivDD":"\u2A78","eqvparsl":"\u29E5","erarr":"\u2971","erDot":"\u2253","escr":"\u212F","Escr":"\u2130","esdot":"\u2250","Esim":"\u2A73","esim":"\u2242","Eta":"\u0397","eta":"\u03B7","ETH":"\u00D0","eth":"\u00F0","Euml":"\u00CB","euml":"\u00EB","euro":"\u20AC","excl":"!","exist":"\u2203","Exists":"\u2203","expectation":"\u2130","exponentiale":"\u2147","ExponentialE":"\u2147","fallingdotseq":"\u2252","Fcy":"\u0424","fcy":"\u0444","female":"\u2640","ffilig":"\uFB03","fflig":"\uFB00","ffllig":"\uFB04","Ffr":"\uD835\uDD09","ffr":"\uD835\uDD23","filig":"\uFB01","FilledSmallSquare":"\u25FC","FilledVerySmallSquare":"\u25AA","fjlig":"fj","flat":"\u266D","fllig":"\uFB02","fltns":"\u25B1","fnof":"\u0192","Fopf":"\uD835\uDD3D","fopf":"\uD835\uDD57","forall":"\u2200","ForAll":"\u2200","fork":"\u22D4","forkv":"\u2AD9","Fouriertrf":"\u2131","fpartint":"\u2A0D","frac12":"\u00BD","frac13":"\u2153","frac14":"\u00BC","frac15":"\u2155","frac16":"\u2159","frac18":"\u215B","frac23":"\u2154","frac25":"\u2156","frac34":"\u00BE","frac35":"\u2157","frac38":"\u215C","frac45":"\u2158","frac56":"\u215A","frac58":"\u215D","frac78":"\u215E","frasl":"\u2044","frown":"\u2322","fscr":"\uD835\uDCBB","Fscr":"\u2131","gacute":"\u01F5","Gamma":"\u0393","gamma":"\u03B3","Gammad":"\u03DC","gammad":"\u03DD","gap":"\u2A86","Gbreve":"\u011E","gbreve":"\u011F","Gcedil":"\u0122","Gcirc":"\u011C","gcirc":"\u011D","Gcy":"\u0413","gcy":"\u0433","Gdot":"\u0120","gdot":"\u0121","ge":"\u2265","gE":"\u2267","gEl":"\u2A8C","gel":"\u22DB","geq":"\u2265","geqq":"\u2267","geqslant":"\u2A7E","gescc":"\u2AA9","ges":"\u2A7E","gesdot":"\u2A80","gesdoto":"\u2A82","gesdotol":"\u2A84","gesl":"\u22DB\uFE00","gesles":"\u2A94","Gfr":"\uD835\uDD0A","gfr":"\uD835\uDD24","gg":"\u226B","Gg":"\u22D9","ggg":"\u22D9","gimel":"\u2137","GJcy":"\u0403","gjcy":"\u0453","gla":"\u2AA5","gl":"\u2277","glE":"\u2A92","glj":"\u2AA4","gnap":"\u2A8A","gnapprox":"\u2A8A","gne":"\u2A88","gnE":"\u2269","gneq":"\u2A88","gneqq":"\u2269","gnsim":"\u22E7","Gopf":"\uD835\uDD3E","gopf":"\uD835\uDD58","grave":"`","GreaterEqual":"\u2265","GreaterEqualLess":"\u22DB","GreaterFullEqual":"\u2267","GreaterGreater":"\u2AA2","GreaterLess":"\u2277","GreaterSlantEqual":"\u2A7E","GreaterTilde":"\u2273","Gscr":"\uD835\uDCA2","gscr":"\u210A","gsim":"\u2273","gsime":"\u2A8E","gsiml":"\u2A90","gtcc":"\u2AA7","gtcir":"\u2A7A","gt":">","GT":">","Gt":"\u226B","gtdot":"\u22D7","gtlPar":"\u2995","gtquest":"\u2A7C","gtrapprox":"\u2A86","gtrarr":"\u2978","gtrdot":"\u22D7","gtreqless":"\u22DB","gtreqqless":"\u2A8C","gtrless":"\u2277","gtrsim":"\u2273","gvertneqq":"\u2269\uFE00","gvnE":"\u2269\uFE00","Hacek":"\u02C7","hairsp":"\u200A","half":"\u00BD","hamilt":"\u210B","HARDcy":"\u042A","hardcy":"\u044A","harrcir":"\u2948","harr":"\u2194","hArr":"\u21D4","harrw":"\u21AD","Hat":"^","hbar":"\u210F","Hcirc":"\u0124","hcirc":"\u0125","hearts":"\u2665","heartsuit":"\u2665","hellip":"\u2026","hercon":"\u22B9","hfr":"\uD835\uDD25","Hfr":"\u210C","HilbertSpace":"\u210B","hksearow":"\u2925","hkswarow":"\u2926","hoarr":"\u21FF","homtht":"\u223B","hookleftarrow":"\u21A9","hookrightarrow":"\u21AA","hopf":"\uD835\uDD59","Hopf":"\u210D","horbar":"\u2015","HorizontalLine":"\u2500","hscr":"\uD835\uDCBD","Hscr":"\u210B","hslash":"\u210F","Hstrok":"\u0126","hstrok":"\u0127","HumpDownHump":"\u224E","HumpEqual":"\u224F","hybull":"\u2043","hyphen":"\u2010","Iacute":"\u00CD","iacute":"\u00ED","ic":"\u2063","Icirc":"\u00CE","icirc":"\u00EE","Icy":"\u0418","icy":"\u0438","Idot":"\u0130","IEcy":"\u0415","iecy":"\u0435","iexcl":"\u00A1","iff":"\u21D4","ifr":"\uD835\uDD26","Ifr":"\u2111","Igrave":"\u00CC","igrave":"\u00EC","ii":"\u2148","iiiint":"\u2A0C","iiint":"\u222D","iinfin":"\u29DC","iiota":"\u2129","IJlig":"\u0132","ijlig":"\u0133","Imacr":"\u012A","imacr":"\u012B","image":"\u2111","ImaginaryI":"\u2148","imagline":"\u2110","imagpart":"\u2111","imath":"\u0131","Im":"\u2111","imof":"\u22B7","imped":"\u01B5","Implies":"\u21D2","incare":"\u2105","in":"\u2208","infin":"\u221E","infintie":"\u29DD","inodot":"\u0131","intcal":"\u22BA","int":"\u222B","Int":"\u222C","integers":"\u2124","Integral":"\u222B","intercal":"\u22BA","Intersection":"\u22C2","intlarhk":"\u2A17","intprod":"\u2A3C","InvisibleComma":"\u2063","InvisibleTimes":"\u2062","IOcy":"\u0401","iocy":"\u0451","Iogon":"\u012E","iogon":"\u012F","Iopf":"\uD835\uDD40","iopf":"\uD835\uDD5A","Iota":"\u0399","iota":"\u03B9","iprod":"\u2A3C","iquest":"\u00BF","iscr":"\uD835\uDCBE","Iscr":"\u2110","isin":"\u2208","isindot":"\u22F5","isinE":"\u22F9","isins":"\u22F4","isinsv":"\u22F3","isinv":"\u2208","it":"\u2062","Itilde":"\u0128","itilde":"\u0129","Iukcy":"\u0406","iukcy":"\u0456","Iuml":"\u00CF","iuml":"\u00EF","Jcirc":"\u0134","jcirc":"\u0135","Jcy":"\u0419","jcy":"\u0439","Jfr":"\uD835\uDD0D","jfr":"\uD835\uDD27","jmath":"\u0237","Jopf":"\uD835\uDD41","jopf":"\uD835\uDD5B","Jscr":"\uD835\uDCA5","jscr":"\uD835\uDCBF","Jsercy":"\u0408","jsercy":"\u0458","Jukcy":"\u0404","jukcy":"\u0454","Kappa":"\u039A","kappa":"\u03BA","kappav":"\u03F0","Kcedil":"\u0136","kcedil":"\u0137","Kcy":"\u041A","kcy":"\u043A","Kfr":"\uD835\uDD0E","kfr":"\uD835\uDD28","kgreen":"\u0138","KHcy":"\u0425","khcy":"\u0445","KJcy":"\u040C","kjcy":"\u045C","Kopf":"\uD835\uDD42","kopf":"\uD835\uDD5C","Kscr":"\uD835\uDCA6","kscr":"\uD835\uDCC0","lAarr":"\u21DA","Lacute":"\u0139","lacute":"\u013A","laemptyv":"\u29B4","lagran":"\u2112","Lambda":"\u039B","lambda":"\u03BB","lang":"\u27E8","Lang":"\u27EA","langd":"\u2991","langle":"\u27E8","lap":"\u2A85","Laplacetrf":"\u2112","laquo":"\u00AB","larrb":"\u21E4","larrbfs":"\u291F","larr":"\u2190","Larr":"\u219E","lArr":"\u21D0","larrfs":"\u291D","larrhk":"\u21A9","larrlp":"\u21AB","larrpl":"\u2939","larrsim":"\u2973","larrtl":"\u21A2","latail":"\u2919","lAtail":"\u291B","lat":"\u2AAB","late":"\u2AAD","lates":"\u2AAD\uFE00","lbarr":"\u290C","lBarr":"\u290E","lbbrk":"\u2772","lbrace":"{","lbrack":"[","lbrke":"\u298B","lbrksld":"\u298F","lbrkslu":"\u298D","Lcaron":"\u013D","lcaron":"\u013E","Lcedil":"\u013B","lcedil":"\u013C","lceil":"\u2308","lcub":"{","Lcy":"\u041B","lcy":"\u043B","ldca":"\u2936","ldquo":"\u201C","ldquor":"\u201E","ldrdhar":"\u2967","ldrushar":"\u294B","ldsh":"\u21B2","le":"\u2264","lE":"\u2266","LeftAngleBracket":"\u27E8","LeftArrowBar":"\u21E4","leftarrow":"\u2190","LeftArrow":"\u2190","Leftarrow":"\u21D0","LeftArrowRightArrow":"\u21C6","leftarrowtail":"\u21A2","LeftCeiling":"\u2308","LeftDoubleBracket":"\u27E6","LeftDownTeeVector":"\u2961","LeftDownVectorBar":"\u2959","LeftDownVector":"\u21C3","LeftFloor":"\u230A","leftharpoondown":"\u21BD","leftharpoonup":"\u21BC","leftleftarrows":"\u21C7","leftrightarrow":"\u2194","LeftRightArrow":"\u2194","Leftrightarrow":"\u21D4","leftrightarrows":"\u21C6","leftrightharpoons":"\u21CB","leftrightsquigarrow":"\u21AD","LeftRightVector":"\u294E","LeftTeeArrow":"\u21A4","LeftTee":"\u22A3","LeftTeeVector":"\u295A","leftthreetimes":"\u22CB","LeftTriangleBar":"\u29CF","LeftTriangle":"\u22B2","LeftTriangleEqual":"\u22B4","LeftUpDownVector":"\u2951","LeftUpTeeVector":"\u2960","LeftUpVectorBar":"\u2958","LeftUpVector":"\u21BF","LeftVectorBar":"\u2952","LeftVector":"\u21BC","lEg":"\u2A8B","leg":"\u22DA","leq":"\u2264","leqq":"\u2266","leqslant":"\u2A7D","lescc":"\u2AA8","les":"\u2A7D","lesdot":"\u2A7F","lesdoto":"\u2A81","lesdotor":"\u2A83","lesg":"\u22DA\uFE00","lesges":"\u2A93","lessapprox":"\u2A85","lessdot":"\u22D6","lesseqgtr":"\u22DA","lesseqqgtr":"\u2A8B","LessEqualGreater":"\u22DA","LessFullEqual":"\u2266","LessGreater":"\u2276","lessgtr":"\u2276","LessLess":"\u2AA1","lesssim":"\u2272","LessSlantEqual":"\u2A7D","LessTilde":"\u2272","lfisht":"\u297C","lfloor":"\u230A","Lfr":"\uD835\uDD0F","lfr":"\uD835\uDD29","lg":"\u2276","lgE":"\u2A91","lHar":"\u2962","lhard":"\u21BD","lharu":"\u21BC","lharul":"\u296A","lhblk":"\u2584","LJcy":"\u0409","ljcy":"\u0459","llarr":"\u21C7","ll":"\u226A","Ll":"\u22D8","llcorner":"\u231E","Lleftarrow":"\u21DA","llhard":"\u296B","lltri":"\u25FA","Lmidot":"\u013F","lmidot":"\u0140","lmoustache":"\u23B0","lmoust":"\u23B0","lnap":"\u2A89","lnapprox":"\u2A89","lne":"\u2A87","lnE":"\u2268","lneq":"\u2A87","lneqq":"\u2268","lnsim":"\u22E6","loang":"\u27EC","loarr":"\u21FD","lobrk":"\u27E6","longleftarrow":"\u27F5","LongLeftArrow":"\u27F5","Longleftarrow":"\u27F8","longleftrightarrow":"\u27F7","LongLeftRightArrow":"\u27F7","Longleftrightarrow":"\u27FA","longmapsto":"\u27FC","longrightarrow":"\u27F6","LongRightArrow":"\u27F6","Longrightarrow":"\u27F9","looparrowleft":"\u21AB","looparrowright":"\u21AC","lopar":"\u2985","Lopf":"\uD835\uDD43","lopf":"\uD835\uDD5D","loplus":"\u2A2D","lotimes":"\u2A34","lowast":"\u2217","lowbar":"_","LowerLeftArrow":"\u2199","LowerRightArrow":"\u2198","loz":"\u25CA","lozenge":"\u25CA","lozf":"\u29EB","lpar":"(","lparlt":"\u2993","lrarr":"\u21C6","lrcorner":"\u231F","lrhar":"\u21CB","lrhard":"\u296D","lrm":"\u200E","lrtri":"\u22BF","lsaquo":"\u2039","lscr":"\uD835\uDCC1","Lscr":"\u2112","lsh":"\u21B0","Lsh":"\u21B0","lsim":"\u2272","lsime":"\u2A8D","lsimg":"\u2A8F","lsqb":"[","lsquo":"\u2018","lsquor":"\u201A","Lstrok":"\u0141","lstrok":"\u0142","ltcc":"\u2AA6","ltcir":"\u2A79","lt":"<","LT":"<","Lt":"\u226A","ltdot":"\u22D6","lthree":"\u22CB","ltimes":"\u22C9","ltlarr":"\u2976","ltquest":"\u2A7B","ltri":"\u25C3","ltrie":"\u22B4","ltrif":"\u25C2","ltrPar":"\u2996","lurdshar":"\u294A","luruhar":"\u2966","lvertneqq":"\u2268\uFE00","lvnE":"\u2268\uFE00","macr":"\u00AF","male":"\u2642","malt":"\u2720","maltese":"\u2720","Map":"\u2905","map":"\u21A6","mapsto":"\u21A6","mapstodown":"\u21A7","mapstoleft":"\u21A4","mapstoup":"\u21A5","marker":"\u25AE","mcomma":"\u2A29","Mcy":"\u041C","mcy":"\u043C","mdash":"\u2014","mDDot":"\u223A","measuredangle":"\u2221","MediumSpace":"\u205F","Mellintrf":"\u2133","Mfr":"\uD835\uDD10","mfr":"\uD835\uDD2A","mho":"\u2127","micro":"\u00B5","midast":"*","midcir":"\u2AF0","mid":"\u2223","middot":"\u00B7","minusb":"\u229F","minus":"\u2212","minusd":"\u2238","minusdu":"\u2A2A","MinusPlus":"\u2213","mlcp":"\u2ADB","mldr":"\u2026","mnplus":"\u2213","models":"\u22A7","Mopf":"\uD835\uDD44","mopf":"\uD835\uDD5E","mp":"\u2213","mscr":"\uD835\uDCC2","Mscr":"\u2133","mstpos":"\u223E","Mu":"\u039C","mu":"\u03BC","multimap":"\u22B8","mumap":"\u22B8","nabla":"\u2207","Nacute":"\u0143","nacute":"\u0144","nang":"\u2220\u20D2","nap":"\u2249","napE":"\u2A70\u0338","napid":"\u224B\u0338","napos":"\u0149","napprox":"\u2249","natural":"\u266E","naturals":"\u2115","natur":"\u266E","nbsp":"\u00A0","nbump":"\u224E\u0338","nbumpe":"\u224F\u0338","ncap":"\u2A43","Ncaron":"\u0147","ncaron":"\u0148","Ncedil":"\u0145","ncedil":"\u0146","ncong":"\u2247","ncongdot":"\u2A6D\u0338","ncup":"\u2A42","Ncy":"\u041D","ncy":"\u043D","ndash":"\u2013","nearhk":"\u2924","nearr":"\u2197","neArr":"\u21D7","nearrow":"\u2197","ne":"\u2260","nedot":"\u2250\u0338","NegativeMediumSpace":"\u200B","NegativeThickSpace":"\u200B","NegativeThinSpace":"\u200B","NegativeVeryThinSpace":"\u200B","nequiv":"\u2262","nesear":"\u2928","nesim":"\u2242\u0338","NestedGreaterGreater":"\u226B","NestedLessLess":"\u226A","NewLine":"\n","nexist":"\u2204","nexists":"\u2204","Nfr":"\uD835\uDD11","nfr":"\uD835\uDD2B","ngE":"\u2267\u0338","nge":"\u2271","ngeq":"\u2271","ngeqq":"\u2267\u0338","ngeqslant":"\u2A7E\u0338","nges":"\u2A7E\u0338","nGg":"\u22D9\u0338","ngsim":"\u2275","nGt":"\u226B\u20D2","ngt":"\u226F","ngtr":"\u226F","nGtv":"\u226B\u0338","nharr":"\u21AE","nhArr":"\u21CE","nhpar":"\u2AF2","ni":"\u220B","nis":"\u22FC","nisd":"\u22FA","niv":"\u220B","NJcy":"\u040A","njcy":"\u045A","nlarr":"\u219A","nlArr":"\u21CD","nldr":"\u2025","nlE":"\u2266\u0338","nle":"\u2270","nleftarrow":"\u219A","nLeftarrow":"\u21CD","nleftrightarrow":"\u21AE","nLeftrightarrow":"\u21CE","nleq":"\u2270","nleqq":"\u2266\u0338","nleqslant":"\u2A7D\u0338","nles":"\u2A7D\u0338","nless":"\u226E","nLl":"\u22D8\u0338","nlsim":"\u2274","nLt":"\u226A\u20D2","nlt":"\u226E","nltri":"\u22EA","nltrie":"\u22EC","nLtv":"\u226A\u0338","nmid":"\u2224","NoBreak":"\u2060","NonBreakingSpace":"\u00A0","nopf":"\uD835\uDD5F","Nopf":"\u2115","Not":"\u2AEC","not":"\u00AC","NotCongruent":"\u2262","NotCupCap":"\u226D","NotDoubleVerticalBar":"\u2226","NotElement":"\u2209","NotEqual":"\u2260","NotEqualTilde":"\u2242\u0338","NotExists":"\u2204","NotGreater":"\u226F","NotGreaterEqual":"\u2271","NotGreaterFullEqual":"\u2267\u0338","NotGreaterGreater":"\u226B\u0338","NotGreaterLess":"\u2279","NotGreaterSlantEqual":"\u2A7E\u0338","NotGreaterTilde":"\u2275","NotHumpDownHump":"\u224E\u0338","NotHumpEqual":"\u224F\u0338","notin":"\u2209","notindot":"\u22F5\u0338","notinE":"\u22F9\u0338","notinva":"\u2209","notinvb":"\u22F7","notinvc":"\u22F6","NotLeftTriangleBar":"\u29CF\u0338","NotLeftTriangle":"\u22EA","NotLeftTriangleEqual":"\u22EC","NotLess":"\u226E","NotLessEqual":"\u2270","NotLessGreater":"\u2278","NotLessLess":"\u226A\u0338","NotLessSlantEqual":"\u2A7D\u0338","NotLessTilde":"\u2274","NotNestedGreaterGreater":"\u2AA2\u0338","NotNestedLessLess":"\u2AA1\u0338","notni":"\u220C","notniva":"\u220C","notnivb":"\u22FE","notnivc":"\u22FD","NotPrecedes":"\u2280","NotPrecedesEqual":"\u2AAF\u0338","NotPrecedesSlantEqual":"\u22E0","NotReverseElement":"\u220C","NotRightTriangleBar":"\u29D0\u0338","NotRightTriangle":"\u22EB","NotRightTriangleEqual":"\u22ED","NotSquareSubset":"\u228F\u0338","NotSquareSubsetEqual":"\u22E2","NotSquareSuperset":"\u2290\u0338","NotSquareSupersetEqual":"\u22E3","NotSubset":"\u2282\u20D2","NotSubsetEqual":"\u2288","NotSucceeds":"\u2281","NotSucceedsEqual":"\u2AB0\u0338","NotSucceedsSlantEqual":"\u22E1","NotSucceedsTilde":"\u227F\u0338","NotSuperset":"\u2283\u20D2","NotSupersetEqual":"\u2289","NotTilde":"\u2241","NotTildeEqual":"\u2244","NotTildeFullEqual":"\u2247","NotTildeTilde":"\u2249","NotVerticalBar":"\u2224","nparallel":"\u2226","npar":"\u2226","nparsl":"\u2AFD\u20E5","npart":"\u2202\u0338","npolint":"\u2A14","npr":"\u2280","nprcue":"\u22E0","nprec":"\u2280","npreceq":"\u2AAF\u0338","npre":"\u2AAF\u0338","nrarrc":"\u2933\u0338","nrarr":"\u219B","nrArr":"\u21CF","nrarrw":"\u219D\u0338","nrightarrow":"\u219B","nRightarrow":"\u21CF","nrtri":"\u22EB","nrtrie":"\u22ED","nsc":"\u2281","nsccue":"\u22E1","nsce":"\u2AB0\u0338","Nscr":"\uD835\uDCA9","nscr":"\uD835\uDCC3","nshortmid":"\u2224","nshortparallel":"\u2226","nsim":"\u2241","nsime":"\u2244","nsimeq":"\u2244","nsmid":"\u2224","nspar":"\u2226","nsqsube":"\u22E2","nsqsupe":"\u22E3","nsub":"\u2284","nsubE":"\u2AC5\u0338","nsube":"\u2288","nsubset":"\u2282\u20D2","nsubseteq":"\u2288","nsubseteqq":"\u2AC5\u0338","nsucc":"\u2281","nsucceq":"\u2AB0\u0338","nsup":"\u2285","nsupE":"\u2AC6\u0338","nsupe":"\u2289","nsupset":"\u2283\u20D2","nsupseteq":"\u2289","nsupseteqq":"\u2AC6\u0338","ntgl":"\u2279","Ntilde":"\u00D1","ntilde":"\u00F1","ntlg":"\u2278","ntriangleleft":"\u22EA","ntrianglelefteq":"\u22EC","ntriangleright":"\u22EB","ntrianglerighteq":"\u22ED","Nu":"\u039D","nu":"\u03BD","num":"#","numero":"\u2116","numsp":"\u2007","nvap":"\u224D\u20D2","nvdash":"\u22AC","nvDash":"\u22AD","nVdash":"\u22AE","nVDash":"\u22AF","nvge":"\u2265\u20D2","nvgt":">\u20D2","nvHarr":"\u2904","nvinfin":"\u29DE","nvlArr":"\u2902","nvle":"\u2264\u20D2","nvlt":"<\u20D2","nvltrie":"\u22B4\u20D2","nvrArr":"\u2903","nvrtrie":"\u22B5\u20D2","nvsim":"\u223C\u20D2","nwarhk":"\u2923","nwarr":"\u2196","nwArr":"\u21D6","nwarrow":"\u2196","nwnear":"\u2927","Oacute":"\u00D3","oacute":"\u00F3","oast":"\u229B","Ocirc":"\u00D4","ocirc":"\u00F4","ocir":"\u229A","Ocy":"\u041E","ocy":"\u043E","odash":"\u229D","Odblac":"\u0150","odblac":"\u0151","odiv":"\u2A38","odot":"\u2299","odsold":"\u29BC","OElig":"\u0152","oelig":"\u0153","ofcir":"\u29BF","Ofr":"\uD835\uDD12","ofr":"\uD835\uDD2C","ogon":"\u02DB","Ograve":"\u00D2","ograve":"\u00F2","ogt":"\u29C1","ohbar":"\u29B5","ohm":"\u03A9","oint":"\u222E","olarr":"\u21BA","olcir":"\u29BE","olcross":"\u29BB","oline":"\u203E","olt":"\u29C0","Omacr":"\u014C","omacr":"\u014D","Omega":"\u03A9","omega":"\u03C9","Omicron":"\u039F","omicron":"\u03BF","omid":"\u29B6","ominus":"\u2296","Oopf":"\uD835\uDD46","oopf":"\uD835\uDD60","opar":"\u29B7","OpenCurlyDoubleQuote":"\u201C","OpenCurlyQuote":"\u2018","operp":"\u29B9","oplus":"\u2295","orarr":"\u21BB","Or":"\u2A54","or":"\u2228","ord":"\u2A5D","order":"\u2134","orderof":"\u2134","ordf":"\u00AA","ordm":"\u00BA","origof":"\u22B6","oror":"\u2A56","orslope":"\u2A57","orv":"\u2A5B","oS":"\u24C8","Oscr":"\uD835\uDCAA","oscr":"\u2134","Oslash":"\u00D8","oslash":"\u00F8","osol":"\u2298","Otilde":"\u00D5","otilde":"\u00F5","otimesas":"\u2A36","Otimes":"\u2A37","otimes":"\u2297","Ouml":"\u00D6","ouml":"\u00F6","ovbar":"\u233D","OverBar":"\u203E","OverBrace":"\u23DE","OverBracket":"\u23B4","OverParenthesis":"\u23DC","para":"\u00B6","parallel":"\u2225","par":"\u2225","parsim":"\u2AF3","parsl":"\u2AFD","part":"\u2202","PartialD":"\u2202","Pcy":"\u041F","pcy":"\u043F","percnt":"%","period":".","permil":"\u2030","perp":"\u22A5","pertenk":"\u2031","Pfr":"\uD835\uDD13","pfr":"\uD835\uDD2D","Phi":"\u03A6","phi":"\u03C6","phiv":"\u03D5","phmmat":"\u2133","phone":"\u260E","Pi":"\u03A0","pi":"\u03C0","pitchfork":"\u22D4","piv":"\u03D6","planck":"\u210F","planckh":"\u210E","plankv":"\u210F","plusacir":"\u2A23","plusb":"\u229E","pluscir":"\u2A22","plus":"+","plusdo":"\u2214","plusdu":"\u2A25","pluse":"\u2A72","PlusMinus":"\u00B1","plusmn":"\u00B1","plussim":"\u2A26","plustwo":"\u2A27","pm":"\u00B1","Poincareplane":"\u210C","pointint":"\u2A15","popf":"\uD835\uDD61","Popf":"\u2119","pound":"\u00A3","prap":"\u2AB7","Pr":"\u2ABB","pr":"\u227A","prcue":"\u227C","precapprox":"\u2AB7","prec":"\u227A","preccurlyeq":"\u227C","Precedes":"\u227A","PrecedesEqual":"\u2AAF","PrecedesSlantEqual":"\u227C","PrecedesTilde":"\u227E","preceq":"\u2AAF","precnapprox":"\u2AB9","precneqq":"\u2AB5","precnsim":"\u22E8","pre":"\u2AAF","prE":"\u2AB3","precsim":"\u227E","prime":"\u2032","Prime":"\u2033","primes":"\u2119","prnap":"\u2AB9","prnE":"\u2AB5","prnsim":"\u22E8","prod":"\u220F","Product":"\u220F","profalar":"\u232E","profline":"\u2312","profsurf":"\u2313","prop":"\u221D","Proportional":"\u221D","Proportion":"\u2237","propto":"\u221D","prsim":"\u227E","prurel":"\u22B0","Pscr":"\uD835\uDCAB","pscr":"\uD835\uDCC5","Psi":"\u03A8","psi":"\u03C8","puncsp":"\u2008","Qfr":"\uD835\uDD14","qfr":"\uD835\uDD2E","qint":"\u2A0C","qopf":"\uD835\uDD62","Qopf":"\u211A","qprime":"\u2057","Qscr":"\uD835\uDCAC","qscr":"\uD835\uDCC6","quaternions":"\u210D","quatint":"\u2A16","quest":"?","questeq":"\u225F","quot":"\"","QUOT":"\"","rAarr":"\u21DB","race":"\u223D\u0331","Racute":"\u0154","racute":"\u0155","radic":"\u221A","raemptyv":"\u29B3","rang":"\u27E9","Rang":"\u27EB","rangd":"\u2992","range":"\u29A5","rangle":"\u27E9","raquo":"\u00BB","rarrap":"\u2975","rarrb":"\u21E5","rarrbfs":"\u2920","rarrc":"\u2933","rarr":"\u2192","Rarr":"\u21A0","rArr":"\u21D2","rarrfs":"\u291E","rarrhk":"\u21AA","rarrlp":"\u21AC","rarrpl":"\u2945","rarrsim":"\u2974","Rarrtl":"\u2916","rarrtl":"\u21A3","rarrw":"\u219D","ratail":"\u291A","rAtail":"\u291C","ratio":"\u2236","rationals":"\u211A","rbarr":"\u290D","rBarr":"\u290F","RBarr":"\u2910","rbbrk":"\u2773","rbrace":"}","rbrack":"]","rbrke":"\u298C","rbrksld":"\u298E","rbrkslu":"\u2990","Rcaron":"\u0158","rcaron":"\u0159","Rcedil":"\u0156","rcedil":"\u0157","rceil":"\u2309","rcub":"}","Rcy":"\u0420","rcy":"\u0440","rdca":"\u2937","rdldhar":"\u2969","rdquo":"\u201D","rdquor":"\u201D","rdsh":"\u21B3","real":"\u211C","realine":"\u211B","realpart":"\u211C","reals":"\u211D","Re":"\u211C","rect":"\u25AD","reg":"\u00AE","REG":"\u00AE","ReverseElement":"\u220B","ReverseEquilibrium":"\u21CB","ReverseUpEquilibrium":"\u296F","rfisht":"\u297D","rfloor":"\u230B","rfr":"\uD835\uDD2F","Rfr":"\u211C","rHar":"\u2964","rhard":"\u21C1","rharu":"\u21C0","rharul":"\u296C","Rho":"\u03A1","rho":"\u03C1","rhov":"\u03F1","RightAngleBracket":"\u27E9","RightArrowBar":"\u21E5","rightarrow":"\u2192","RightArrow":"\u2192","Rightarrow":"\u21D2","RightArrowLeftArrow":"\u21C4","rightarrowtail":"\u21A3","RightCeiling":"\u2309","RightDoubleBracket":"\u27E7","RightDownTeeVector":"\u295D","RightDownVectorBar":"\u2955","RightDownVector":"\u21C2","RightFloor":"\u230B","rightharpoondown":"\u21C1","rightharpoonup":"\u21C0","rightleftarrows":"\u21C4","rightleftharpoons":"\u21CC","rightrightarrows":"\u21C9","rightsquigarrow":"\u219D","RightTeeArrow":"\u21A6","RightTee":"\u22A2","RightTeeVector":"\u295B","rightthreetimes":"\u22CC","RightTriangleBar":"\u29D0","RightTriangle":"\u22B3","RightTriangleEqual":"\u22B5","RightUpDownVector":"\u294F","RightUpTeeVector":"\u295C","RightUpVectorBar":"\u2954","RightUpVector":"\u21BE","RightVectorBar":"\u2953","RightVector":"\u21C0","ring":"\u02DA","risingdotseq":"\u2253","rlarr":"\u21C4","rlhar":"\u21CC","rlm":"\u200F","rmoustache":"\u23B1","rmoust":"\u23B1","rnmid":"\u2AEE","roang":"\u27ED","roarr":"\u21FE","robrk":"\u27E7","ropar":"\u2986","ropf":"\uD835\uDD63","Ropf":"\u211D","roplus":"\u2A2E","rotimes":"\u2A35","RoundImplies":"\u2970","rpar":")","rpargt":"\u2994","rppolint":"\u2A12","rrarr":"\u21C9","Rrightarrow":"\u21DB","rsaquo":"\u203A","rscr":"\uD835\uDCC7","Rscr":"\u211B","rsh":"\u21B1","Rsh":"\u21B1","rsqb":"]","rsquo":"\u2019","rsquor":"\u2019","rthree":"\u22CC","rtimes":"\u22CA","rtri":"\u25B9","rtrie":"\u22B5","rtrif":"\u25B8","rtriltri":"\u29CE","RuleDelayed":"\u29F4","ruluhar":"\u2968","rx":"\u211E","Sacute":"\u015A","sacute":"\u015B","sbquo":"\u201A","scap":"\u2AB8","Scaron":"\u0160","scaron":"\u0161","Sc":"\u2ABC","sc":"\u227B","sccue":"\u227D","sce":"\u2AB0","scE":"\u2AB4","Scedil":"\u015E","scedil":"\u015F","Scirc":"\u015C","scirc":"\u015D","scnap":"\u2ABA","scnE":"\u2AB6","scnsim":"\u22E9","scpolint":"\u2A13","scsim":"\u227F","Scy":"\u0421","scy":"\u0441","sdotb":"\u22A1","sdot":"\u22C5","sdote":"\u2A66","searhk":"\u2925","searr":"\u2198","seArr":"\u21D8","searrow":"\u2198","sect":"\u00A7","semi":";","seswar":"\u2929","setminus":"\u2216","setmn":"\u2216","sext":"\u2736","Sfr":"\uD835\uDD16","sfr":"\uD835\uDD30","sfrown":"\u2322","sharp":"\u266F","SHCHcy":"\u0429","shchcy":"\u0449","SHcy":"\u0428","shcy":"\u0448","ShortDownArrow":"\u2193","ShortLeftArrow":"\u2190","shortmid":"\u2223","shortparallel":"\u2225","ShortRightArrow":"\u2192","ShortUpArrow":"\u2191","shy":"\u00AD","Sigma":"\u03A3","sigma":"\u03C3","sigmaf":"\u03C2","sigmav":"\u03C2","sim":"\u223C","simdot":"\u2A6A","sime":"\u2243","simeq":"\u2243","simg":"\u2A9E","simgE":"\u2AA0","siml":"\u2A9D","simlE":"\u2A9F","simne":"\u2246","simplus":"\u2A24","simrarr":"\u2972","slarr":"\u2190","SmallCircle":"\u2218","smallsetminus":"\u2216","smashp":"\u2A33","smeparsl":"\u29E4","smid":"\u2223","smile":"\u2323","smt":"\u2AAA","smte":"\u2AAC","smtes":"\u2AAC\uFE00","SOFTcy":"\u042C","softcy":"\u044C","solbar":"\u233F","solb":"\u29C4","sol":"/","Sopf":"\uD835\uDD4A","sopf":"\uD835\uDD64","spades":"\u2660","spadesuit":"\u2660","spar":"\u2225","sqcap":"\u2293","sqcaps":"\u2293\uFE00","sqcup":"\u2294","sqcups":"\u2294\uFE00","Sqrt":"\u221A","sqsub":"\u228F","sqsube":"\u2291","sqsubset":"\u228F","sqsubseteq":"\u2291","sqsup":"\u2290","sqsupe":"\u2292","sqsupset":"\u2290","sqsupseteq":"\u2292","square":"\u25A1","Square":"\u25A1","SquareIntersection":"\u2293","SquareSubset":"\u228F","SquareSubsetEqual":"\u2291","SquareSuperset":"\u2290","SquareSupersetEqual":"\u2292","SquareUnion":"\u2294","squarf":"\u25AA","squ":"\u25A1","squf":"\u25AA","srarr":"\u2192","Sscr":"\uD835\uDCAE","sscr":"\uD835\uDCC8","ssetmn":"\u2216","ssmile":"\u2323","sstarf":"\u22C6","Star":"\u22C6","star":"\u2606","starf":"\u2605","straightepsilon":"\u03F5","straightphi":"\u03D5","strns":"\u00AF","sub":"\u2282","Sub":"\u22D0","subdot":"\u2ABD","subE":"\u2AC5","sube":"\u2286","subedot":"\u2AC3","submult":"\u2AC1","subnE":"\u2ACB","subne":"\u228A","subplus":"\u2ABF","subrarr":"\u2979","subset":"\u2282","Subset":"\u22D0","subseteq":"\u2286","subseteqq":"\u2AC5","SubsetEqual":"\u2286","subsetneq":"\u228A","subsetneqq":"\u2ACB","subsim":"\u2AC7","subsub":"\u2AD5","subsup":"\u2AD3","succapprox":"\u2AB8","succ":"\u227B","succcurlyeq":"\u227D","Succeeds":"\u227B","SucceedsEqual":"\u2AB0","SucceedsSlantEqual":"\u227D","SucceedsTilde":"\u227F","succeq":"\u2AB0","succnapprox":"\u2ABA","succneqq":"\u2AB6","succnsim":"\u22E9","succsim":"\u227F","SuchThat":"\u220B","sum":"\u2211","Sum":"\u2211","sung":"\u266A","sup1":"\u00B9","sup2":"\u00B2","sup3":"\u00B3","sup":"\u2283","Sup":"\u22D1","supdot":"\u2ABE","supdsub":"\u2AD8","supE":"\u2AC6","supe":"\u2287","supedot":"\u2AC4","Superset":"\u2283","SupersetEqual":"\u2287","suphsol":"\u27C9","suphsub":"\u2AD7","suplarr":"\u297B","supmult":"\u2AC2","supnE":"\u2ACC","supne":"\u228B","supplus":"\u2AC0","supset":"\u2283","Supset":"\u22D1","supseteq":"\u2287","supseteqq":"\u2AC6","supsetneq":"\u228B","supsetneqq":"\u2ACC","supsim":"\u2AC8","supsub":"\u2AD4","supsup":"\u2AD6","swarhk":"\u2926","swarr":"\u2199","swArr":"\u21D9","swarrow":"\u2199","swnwar":"\u292A","szlig":"\u00DF","Tab":"\t","target":"\u2316","Tau":"\u03A4","tau":"\u03C4","tbrk":"\u23B4","Tcaron":"\u0164","tcaron":"\u0165","Tcedil":"\u0162","tcedil":"\u0163","Tcy":"\u0422","tcy":"\u0442","tdot":"\u20DB","telrec":"\u2315","Tfr":"\uD835\uDD17","tfr":"\uD835\uDD31","there4":"\u2234","therefore":"\u2234","Therefore":"\u2234","Theta":"\u0398","theta":"\u03B8","thetasym":"\u03D1","thetav":"\u03D1","thickapprox":"\u2248","thicksim":"\u223C","ThickSpace":"\u205F\u200A","ThinSpace":"\u2009","thinsp":"\u2009","thkap":"\u2248","thksim":"\u223C","THORN":"\u00DE","thorn":"\u00FE","tilde":"\u02DC","Tilde":"\u223C","TildeEqual":"\u2243","TildeFullEqual":"\u2245","TildeTilde":"\u2248","timesbar":"\u2A31","timesb":"\u22A0","times":"\u00D7","timesd":"\u2A30","tint":"\u222D","toea":"\u2928","topbot":"\u2336","topcir":"\u2AF1","top":"\u22A4","Topf":"\uD835\uDD4B","topf":"\uD835\uDD65","topfork":"\u2ADA","tosa":"\u2929","tprime":"\u2034","trade":"\u2122","TRADE":"\u2122","triangle":"\u25B5","triangledown":"\u25BF","triangleleft":"\u25C3","trianglelefteq":"\u22B4","triangleq":"\u225C","triangleright":"\u25B9","trianglerighteq":"\u22B5","tridot":"\u25EC","trie":"\u225C","triminus":"\u2A3A","TripleDot":"\u20DB","triplus":"\u2A39","trisb":"\u29CD","tritime":"\u2A3B","trpezium":"\u23E2","Tscr":"\uD835\uDCAF","tscr":"\uD835\uDCC9","TScy":"\u0426","tscy":"\u0446","TSHcy":"\u040B","tshcy":"\u045B","Tstrok":"\u0166","tstrok":"\u0167","twixt":"\u226C","twoheadleftarrow":"\u219E","twoheadrightarrow":"\u21A0","Uacute":"\u00DA","uacute":"\u00FA","uarr":"\u2191","Uarr":"\u219F","uArr":"\u21D1","Uarrocir":"\u2949","Ubrcy":"\u040E","ubrcy":"\u045E","Ubreve":"\u016C","ubreve":"\u016D","Ucirc":"\u00DB","ucirc":"\u00FB","Ucy":"\u0423","ucy":"\u0443","udarr":"\u21C5","Udblac":"\u0170","udblac":"\u0171","udhar":"\u296E","ufisht":"\u297E","Ufr":"\uD835\uDD18","ufr":"\uD835\uDD32","Ugrave":"\u00D9","ugrave":"\u00F9","uHar":"\u2963","uharl":"\u21BF","uharr":"\u21BE","uhblk":"\u2580","ulcorn":"\u231C","ulcorner":"\u231C","ulcrop":"\u230F","ultri":"\u25F8","Umacr":"\u016A","umacr":"\u016B","uml":"\u00A8","UnderBar":"_","UnderBrace":"\u23DF","UnderBracket":"\u23B5","UnderParenthesis":"\u23DD","Union":"\u22C3","UnionPlus":"\u228E","Uogon":"\u0172","uogon":"\u0173","Uopf":"\uD835\uDD4C","uopf":"\uD835\uDD66","UpArrowBar":"\u2912","uparrow":"\u2191","UpArrow":"\u2191","Uparrow":"\u21D1","UpArrowDownArrow":"\u21C5","updownarrow":"\u2195","UpDownArrow":"\u2195","Updownarrow":"\u21D5","UpEquilibrium":"\u296E","upharpoonleft":"\u21BF","upharpoonright":"\u21BE","uplus":"\u228E","UpperLeftArrow":"\u2196","UpperRightArrow":"\u2197","upsi":"\u03C5","Upsi":"\u03D2","upsih":"\u03D2","Upsilon":"\u03A5","upsilon":"\u03C5","UpTeeArrow":"\u21A5","UpTee":"\u22A5","upuparrows":"\u21C8","urcorn":"\u231D","urcorner":"\u231D","urcrop":"\u230E","Uring":"\u016E","uring":"\u016F","urtri":"\u25F9","Uscr":"\uD835\uDCB0","uscr":"\uD835\uDCCA","utdot":"\u22F0","Utilde":"\u0168","utilde":"\u0169","utri":"\u25B5","utrif":"\u25B4","uuarr":"\u21C8","Uuml":"\u00DC","uuml":"\u00FC","uwangle":"\u29A7","vangrt":"\u299C","varepsilon":"\u03F5","varkappa":"\u03F0","varnothing":"\u2205","varphi":"\u03D5","varpi":"\u03D6","varpropto":"\u221D","varr":"\u2195","vArr":"\u21D5","varrho":"\u03F1","varsigma":"\u03C2","varsubsetneq":"\u228A\uFE00","varsubsetneqq":"\u2ACB\uFE00","varsupsetneq":"\u228B\uFE00","varsupsetneqq":"\u2ACC\uFE00","vartheta":"\u03D1","vartriangleleft":"\u22B2","vartriangleright":"\u22B3","vBar":"\u2AE8","Vbar":"\u2AEB","vBarv":"\u2AE9","Vcy":"\u0412","vcy":"\u0432","vdash":"\u22A2","vDash":"\u22A8","Vdash":"\u22A9","VDash":"\u22AB","Vdashl":"\u2AE6","veebar":"\u22BB","vee":"\u2228","Vee":"\u22C1","veeeq":"\u225A","vellip":"\u22EE","verbar":"|","Verbar":"\u2016","vert":"|","Vert":"\u2016","VerticalBar":"\u2223","VerticalLine":"|","VerticalSeparator":"\u2758","VerticalTilde":"\u2240","VeryThinSpace":"\u200A","Vfr":"\uD835\uDD19","vfr":"\uD835\uDD33","vltri":"\u22B2","vnsub":"\u2282\u20D2","vnsup":"\u2283\u20D2","Vopf":"\uD835\uDD4D","vopf":"\uD835\uDD67","vprop":"\u221D","vrtri":"\u22B3","Vscr":"\uD835\uDCB1","vscr":"\uD835\uDCCB","vsubnE":"\u2ACB\uFE00","vsubne":"\u228A\uFE00","vsupnE":"\u2ACC\uFE00","vsupne":"\u228B\uFE00","Vvdash":"\u22AA","vzigzag":"\u299A","Wcirc":"\u0174","wcirc":"\u0175","wedbar":"\u2A5F","wedge":"\u2227","Wedge":"\u22C0","wedgeq":"\u2259","weierp":"\u2118","Wfr":"\uD835\uDD1A","wfr":"\uD835\uDD34","Wopf":"\uD835\uDD4E","wopf":"\uD835\uDD68","wp":"\u2118","wr":"\u2240","wreath":"\u2240","Wscr":"\uD835\uDCB2","wscr":"\uD835\uDCCC","xcap":"\u22C2","xcirc":"\u25EF","xcup":"\u22C3","xdtri":"\u25BD","Xfr":"\uD835\uDD1B","xfr":"\uD835\uDD35","xharr":"\u27F7","xhArr":"\u27FA","Xi":"\u039E","xi":"\u03BE","xlarr":"\u27F5","xlArr":"\u27F8","xmap":"\u27FC","xnis":"\u22FB","xodot":"\u2A00","Xopf":"\uD835\uDD4F","xopf":"\uD835\uDD69","xoplus":"\u2A01","xotime":"\u2A02","xrarr":"\u27F6","xrArr":"\u27F9","Xscr":"\uD835\uDCB3","xscr":"\uD835\uDCCD","xsqcup":"\u2A06","xuplus":"\u2A04","xutri":"\u25B3","xvee":"\u22C1","xwedge":"\u22C0","Yacute":"\u00DD","yacute":"\u00FD","YAcy":"\u042F","yacy":"\u044F","Ycirc":"\u0176","ycirc":"\u0177","Ycy":"\u042B","ycy":"\u044B","yen":"\u00A5","Yfr":"\uD835\uDD1C","yfr":"\uD835\uDD36","YIcy":"\u0407","yicy":"\u0457","Yopf":"\uD835\uDD50","yopf":"\uD835\uDD6A","Yscr":"\uD835\uDCB4","yscr":"\uD835\uDCCE","YUcy":"\u042E","yucy":"\u044E","yuml":"\u00FF","Yuml":"\u0178","Zacute":"\u0179","zacute":"\u017A","Zcaron":"\u017D","zcaron":"\u017E","Zcy":"\u0417","zcy":"\u0437","Zdot":"\u017B","zdot":"\u017C","zeetrf":"\u2128","ZeroWidthSpace":"\u200B","Zeta":"\u0396","zeta":"\u03B6","zfr":"\uD835\uDD37","Zfr":"\u2128","ZHcy":"\u0416","zhcy":"\u0436","zigrarr":"\u21DD","zopf":"\uD835\uDD6B","Zopf":"\u2124","Zscr":"\uD835\uDCB5","zscr":"\uD835\uDCCF","zwj":"\u200D","zwnj":"\u200C"}
-},{}],59:[function(require,module,exports){
+},{}],64:[function(require,module,exports){
 module.exports={"Aacute":"\u00C1","aacute":"\u00E1","Acirc":"\u00C2","acirc":"\u00E2","acute":"\u00B4","AElig":"\u00C6","aelig":"\u00E6","Agrave":"\u00C0","agrave":"\u00E0","amp":"&","AMP":"&","Aring":"\u00C5","aring":"\u00E5","Atilde":"\u00C3","atilde":"\u00E3","Auml":"\u00C4","auml":"\u00E4","brvbar":"\u00A6","Ccedil":"\u00C7","ccedil":"\u00E7","cedil":"\u00B8","cent":"\u00A2","copy":"\u00A9","COPY":"\u00A9","curren":"\u00A4","deg":"\u00B0","divide":"\u00F7","Eacute":"\u00C9","eacute":"\u00E9","Ecirc":"\u00CA","ecirc":"\u00EA","Egrave":"\u00C8","egrave":"\u00E8","ETH":"\u00D0","eth":"\u00F0","Euml":"\u00CB","euml":"\u00EB","frac12":"\u00BD","frac14":"\u00BC","frac34":"\u00BE","gt":">","GT":">","Iacute":"\u00CD","iacute":"\u00ED","Icirc":"\u00CE","icirc":"\u00EE","iexcl":"\u00A1","Igrave":"\u00CC","igrave":"\u00EC","iquest":"\u00BF","Iuml":"\u00CF","iuml":"\u00EF","laquo":"\u00AB","lt":"<","LT":"<","macr":"\u00AF","micro":"\u00B5","middot":"\u00B7","nbsp":"\u00A0","not":"\u00AC","Ntilde":"\u00D1","ntilde":"\u00F1","Oacute":"\u00D3","oacute":"\u00F3","Ocirc":"\u00D4","ocirc":"\u00F4","Ograve":"\u00D2","ograve":"\u00F2","ordf":"\u00AA","ordm":"\u00BA","Oslash":"\u00D8","oslash":"\u00F8","Otilde":"\u00D5","otilde":"\u00F5","Ouml":"\u00D6","ouml":"\u00F6","para":"\u00B6","plusmn":"\u00B1","pound":"\u00A3","quot":"\"","QUOT":"\"","raquo":"\u00BB","reg":"\u00AE","REG":"\u00AE","sect":"\u00A7","shy":"\u00AD","sup1":"\u00B9","sup2":"\u00B2","sup3":"\u00B3","szlig":"\u00DF","THORN":"\u00DE","thorn":"\u00FE","times":"\u00D7","Uacute":"\u00DA","uacute":"\u00FA","Ucirc":"\u00DB","ucirc":"\u00FB","Ugrave":"\u00D9","ugrave":"\u00F9","uml":"\u00A8","Uuml":"\u00DC","uuml":"\u00FC","Yacute":"\u00DD","yacute":"\u00FD","yen":"\u00A5","yuml":"\u00FF"}
-},{}],60:[function(require,module,exports){
+},{}],65:[function(require,module,exports){
 module.exports={"amp":"&","apos":"'","gt":">","lt":"<","quot":"\""}
 
-},{}],61:[function(require,module,exports){
+},{}],66:[function(require,module,exports){
 module.exports = CollectingHandler;
 
 function CollectingHandler(cbs){
@@ -19387,7 +20185,7 @@ CollectingHandler.prototype.restart = function(){
 	}
 };
 
-},{"./":68}],62:[function(require,module,exports){
+},{"./":73}],67:[function(require,module,exports){
 var index = require("./index.js"),
     DomHandler = index.DomHandler,
 	DomUtils = index.DomUtils;
@@ -19484,7 +20282,7 @@ FeedHandler.prototype.onend = function() {
 
 module.exports = FeedHandler;
 
-},{"./index.js":68,"util":132}],63:[function(require,module,exports){
+},{"./index.js":73,"util":136}],68:[function(require,module,exports){
 var Tokenizer = require("./Tokenizer.js");
 
 /*
@@ -19823,7 +20621,7 @@ Parser.prototype.done = Parser.prototype.end;
 
 module.exports = Parser;
 
-},{"./Tokenizer.js":66,"events":107,"util":132}],64:[function(require,module,exports){
+},{"./Tokenizer.js":71,"events":111,"util":136}],69:[function(require,module,exports){
 module.exports = ProxyHandler;
 
 function ProxyHandler(cbs){
@@ -19851,7 +20649,7 @@ Object.keys(EVENTS).forEach(function(name){
 		throw Error("wrong number of arguments");
 	}
 });
-},{"./":68}],65:[function(require,module,exports){
+},{"./":73}],70:[function(require,module,exports){
 module.exports = Stream;
 
 var Parser = require("./WritableStream.js");
@@ -19887,7 +20685,7 @@ Object.keys(EVENTS).forEach(function(name){
 		throw Error("wrong number of arguments!");
 	}
 });
-},{"../":68,"./WritableStream.js":67,"util":132}],66:[function(require,module,exports){
+},{"../":73,"./WritableStream.js":72,"util":136}],71:[function(require,module,exports){
 module.exports = Tokenizer;
 
 var decodeCodePoint = require("entities/lib/decode_codepoint.js"),
@@ -20786,7 +21584,7 @@ Tokenizer.prototype._emitPartial = function(value){
 	}
 };
 
-},{"entities/lib/decode_codepoint.js":80,"entities/maps/entities.json":82,"entities/maps/legacy.json":83,"entities/maps/xml.json":84}],67:[function(require,module,exports){
+},{"entities/lib/decode_codepoint.js":85,"entities/maps/entities.json":87,"entities/maps/legacy.json":88,"entities/maps/xml.json":89}],72:[function(require,module,exports){
 module.exports = Stream;
 
 var Parser = require("./Parser.js"),
@@ -20808,7 +21606,7 @@ WritableStream.prototype._write = function(chunk, encoding, cb){
 	this._parser.write(chunk);
 	cb();
 };
-},{"./Parser.js":63,"readable-stream":94,"stream":128,"util":132}],68:[function(require,module,exports){
+},{"./Parser.js":68,"readable-stream":99,"stream":132,"util":136}],73:[function(require,module,exports){
 var Parser = require("./Parser.js"),
     DomHandler = require("domhandler");
 
@@ -20878,9 +21676,9 @@ module.exports = {
 	}
 };
 
-},{"./CollectingHandler.js":61,"./FeedHandler.js":62,"./Parser.js":63,"./ProxyHandler.js":64,"./Stream.js":65,"./Tokenizer.js":66,"./WritableStream.js":67,"domelementtype":69,"domhandler":70,"domutils":73}],69:[function(require,module,exports){
-arguments[4][50][0].apply(exports,arguments)
-},{"dup":50}],70:[function(require,module,exports){
+},{"./CollectingHandler.js":66,"./FeedHandler.js":67,"./Parser.js":68,"./ProxyHandler.js":69,"./Stream.js":70,"./Tokenizer.js":71,"./WritableStream.js":72,"domelementtype":74,"domhandler":75,"domutils":78}],74:[function(require,module,exports){
+arguments[4][55][0].apply(exports,arguments)
+},{"dup":55}],75:[function(require,module,exports){
 var ElementType = require("domelementtype");
 
 var re_whitespace = /\s+/g;
@@ -21053,7 +21851,7 @@ DomHandler.prototype.onprocessinginstruction = function(name, data){
 
 module.exports = DomHandler;
 
-},{"./lib/element":71,"./lib/node":72,"domelementtype":69}],71:[function(require,module,exports){
+},{"./lib/element":76,"./lib/node":77,"domelementtype":74}],76:[function(require,module,exports){
 // DOM-Level-1-compliant structure
 var NodePrototype = require('./node');
 var ElementPrototype = module.exports = Object.create(NodePrototype);
@@ -21075,7 +21873,7 @@ Object.keys(domLvl1).forEach(function(key) {
 	});
 });
 
-},{"./node":72}],72:[function(require,module,exports){
+},{"./node":77}],77:[function(require,module,exports){
 // This object will be used as the prototype for Nodes when creating a
 // DOM-Level-1-compliant structure.
 var NodePrototype = module.exports = {
@@ -21121,9 +21919,9 @@ Object.keys(domLvl1).forEach(function(key) {
 	});
 });
 
-},{}],73:[function(require,module,exports){
-arguments[4][43][0].apply(exports,arguments)
-},{"./lib/helpers":74,"./lib/legacy":75,"./lib/manipulation":76,"./lib/querying":77,"./lib/stringify":78,"./lib/traversal":79,"dup":43}],74:[function(require,module,exports){
+},{}],78:[function(require,module,exports){
+arguments[4][48][0].apply(exports,arguments)
+},{"./lib/helpers":79,"./lib/legacy":80,"./lib/manipulation":81,"./lib/querying":82,"./lib/stringify":83,"./lib/traversal":84,"dup":48}],79:[function(require,module,exports){
 // removeSubsets
 // Given an array of nodes, remove any member that is contained by another.
 exports.removeSubsets = function(nodes) {
@@ -21266,13 +22064,13 @@ exports.uniqueSort = function(nodes) {
 	return nodes;
 };
 
-},{}],75:[function(require,module,exports){
-arguments[4][45][0].apply(exports,arguments)
-},{"domelementtype":69,"dup":45}],76:[function(require,module,exports){
-arguments[4][46][0].apply(exports,arguments)
-},{"dup":46}],77:[function(require,module,exports){
-arguments[4][47][0].apply(exports,arguments)
-},{"domelementtype":69,"dup":47}],78:[function(require,module,exports){
+},{}],80:[function(require,module,exports){
+arguments[4][50][0].apply(exports,arguments)
+},{"domelementtype":74,"dup":50}],81:[function(require,module,exports){
+arguments[4][51][0].apply(exports,arguments)
+},{"dup":51}],82:[function(require,module,exports){
+arguments[4][52][0].apply(exports,arguments)
+},{"domelementtype":74,"dup":52}],83:[function(require,module,exports){
 var ElementType = require("domelementtype"),
     getOuterHTML = require("dom-serializer"),
     isTag = ElementType.isTag;
@@ -21296,7 +22094,7 @@ function getText(elem){
 	return "";
 }
 
-},{"dom-serializer":51,"domelementtype":69}],79:[function(require,module,exports){
+},{"dom-serializer":56,"domelementtype":74}],84:[function(require,module,exports){
 var getChildren = exports.getChildren = function(elem){
 	return elem.children;
 };
@@ -21322,17 +22120,17 @@ exports.getName = function(elem){
 	return elem.name;
 };
 
-},{}],80:[function(require,module,exports){
-arguments[4][55][0].apply(exports,arguments)
-},{"../maps/decode.json":81,"dup":55}],81:[function(require,module,exports){
-arguments[4][57][0].apply(exports,arguments)
-},{"dup":57}],82:[function(require,module,exports){
-arguments[4][58][0].apply(exports,arguments)
-},{"dup":58}],83:[function(require,module,exports){
-arguments[4][59][0].apply(exports,arguments)
-},{"dup":59}],84:[function(require,module,exports){
+},{}],85:[function(require,module,exports){
 arguments[4][60][0].apply(exports,arguments)
-},{"dup":60}],85:[function(require,module,exports){
+},{"../maps/decode.json":86,"dup":60}],86:[function(require,module,exports){
+arguments[4][62][0].apply(exports,arguments)
+},{"dup":62}],87:[function(require,module,exports){
+arguments[4][63][0].apply(exports,arguments)
+},{"dup":63}],88:[function(require,module,exports){
+arguments[4][64][0].apply(exports,arguments)
+},{"dup":64}],89:[function(require,module,exports){
+arguments[4][65][0].apply(exports,arguments)
+},{"dup":65}],90:[function(require,module,exports){
 (function (process){
 // Copyright Joyent, Inc. and other Node contributors.
 //
@@ -21425,7 +22223,7 @@ function forEach (xs, f) {
 }
 
 }).call(this,require('_process'))
-},{"./_stream_readable":87,"./_stream_writable":89,"_process":111,"core-util-is":90,"inherits":91}],86:[function(require,module,exports){
+},{"./_stream_readable":92,"./_stream_writable":94,"_process":115,"core-util-is":95,"inherits":96}],91:[function(require,module,exports){
 // Copyright Joyent, Inc. and other Node contributors.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a
@@ -21473,7 +22271,7 @@ PassThrough.prototype._transform = function(chunk, encoding, cb) {
   cb(null, chunk);
 };
 
-},{"./_stream_transform":88,"core-util-is":90,"inherits":91}],87:[function(require,module,exports){
+},{"./_stream_transform":93,"core-util-is":95,"inherits":96}],92:[function(require,module,exports){
 (function (process){
 // Copyright Joyent, Inc. and other Node contributors.
 //
@@ -22428,7 +23226,7 @@ function indexOf (xs, x) {
 }
 
 }).call(this,require('_process'))
-},{"./_stream_duplex":85,"_process":111,"buffer":103,"core-util-is":90,"events":107,"inherits":91,"isarray":92,"stream":128,"string_decoder/":93,"util":102}],88:[function(require,module,exports){
+},{"./_stream_duplex":90,"_process":115,"buffer":107,"core-util-is":95,"events":111,"inherits":96,"isarray":97,"stream":132,"string_decoder/":98,"util":106}],93:[function(require,module,exports){
 // Copyright Joyent, Inc. and other Node contributors.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a
@@ -22639,7 +23437,7 @@ function done(stream, er) {
   return stream.push(null);
 }
 
-},{"./_stream_duplex":85,"core-util-is":90,"inherits":91}],89:[function(require,module,exports){
+},{"./_stream_duplex":90,"core-util-is":95,"inherits":96}],94:[function(require,module,exports){
 (function (process){
 // Copyright Joyent, Inc. and other Node contributors.
 //
@@ -23120,7 +23918,7 @@ function endWritable(stream, state, cb) {
 }
 
 }).call(this,require('_process'))
-},{"./_stream_duplex":85,"_process":111,"buffer":103,"core-util-is":90,"inherits":91,"stream":128}],90:[function(require,module,exports){
+},{"./_stream_duplex":90,"_process":115,"buffer":107,"core-util-is":95,"inherits":96,"stream":132}],95:[function(require,module,exports){
 (function (Buffer){
 // Copyright Joyent, Inc. and other Node contributors.
 //
@@ -23231,7 +24029,7 @@ function objectToString(o) {
 }
 
 }).call(this,{"isBuffer":require("../../../../../../../../../../../../../../../../../../usr/local/lib/node_modules/browserify/node_modules/insert-module-globals/node_modules/is-buffer/index.js")})
-},{"../../../../../../../../../../../../../../../../../../usr/local/lib/node_modules/browserify/node_modules/insert-module-globals/node_modules/is-buffer/index.js":109}],91:[function(require,module,exports){
+},{"../../../../../../../../../../../../../../../../../../usr/local/lib/node_modules/browserify/node_modules/insert-module-globals/node_modules/is-buffer/index.js":113}],96:[function(require,module,exports){
 if (typeof Object.create === 'function') {
   // implementation from standard node.js 'util' module
   module.exports = function inherits(ctor, superCtor) {
@@ -23256,12 +24054,12 @@ if (typeof Object.create === 'function') {
   }
 }
 
-},{}],92:[function(require,module,exports){
+},{}],97:[function(require,module,exports){
 module.exports = Array.isArray || function (arr) {
   return Object.prototype.toString.call(arr) == '[object Array]';
 };
 
-},{}],93:[function(require,module,exports){
+},{}],98:[function(require,module,exports){
 // Copyright Joyent, Inc. and other Node contributors.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a
@@ -23484,7 +24282,7 @@ function base64DetectIncompleteChar(buffer) {
   this.charLength = this.charReceived ? 3 : 0;
 }
 
-},{"buffer":103}],94:[function(require,module,exports){
+},{"buffer":107}],99:[function(require,module,exports){
 (function (process){
 exports = module.exports = require('./lib/_stream_readable.js');
 exports.Stream = require('stream');
@@ -23498,7 +24296,7 @@ if (!process.browser && process.env.READABLE_STREAM === 'disable') {
 }
 
 }).call(this,require('_process'))
-},{"./lib/_stream_duplex.js":85,"./lib/_stream_passthrough.js":86,"./lib/_stream_readable.js":87,"./lib/_stream_transform.js":88,"./lib/_stream_writable.js":89,"_process":111,"stream":128}],95:[function(require,module,exports){
+},{"./lib/_stream_duplex.js":90,"./lib/_stream_passthrough.js":91,"./lib/_stream_readable.js":92,"./lib/_stream_transform.js":93,"./lib/_stream_writable.js":94,"_process":115,"stream":132}],100:[function(require,module,exports){
 module.exports={
   "name": "cheerio",
   "version": "0.17.0",
@@ -23574,7 +24372,7 @@ module.exports={
   "readme": "ERROR: No README data found!"
 }
 
-},{}],96:[function(require,module,exports){
+},{}],101:[function(require,module,exports){
 (function (global){
 /**
  * @license
@@ -30364,7 +31162,7 @@ module.exports={
 }.call(this));
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{}],97:[function(require,module,exports){
+},{}],102:[function(require,module,exports){
 
 /***** xregexp.js *****/
 
@@ -32674,7 +33472,7 @@ XRegExp = XRegExp || (function (undef) {
 }(XRegExp));
 
 
-},{}],98:[function(require,module,exports){
+},{}],103:[function(require,module,exports){
 /*!
  * jQuery JavaScript Library v3.1.1
  * https://jquery.com/
@@ -42896,9681 +43694,7 @@ if ( !noGlobal ) {
 return jQuery;
 } );
 
-},{}],99:[function(require,module,exports){
-(function (global){
-/* nlp_compromise v6.5.3 MIT*/
-(function(f){if(typeof exports==="object"&&typeof module!=="undefined"){module.exports=f()}else if(typeof define==="function"&&define.amd){define([],f)}else{var g;if(typeof window!=="undefined"){g=window}else if(typeof global!=="undefined"){g=global}else if(typeof self!=="undefined"){g=self}else{g=this}g.nlp_compromise = f()}})(function(){var define,module,exports;return (function e(t,n,r){function s(o,u){if(!n[o]){if(!t[o]){var a=typeof require=="function"&&require;if(!u&&a)return a(o,!0);if(i)return i(o,!0);var f=new Error("Cannot find module '"+o+"'");throw f.code="MODULE_NOT_FOUND",f}var l=n[o]={exports:{}};t[o][0].call(l.exports,function(e){var n=t[o][1][e];return s(n?n:e)},l,l.exports,e,t,n,r)}return n[o].exports}var i=typeof require=="function"&&require;for(var o=0;o<r.length;o++)s(r[o]);return s})({1:[function(_dereq_,module,exports){
-//these are common word shortenings used in the lexicon and sentence segmentation methods
-//there are all nouns, or at the least, belong beside one.
-'use strict';
-
-var honourifics = _dereq_('./honourifics'); //stored seperately, for 'noun.is_person()'
-
-//common abbreviations
-var main = ['arc', 'al', 'exp', 'rd', 'st', 'dist', 'mt', 'fy', 'pd', 'pl', 'plz', 'tce', 'llb', 'md', 'bl', 'ma', 'ba', 'lit', 'ex', 'eg', 'ie', 'circa', 'ca', 'cca', 'vs', 'etc', 'esp', 'ft', 'bc', 'ad'];
-
-//person titles like 'jr', (stored seperately)
-main = main.concat(honourifics);
-
-//org main
-var orgs = ['dept', 'univ', 'assn', 'bros', 'inc', 'ltd', 'co', 'corp',
-//proper nouns with exclamation marks
-'yahoo', 'joomla', 'jeopardy'];
-main = main.concat(orgs);
-
-//place main
-var places = ['ariz', 'cal', 'calif', 'col', 'colo', 'conn', 'fla', 'fl', 'ga', 'ida', 'ia', 'kan', 'kans', 'md', 'minn', 'neb', 'nebr', 'okla', 'penna', 'penn', 'pa', 'dak', 'tenn', 'tex', 'ut', 'vt', 'va', 'wis', 'wisc', 'wy', 'wyo', 'usafa', 'alta', 'ont', 'que', 'sask', 'ave', 'blvd', 'cl', 'ct', 'cres', 'hwy'];
-main = main.concat(places);
-
-//date abbrevs.
-//these are added seperately because they are not nouns
-var dates = ['jan', 'feb', 'mar', 'apr', 'jun', 'jul', 'aug', 'sep', 'sept', 'oct', 'nov', 'dec'];
-main = main.concat(dates);
-
-module.exports = {
-  abbreviations: main,
-  dates: dates,
-  orgs: orgs,
-  places: places
-};
-
-},{"./honourifics":9}],2:[function(_dereq_,module,exports){
-//adjectives that either aren't covered by rules, or have superlative/comparative forms
-//this list is the seed, from which various forms are conjugated
-'use strict';
-
-var fns = _dereq_('../fns');
-
-//suffix-index adjectives
-//  {cial:'cru,spe'} -> 'crucial', 'special'
-var compressed = {
-  erate: 'degen,delib,desp,lit,mod',
-  icial: 'artif,benef,off,superf',
-  ntial: 'esse,influe,pote,substa',
-  teful: 'gra,ha,tas,was',
-  stant: 'con,di,in,resi',
-  going: 'easy,fore,on,out',
-  hing: 'astonis,das,far-reac,refres,scat,screec,self-loat,soot',
-  eful: 'car,grac,peac,sham,us,veng',
-  ming: 'alar,cal,glea,unassu,unbeco,upco',
-  cial: 'commer,cru,finan,ra,so,spe',
-  tful: 'deligh,doub,fre,righ,though,wis',
-  ight: 'overn,overwe,r,sl,upt',
-  ated: 'antiqu,intoxic,sophistic,unregul,unrel',
-  rant: 'aber,exube,flag,igno,vib',
-  uent: 'congr,fl,freq,subseq',
-  rate: 'accu,elabo,i,sepa',
-  ific: 'horr,scient,spec,terr',
-  rary: 'arbit,contempo,cont,tempo',
-  ntic: 'authe,fra,giga,roma',
-  wing: 'harro,kno,left-,right-',
-  nant: 'domi,malig,preg,reso',
-  nent: 'emi,immi,perma,promi',
-  iant: 'brill,def,g,luxur',
-  ging: 'dama,encoura,han,lon',
-  iate: 'appropr,immed,inappropr,intermed',
-  rect: 'cor,e,incor,indi',
-  zing: 'agoni,ama,appeti,free',
-  ant: 'abund,arrog,eleg,extravag,exult,hesit,irrelev,miscre,nonchal,obeis,observ,pl,pleas,redund,relev,reluct,signific,vac,verd',
-  ing: 'absorb,car,coo,liv,lov,ly,menac,perplex,shock,stand,surpris,tell,unappeal,unconvinc,unend,unsuspect,vex,want',
-  ate: 'adequ,delic,fortun,inadequ,inn,intim,legitim,priv,sed,ultim',
-  ted: 'expec,impor,limi,spiri,talen,tes,unexpec,unpreceden',
-  ish: 'dan,fool,hell,lout,self,snobb,squeam,styl',
-  ary: 'dre,legend,necess,prim,sc,second,w,we',
-  ite: 'el,favor,fin,oppos,pet,pol,recond,tr',
-  ely: 'hom,lik,liv,lon,lov,tim,unlik',
-  ure: 'fut,insec,miniat,obsc,premat,sec,s',
-  tly: 'cos,ghas,ghos,nigh,sain,sprigh,unsigh',
-  dly: 'cowar,cud,frien,frien,kin,ma',
-  ble: 'a,dou,hum,nim,no,proba',
-  rly: 'bu,disorde,elde,hou,neighbo,yea',
-  ine: 'div,femin,genu,mascul,prist,rout',
-  ute: 'absol,ac,c,m,resol',
-  ped: 'cram,pum,stereoty,stri,war',
-  sed: 'clo,disea,distres,unsupervi,u',
-  lly: 'chi,hi,jo,si,sme',
-  per: 'dap,impro,pro,su,up',
-  ile: 'fert,host,juven,mob,volat',
-  led: 'detai,disgrunt,fab,paralle,troub',
-  ern: 'east,north,south,st,west',
-  ast: 'e,l,p,steadf',
-  ent: 'abs,appar,b,pres',
-  ged: 'dama,deran,jag,rag',
-  ded: 'crow,guar,retar,undeci',
-  est: 'b,dishon,hon,quick',
-  ial: 'colon,impart,init,part',
-  ter: 'bet,lat,ou,ut',
-  ond: 'bey,bl,sec,vagab',
-  ady: 'he,re,sh,ste',
-  eal: 'ether,id,r,surr',
-  ard: 'abo,awkw,stand,straightforw',
-  ior: 'jun,pr,sen,super',
-  ale: 'fem,m,upsc,wholes',
-  ed: 'advanc,belov,craz,determin,hallow,hook,inbr,justifi,nak,nuanc,sacr,subdu,unauthoriz,unrecogniz,wick',
-  ly: 'dai,deep,earth,gris,heaven,low,meas,melancho,month,oi,on,prick,seem,s,ug,unru,week,wi,woman',
-  al: 'actu,coloss,glob,illeg,leg,leth,liter,loy,ov,riv,roy,univers,usu',
-  dy: 'baw,bloo,clou,gau,gid,han,mol,moo,stur,ti,tren,unti,unwiel',
-  se: 'adver,den,diver,fal,immen,inten,obe,perver,preci,profu',
-  er: 'clev,form,inn,oth,ov,she,slend,somb,togeth,und',
-  id: 'afra,hum,langu,plac,rab,sord,splend,stup,torp',
-  re: 'awa,bizar,di,enti,macab,me,seve,since,spa',
-  en: 'barr,brok,crav,op,sudd,unev,unwritt,wood',
-  ic: 'alcohol,didact,gener,hispan,organ,publ,symbol',
-  ny: 'ma,pho,pu,shi,skin,ti,za',
-  st: 'again,mo,populi,raci,robu,uttermo',
-  ne: 'do,go,insa,obsce,picayu,sere',
-  nd: 'behi,bla,bli,profou,undergrou,wou',
-  le: 'midd,multip,sing,so,subt,who',
-  pt: 'abru,ade,a,bankru,corru,nondescri',
-  ty: 'faul,hef,lof,mea,sal,uppi',
-  sy: 'bu,chee,lou,no,ro',
-  ct: 'abstra,exa,imperfe,inta,perfe',
-  in: 'certa,highfalut,ma,tw,va',
-  et: 'discre,secr,sovi,ups,viol',
-  me: 'part-ti,pri,sa,supre,welco',
-  cy: 'boun,fan,i,jui,spi',
-  ry: 'fur,sor,tawd,wi,w',
-  te: 'comple,concre,obsole,remo',
-  ld: 'ba,bo,go,mi',
-  an: 'deadp,republic,t,urb',
-  ll: 'a,i,overa,sti',
-  ay: 'everyd,g,gr,ok',
-  or: 'indo,maj,min,outdo',
-  my: 'foa,gloo,roo,sli',
-  ck: 'ba,qua,si,sli',
-  rt: 'cove,expe,hu,ove',
-  ul: 'fo,gainf,helpf,painf'
-};
-
-var arr = ['ablaze', 'above', 'adult', 'ahead', 'aloof', 'arab', 'asleep', 'average', 'awake', 'backwards', 'bad', 'blank', 'bogus', 'bottom', 'brisk', 'cagey', 'chief', 'civil', 'common', 'complex', 'cozy', 'crisp', 'deaf', 'devout', 'difficult', 'downtown', 'due', 'dumb', 'eerie', 'evil', 'excess', 'extra', 'fake', 'far', 'faux', 'fierce ', 'fit', 'foreign', 'fun', 'good', 'goofy', 'gratis', 'grey', 'groovy', 'gross', 'half', 'huge', 'humdrum', 'inside', 'kaput',
-//  'lax', -> airports
-'left', 'less', 'level', 'lewd', 'magenta', 'makeshift', 'mammoth', 'medium', 'moot', 'naive', 'nearby', 'next', 'nonstop', 'north', 'offbeat', 'ok', 'outside', 'overwrought', 'premium', 'pricey', 'pro', 'quaint', 'random', 'rear', 'rebel', 'ritzy', 'rough', 'savvy', 'sexy', 'shut', 'shy', 'sleek', 'smug', 'solemn', 'south', 'stark', 'superb', 'taboo', 'teenage', 'top', 'tranquil', 'ultra', 'understood', 'unfair', 'unknown', 'upbeat', 'upstairs', 'vanilla', 'various', 'widespread', 'woozy', 'wrong', 'final', 'true', 'modern', 'notable'];
-
-module.exports = fns.expand_suffixes(arr, compressed);
-
-},{"../fns":23}],3:[function(_dereq_,module,exports){
-'use strict';
-
-//these are adjectives that can become comparative + superlative with out "most/more"
-//its a whitelist for conjugation
-//this data is shared between comparative/superlative methods
-module.exports = ['absurd', 'aggressive', 'alert', 'alive', 'awesome', 'beautiful', 'big', 'bitter', 'black', 'blue', 'bored', 'boring', 'brash', 'brave', 'brief', 'bright', 'broad', 'brown', 'calm', 'charming', 'cheap', 'clean', 'cold', 'cool', 'cruel', 'cute', 'damp', 'deep', 'dear', 'dead', 'dark', 'dirty', 'drunk', 'dull', 'eager', 'efficient', 'even', 'faint', 'fair', 'fanc', 'fast', 'fat', 'feeble', 'few', 'fierce', 'fine', 'flat', 'forgetful', 'frail', 'full', 'gentle', 'glib', 'great', 'green', 'gruesome', 'handsome', 'hard', 'harsh', 'high', 'hollow', 'hot', 'impolite', 'innocent', 'keen', 'kind', 'lame', 'lean', 'light', 'little', 'loose', 'long', 'loud', 'low', 'lush', 'macho', 'mean', 'meek', 'mellow', 'mundane', 'near', 'neat', 'new', 'nice', 'normal', 'odd', 'old', 'pale', 'pink', 'plain', 'poor', 'proud', 'purple', 'quick', 'rare', 'rapid', 'red', 'rich', 'ripe', 'rotten', 'round', 'rude', 'sad', 'safe', 'scarce', 'scared', 'shallow', 'sharp', 'short', 'shrill', 'simple', 'slim', 'slow', 'small', 'smart', 'smooth', 'soft', 'sore', 'sour', 'square', 'stale', 'steep', 'stiff', 'straight', 'strange', 'strong', 'sweet', 'swift', 'tall', 'tame', 'tart', 'tender', 'tense', 'thick', 'thin', 'tight', 'tough', 'vague', 'vast', 'vulgar', 'warm', 'weak', 'wet', 'white', 'wide', 'wild', 'wise', 'young', 'yellow', 'easy', 'narrow', 'late', 'early', 'soon', 'close', 'empty', 'dry', 'windy', 'noisy', 'thirsty', 'hungry', 'fresh', 'quiet', 'clear', 'heavy', 'happy', 'funny', 'lucky', 'pretty', 'important', 'interesting', 'attractive', 'dangerous', 'intellegent', 'pure', 'orange', 'large', 'firm', 'grand', 'formal', 'raw', 'weird', 'glad', 'mad', 'strict', 'tired', 'solid', 'extreme', 'mature', 'true', 'free', 'curly', 'angry'].reduce(function (h, s) {
-  h[s] = 'Adjective';
-  return h;
-}, {});
-
-},{}],4:[function(_dereq_,module,exports){
-'use strict';
-//some most-common iso-codes (most are too ambiguous)
-
-var shortForms = ['usd', 'cad', 'aud', 'gbp', 'krw', 'inr', 'hkd', 'dkk', 'cny', 'xaf', 'xof', 'eur', 'jpy',
-//currency symbols
-'€', '$', '¥', '£', 'лв', '₡', 'kn', 'kr', '¢', 'Ft', 'Rp', '﷼', '₭', 'ден', '₨', 'zł', 'lei', 'руб', '฿'];
-
-//some common, unambiguous currency names
-var longForms = ['denar', 'dobra', 'forint', 'kwanza', 'kyat', 'lempira', 'pound sterling', 'riel', 'yen', 'zloty',
-//colloquial currency names
-'dollar', 'cent', 'penny', 'dime', 'dinar', 'euro', 'lira', 'pound', 'pence', 'peso', 'baht', 'sterling', 'rouble', 'shekel', 'sheqel', 'yuan', 'franc', 'rupee', 'shilling', 'krona', 'dirham', 'bitcoin'];
-var irregularPlurals = {
-  yen: 'yen',
-  baht: 'baht',
-  riel: 'riel',
-  penny: 'pennies'
-};
-
-//add plural forms - 'euros'
-var l = longForms.length;
-for (var i = 0; i < l; i++) {
-  if (irregularPlurals[longForms[i]]) {
-    longForms.push(irregularPlurals[longForms[i]]);
-  } else {
-    longForms.push(longForms[i] + 's');
-  }
-}
-
-module.exports = shortForms.concat(longForms);
-
-},{}],5:[function(_dereq_,module,exports){
-'use strict';
-//terms that are 'Date' term
-
-var months = ['january', 'february',
-// "march",  //ambig
-'april',
-// "may",   //ambig
-'june', 'july', 'august', 'september', 'october', 'november', 'december', 'jan', 'feb', 'mar', 'apr', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec', 'sept', 'sep'];
-var days = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday', 'mon', 'tues', 'wed', 'thurs', 'fri', 'sat', 'sun'];
-//add 'mondays'
-for (var i = 0; i <= 6; i++) {
-  days.push(days[i] + 's');
-}
-
-var durations = ['millisecond', 'second', 'minute', 'hour', 'morning', 'afternoon', 'evening', 'night', 'day', 'week', 'month', 'year', 'decade'];
-//add their plurals
-var len = durations.length;
-for (var _i = 0; _i < len; _i++) {
-  durations.push(durations[_i] + 's');
-}
-durations.push('century');
-durations.push('centuries');
-
-var relative = ['yesterday', 'today', 'tomorrow', 'week', 'weekend', 'tonight'];
-
-module.exports = {
-  days: days,
-  months: months,
-  durations: durations,
-  relative: relative
-};
-
-},{}],6:[function(_dereq_,module,exports){
-'use strict';
-
-//adjectival forms of place names, as adjectives.
-module.exports = ['afghan', 'albanian', 'algerian', 'angolan', 'argentine', 'armenian', 'australian', 'aussie', 'austrian', 'bangladeshi', 'basque', // of Basque Country
-'belarusian', 'belgian', 'bolivian', 'bosnian', 'brazilian', 'bulgarian', 'cambodian', 'cameroonian', 'canadian', 'chadian', 'chilean', 'chinese', 'colombian', 'congolese', 'croatian', 'cuban', 'czech', 'dominican', 'danish', 'egyptian', 'british', 'estonian', 'ethiopian', 'ecuadorian', 'finnish', 'french', 'gambian', 'georgian', 'german', 'greek', 'ghanaian', 'guatemalan', 'haitian', 'hungarian', 'honduran', 'icelandic', 'indian', 'indonesian', 'iranian', 'iraqi', 'irish', 'israeli', 'italian', 'ivorian', // of Ivory Coast
-'jamaican', 'japanese', 'jordanian', 'kazakh', 'kenyan', 'korean', 'kuwaiti', 'lao', // of Laos
-'latvian', 'lebanese', 'liberian', 'libyan', 'lithuanian', 'namibian', 'malagasy', // of Madagascar
-'macedonian', 'malaysian', 'mexican', 'mongolian', 'moroccan', 'dutch', 'nicaraguan', 'nigerian', // of Nigeria
-'nigerien', // of Niger
-'norwegian', 'omani', 'panamanian', 'paraguayan', 'pakistani', 'palestinian', 'peruvian', 'philippine', 'filipino', 'polish', 'portuguese', 'qatari', 'romanian', 'russian', 'rwandan', 'samoan', 'saudi', 'scottish', 'senegalese', 'serbian', 'singaporean', 'slovak', 'somalian', 'sudanese', 'swedish', 'swiss', 'syrian', 'taiwanese', 'trinidadian', 'thai', 'tunisian', 'turkmen', 'ugandan', 'ukrainian', 'american', 'hindi', 'spanish', 'venezuelan', 'vietnamese', 'welsh', 'zambian', 'zimbabwean', 'english', 'african', 'european', 'asian', 'californian'];
-
-},{}],7:[function(_dereq_,module,exports){
-// common first-names in compressed form.
-// from http://www.ssa.gov/oact/babynames/limits.html  and http://www.servicealberta.gov.ab.ca/pdf/vs/2001_Boys.pdf
-// not sure what regional/cultural/demographic bias this has. Probably a lot.
-// 73% of people are represented in the top 1000 names
-
-// used to reduce redundant named-entities in longer text. (don't spot the same person twice.)
-// used to identify gender for coreference resolution
-'use strict';
-
-var male = _dereq_('./names/male');
-var female = _dereq_('./names/female');
-var names = {};
-
-//names commonly used in either gender
-var ambiguous = ['alexis', 'andra', 'aubrey', 'blair', 'casey', 'cassidy', 'cheyenne', 'devan', 'devon', 'guadalupe', 'jade', 'jaime', 'jamie', 'jammie', 'jan', 'jean', 'jessie', 'kasey', 'kelsey', 'kenyatta', 'kerry', 'lashawn', 'lee', 'marion', 'marlo', 'morgan', 'reagan', 'regan', 'rene', 'robin', 'rosario', 'shay', 'shea', 'shelby', 'shiloh', 'trinity'];
-for (var i = 0; i < male.length; i++) {
-  names[male[i]] = 'm';
-}
-for (var _i = 0; _i < female.length; _i++) {
-  names[female[_i]] = 'f';
-}
-//ambiguous/unisex names
-for (var _i2 = 0; _i2 < ambiguous.length; _i2 += 1) {
-  names[ambiguous[_i2]] = 'a';
-}
-// console.log(names['spencer']);
-// console.log(names['jill']);
-// console.log(names['sue'])
-// console.log(names['jan'])
-module.exports = {
-  all: names,
-  male: male,
-  female: female
-};
-
-},{"./names/female":14,"./names/male":15}],8:[function(_dereq_,module,exports){
-'use strict';
-
-var fns = _dereq_('../fns');
-//turns holiday-names into text-versions of their dates
-//https://en.wikipedia.org/wiki/federal_holidays_in_the_united_states
-
-//some major, and unambiguous holidays with the same date each year
-var annual = {
-  //general
-  'new years eve': 'december 31',
-  'new years': 'january 1',
-  'new years day': 'january 1',
-  'thanksgiving': 'fourth thursday in november',
-  'christmas eve': 'december 24',
-  'christmas': 'december 25',
-  'christmas day': 'december 25',
-  'saint patricks day': 'march 17',
-  'st patricks day': 'march 17',
-  'april fools': 'april 1',
-  'halloween': 'october 31',
-  'valentines': 'february 14',
-  'valentines day': 'february 14',
-
-  //american
-  'martin luther king': 'third monday in january',
-  'inauguration day': 'january 20',
-  'washingtons birthday': 'third monday in february',
-  'presidents day': 'third monday in february',
-  'memorial day': 'last monday in may',
-  // 'independence': 'july 4',
-  'labor day': 'first monday in september',
-  'columbus day': 'second monday in october',
-  'veterans day': 'november 11',
-
-  //british
-  'labour day': 'first monday in september',
-  'commonwealth day': 'second monday in march',
-  'st andrews day': 'november 30',
-  'saint andrews day': 'november 30',
-  'may day': 'may 1',
-
-  //russian
-  'russia day': 'june 12',
-
-  //australian
-  'australia day': 'january 26',
-  'boxing day': 'december 26',
-  'queens birthday': '2nd monday in june',
-
-  //canadian
-  'canada day': 'july 1',
-  'victoria day': 'may 24',
-  'canadian thanksgiving': 'second monday in october',
-  'rememberance day': 'november 11',
-  'august civic holiday': 'first monday in august',
-  'natal day': 'first monday in august',
-
-  //european
-  'all saints day': 'november 1',
-  'armistice day': 'november 11',
-  'bastille day': 'july 14',
-  'st stephens day': 'december 26',
-  'saint stephens day': 'december 26'
-};
-
-// hardcoded dates for non-regular holidays
-//   ----change every few years(!)---   TODO :do more years
-var astronomical = {
-  2015: {
-    'chinese new year': 'february 19',
-    'easter': 'april 5',
-    'easter sunday': 'april 5',
-    'easter monday': 'april 6',
-    'good friday': 'april 3',
-    'ascension day': 'may 14',
-    'eid': 'july 17',
-    'eid al-fitr': 'july 17',
-    'eid al-adha': 'september 24',
-    'ramadan': 'june 6', //range
-    'ashura': '23 october',
-    'diwali': '11 november'
-  },
-  2016: {
-    'chinese new year': 'february 8',
-    'easter': 'march 27',
-    'easter sunday': 'march 27',
-    'easter monday': 'march 28',
-    'good friday': 'march 25',
-    'ascension day': 'may 5',
-    'eid': 'july 6',
-    'eid al-fitr': 'july 6',
-    'eid al-adha': 'september 11',
-    'ramadan': 'may 27',
-    'diwali': 'october 30'
-  },
-  2017: {
-    'chinese new year': '28 january',
-    'easter': 'april 16',
-    'easter sunday': 'april 16',
-    'easter monday': 'april 17',
-    'good friday': 'april 14',
-    'ascension day': 'may 25',
-    'eid': 'july 25',
-    'eid al-fitr': 'july 25',
-    'diwali': 'october 21',
-    'ramadan': 'may 27'
-  }
-};
-//select current year
-var thisYear = new Date().getFullYear();
-var holidays = fns.extend(annual, astronomical[thisYear] || {});
-
-module.exports = holidays;
-
-},{"../fns":23}],9:[function(_dereq_,module,exports){
-'use strict';
-
-//these are common person titles used in the lexicon and sentence segmentation methods
-//they are also used to identify that a noun is a person
-module.exports = [
-//honourifics
-'jr', 'mr', 'mrs', 'ms', 'dr', 'prof', 'sr', 'sen', 'corp', 'rep', 'gov', 'atty', 'supt', 'det', 'rev', 'col', 'gen', 'lt', 'cmdr', 'adm', 'capt', 'sgt', 'cpl', 'maj',
-// 'miss',
-// 'misses',
-'mister', 'sir', 'esq', 'mstr', 'phd', 'adj', 'adv', 'asst', 'bldg', 'brig', 'comdr', 'hon', 'messrs', 'mlle', 'mme', 'op', 'ord', 'pvt', 'reps', 'res', 'sens', 'sfc', 'surg'];
-
-},{}],10:[function(_dereq_,module,exports){
-//nouns with irregular plural/singular forms
-//used in noun.inflect, and also in the lexicon.
-//compressed with '_' to reduce some redundancy.
-'use strict';
-
-var main = [['child', '_ren'], ['person', 'people'], ['leaf', 'leaves'], ['database', '_s'], ['quiz', '_zes'], ['stomach', '_s'], ['sex', '_es'], ['move', '_s'], ['shoe', '_s'], ['goose', 'geese'], ['phenomenon', 'phenomena'], ['barracks', '_'], ['deer', '_'], ['syllabus', 'syllabi'], ['index', 'indices'], ['appendix', 'appendices'], ['criterion', 'criteria'], ['man', 'men'], ['sex', '_es'], ['rodeo', '_s'], ['epoch', '_s'], ['zero', '_s'], ['avocado', '_s'], ['halo', '_s'], ['tornado', '_s'], ['tuxedo', '_s'], ['sombrero', '_s'], ['addendum', 'addenda'], ['alga', '_e'], ['alumna', '_e'], ['alumnus', 'alumni'], ['bacillus', 'bacilli'], ['cactus', 'cacti'], ['beau', '_x'], ['château', '_x'], ['chateau', '_x'], ['tableau', '_x'], ['corpus', 'corpora'], ['curriculum', 'curricula'], ['echo', '_es'], ['embargo', '_es'], ['foot', 'feet'], ['genus', 'genera'], ['hippopotamus', 'hippopotami'], ['larva', '_e'], ['libretto', 'libretti'], ['loaf', 'loaves'], ['matrix', 'matrices'], ['memorandum', 'memoranda'], ['mosquito', '_es'], ['opus', 'opera'], ['ovum', 'ova'], ['ox', '_en'], ['radius', 'radii'], ['referendum', 'referenda'], ['thief', 'thieves'], ['tooth', 'teeth']];
-
-main = main.map(function (a) {
-  a[1] = a[1].replace('_', a[0]);
-  return a;
-});
-
-module.exports = main;
-
-},{}],11:[function(_dereq_,module,exports){
-'use strict';
-
-//a list of exceptions to the verb rules
-var irregular_verbs = {
-  take: {
-    perfect: 'have taken',
-    pluperfect: 'had taken',
-    future_perfect: 'will have taken'
-  },
-  can: {
-    gerund: '',
-    present: 'can',
-    past: 'could',
-    future: 'can',
-    perfect: 'could',
-    pluperfect: 'could',
-    future_perfect: 'can',
-    actor: ''
-  },
-  free: {
-    gerund: 'freeing',
-    actor: ''
-  },
-  arise: {
-    past: 'arose',
-    participle: 'arisen'
-  },
-  babysit: {
-    past: 'babysat',
-    actor: 'babysitter'
-  },
-  be: { // this is crazy-hard and shouldn't be here
-    past: 'been',
-    present: 'is',
-    future: 'will be',
-    perfect: 'have been',
-    pluperfect: 'had been',
-    future_perfect: 'will have been',
-    actor: '',
-    gerund: 'am'
-  },
-  is: {
-    past: 'was',
-    present: 'is',
-    future: 'will be',
-    perfect: 'have been',
-    pluperfect: 'had been',
-    future_perfect: 'will have been',
-    actor: '',
-    gerund: 'being'
-  },
-  beat: {
-    gerund: 'beating',
-    actor: 'beater'
-  },
-  begin: {
-    gerund: 'beginning',
-    past: 'began'
-  },
-  bet: {
-    actor: 'better'
-  },
-  bind: {
-    past: 'bound'
-  },
-  bite: {
-    gerund: 'biting',
-    past: 'bit'
-  },
-  bleed: {
-    past: 'bled'
-  },
-  break: {
-    past: 'broke'
-  },
-  breed: {
-    past: 'bred'
-  },
-  bring: {
-    past: 'brought'
-  },
-  broadcast: {
-    past: 'broadcast'
-  },
-  build: {
-    past: 'built'
-  },
-  buy: {
-    past: 'bought'
-  },
-  catch: {
-    past: 'caught'
-  },
-  choose: {
-    gerund: 'choosing',
-    past: 'chose'
-  },
-  cost: {
-    past: 'cost'
-  },
-  deal: {
-    past: 'dealt'
-  },
-  die: {
-    past: 'died',
-    gerund: 'dying'
-  },
-  dig: {
-    gerund: 'digging',
-    past: 'dug'
-  },
-  do: {
-    past: 'did',
-    present: 'does'
-  },
-  draw: {
-    past: 'drew'
-  },
-  drink: {
-    past: 'drank'
-  },
-  drive: {
-    gerund: 'driving',
-    past: 'drove'
-  },
-  eat: {
-    gerund: 'eating',
-    past: 'ate',
-    actor: 'eater'
-  },
-  fall: {
-    past: 'fell'
-  },
-  feed: {
-    past: 'fed'
-  },
-  feel: {
-    past: 'felt',
-    actor: 'feeler'
-  },
-  fight: {
-    past: 'fought'
-  },
-  find: {
-    past: 'found'
-  },
-  fly: {
-    past: 'flew'
-  },
-  forbid: {
-    past: 'forbade'
-  },
-  forget: {
-    gerund: 'forgeting',
-    past: 'forgot'
-  },
-  forgive: {
-    gerund: 'forgiving',
-    past: 'forgave'
-  },
-  freeze: {
-    gerund: 'freezing',
-    past: 'froze'
-  },
-  get: {
-    past: 'got'
-  },
-  give: {
-    gerund: 'giving',
-    past: 'gave'
-  },
-  go: {
-    past: 'went',
-    present: 'goes'
-  },
-  hang: {
-    past: 'hung'
-  },
-  have: {
-    gerund: 'having',
-    past: 'had',
-    present: 'has'
-  },
-  hear: {
-    past: 'heard'
-  },
-  hide: {
-    past: 'hid'
-  },
-  hold: {
-    past: 'held'
-  },
-  hurt: {
-    past: 'hurt'
-  },
-  lay: {
-    past: 'laid'
-  },
-  lead: {
-    past: 'led'
-  },
-  leave: {
-    past: 'left'
-  },
-  lie: {
-    gerund: 'lying',
-    past: 'lay'
-  },
-  light: {
-    past: 'lit'
-  },
-  lose: {
-    gerund: 'losing',
-    past: 'lost'
-  },
-  make: {
-    past: 'made'
-  },
-  mean: {
-    past: 'meant'
-  },
-  meet: {
-    gerund: 'meeting',
-    past: 'met',
-    actor: 'meeter'
-  },
-  pay: {
-    past: 'paid'
-  },
-  read: {
-    past: 'read'
-  },
-  ring: {
-    past: 'rang'
-  },
-  rise: {
-    past: 'rose',
-    gerund: 'rising',
-    pluperfect: 'had risen',
-    future_perfect: 'will have risen'
-  },
-  run: {
-    gerund: 'running',
-    past: 'ran'
-  },
-  say: {
-    past: 'said'
-  },
-  see: {
-    past: 'saw'
-  },
-  sell: {
-    past: 'sold'
-  },
-  shine: {
-    past: 'shone'
-  },
-  shoot: {
-    past: 'shot'
-  },
-  show: {
-    past: 'showed'
-  },
-  sing: {
-    past: 'sang'
-  },
-  sink: {
-    past: 'sank',
-    pluperfect: 'had sunk'
-  },
-  sit: {
-    past: 'sat'
-  },
-  slide: {
-    past: 'slid'
-  },
-  speak: {
-    past: 'spoke',
-    perfect: 'have spoken',
-    pluperfect: 'had spoken',
-    future_perfect: 'will have spoken'
-  },
-  spin: {
-    gerund: 'spinning',
-    past: 'spun'
-  },
-  spread: {
-    past: 'spread'
-  },
-  stand: {
-    past: 'stood'
-  },
-  steal: {
-    past: 'stole',
-    actor: 'stealer'
-  },
-  stick: {
-    past: 'stuck'
-  },
-  sting: {
-    past: 'stung'
-  },
-  stream: {
-    actor: 'streamer'
-  },
-  strike: {
-    gerund: 'striking',
-    past: 'struck'
-  },
-  swear: {
-    past: 'swore'
-  },
-  swim: {
-    past: 'swam'
-  },
-  swing: {
-    past: 'swung'
-  },
-  teach: {
-    past: 'taught',
-    present: 'teaches'
-  },
-  tear: {
-    past: 'tore'
-  },
-  tell: {
-    past: 'told'
-  },
-  think: {
-    past: 'thought'
-  },
-  understand: {
-    past: 'understood'
-  },
-  wake: {
-    past: 'woke'
-  },
-  wear: {
-    past: 'wore'
-  },
-  win: {
-    gerund: 'winning',
-    past: 'won'
-  },
-  withdraw: {
-    past: 'withdrew'
-  },
-  write: {
-    gerund: 'writing',
-    past: 'wrote'
-  },
-  tie: {
-    gerund: 'tying',
-    past: 'tied'
-  },
-  ski: {
-    past: 'skiied'
-  },
-  boil: {
-    actor: 'boiler'
-  },
-  miss: {
-    present: 'miss'
-  },
-  act: {
-    actor: 'actor'
-  },
-  compete: {
-    gerund: 'competing',
-    past: 'competed',
-    actor: 'competitor'
-  },
-  being: {
-    gerund: 'are',
-    past: 'were',
-    present: 'are'
-  },
-  imply: {
-    past: 'implied',
-    present: 'implies'
-  },
-  ice: {
-    gerund: 'icing',
-    past: 'iced'
-  },
-  develop: {
-    past: 'developed',
-    actor: 'developer',
-    gerund: 'developing'
-  },
-  wait: {
-    gerund: 'waiting',
-    past: 'waited',
-    actor: 'waiter'
-  },
-  aim: {
-    actor: 'aimer'
-  },
-  spill: {
-    past: 'spilt'
-  },
-  drop: {
-    gerund: 'dropping',
-    past: 'dropped'
-  },
-  log: {
-    gerund: 'logging',
-    past: 'logged'
-  },
-  rub: {
-    gerund: 'rubbing',
-    past: 'rubbed'
-  },
-  smash: {
-    present: 'smashes'
-  },
-  suit: {
-    gerund: 'suiting',
-    past: 'suited',
-    actor: 'suiter'
-  }
-};
-module.exports = irregular_verbs;
-
-},{}],12:[function(_dereq_,module,exports){
-'use strict';
-
-var misc = {
-  'there': 'NN',
-  'here': 'JJ',
-
-  'better': 'JJR',
-  'earlier': 'JJR',
-
-  'has': 'VB',
-  'sounds': 'VBZ',
-  //special case for took/taken
-  'taken': 'VBD',
-  'msg': 'VB', //slang
-  //date
-  'noon': 'DA',
-  'midnight': 'DA',
-  //errr....
-  'now': 'DA',
-  'morning': 'DA',
-  'evening': 'DA',
-  'afternoon': 'DA',
-  'ago': 'DA',
-  'sometime': 'DA',
-  //end of day, end of month
-  'eod': 'DA',
-  'eom': 'DA',
-  'number': 'NN',
-  'system': 'NN',
-  'example': 'NN',
-  'part': 'NN',
-  'house': 'NN'
-};
-
-var compact = {
-  //conjunctions
-  'CC': ['yet', 'therefore', 'or', 'while', 'nor', 'whether', 'though', 'because', 'cuz', 'but', 'for', 'and', 'however', 'before', 'although', 'how', 'plus', 'versus', 'not'],
-  'CO': ['if', 'unless', 'otherwise', 'notwithstanding'],
-
-  'VBD': ['said', 'had', 'been', 'began', 'came', 'did', 'meant', 'went'],
-
-  'VBN': ['given', 'known', 'shown', 'seen', 'born'],
-
-  'VBG': ['going', 'being', 'according', 'resulting', 'developing', 'staining'],
-
-  //copula
-  'CP': ['is', 'will be', 'are', 'was', 'were', 'am', 'isn\'t', 'ain\'t', 'aren\'t'],
-
-  //determiners
-  'DT': ['this', 'any', 'enough', 'each', 'whatever', 'every', 'these', 'another', 'plenty', 'whichever', 'neither', 'an', 'a', 'least', 'own', 'few', 'both', 'those', 'the', 'that', 'various', 'either', 'much', 'some', 'else', 'no',
-  //some other languages (what could go wrong?)
-  'la', 'le', 'les', 'des', 'de', 'du', 'el'],
-
-  //prepositions
-  'IN': ['until', 'onto', 'of', 'into', 'out', 'except', 'across', 'by', 'between', 'at', 'down', 'as', 'from', 'around', 'with', 'among', 'upon', 'amid', 'to', 'along', 'since', 'about', 'off', 'on', 'within', 'in', 'during', 'per', 'without', 'throughout', 'through', 'than', 'via', 'up', 'unlike', 'despite', 'below', 'unless', 'towards', 'besides', 'after', 'whereas', '\'o', 'amidst', 'amongst', 'apropos', 'atop', 'barring', 'chez', 'circa', 'mid', 'midst', 'notwithstanding', 'qua', 'sans', 'vis-a-vis', 'thru', 'till', 'versus', 'without', 'w/o', 'o\'', 'a\''],
-
-  //modal verbs
-  'MD': ['can', 'may', 'could', 'might', 'will', 'ought to', 'would', 'must', 'shall', 'should', 'ought', 'shant', 'lets'],
-
-  //Possessive pronouns
-  'PP': ['mine', 'something', 'none', 'anything', 'anyone', 'theirs', 'himself', 'ours', 'his', 'my', 'their', 'yours', 'your', 'our', 'its', 'herself', 'hers', 'themselves', 'myself', 'itself', 'her'],
-
-  //personal pronouns (nouns)
-  'PRP': ['it', 'they', 'i', 'them', 'you', 'she', 'me', 'he', 'him', 'ourselves', 'us', 'we', 'thou', 'il', 'elle', 'yourself', '\'em', 'he\'s', 'she\'s'],
-  //questions are awkward pos. are clarified in question_pass
-  'QU': ['where', 'why', 'when', 'who', 'whom', 'whose', 'what', 'which'],
-  //some manual adverbs (the rest are generated)
-  'RB': [
-  // 'now',
-  'again', 'already', 'soon', 'directly', 'toward', 'forever', 'apart', 'instead', 'yes', 'alone', 'indeed', 'ever', 'quite', 'perhaps', 'then', 'thus', 'very', 'often', 'once', 'never', 'away', 'always', 'sometimes', 'also', 'maybe', 'so', 'just', 'well', 'several', 'such', 'randomly', 'too', 'rather', 'abroad', 'almost', 'anyway', 'twice', 'aside', 'moreover', 'anymore', 'newly', 'damn', 'somewhat', 'somehow', 'meanwhile', 'hence', 'further', 'furthermore', 'more', 'way', 'kinda', 'totally'],
-
-  //interjections, expressions
-  'EX': ['uh', 'uhh', 'uh huh', 'uh-oh', 'please', 'ugh', 'sheesh', 'eww', 'pff', 'voila', 'oy', 'hi', 'hello', 'bye', 'goodbye', 'hey', 'hai', 'eep', 'hurrah', 'yuck', 'ow', 'duh', 'oh', 'hmm', 'yeah', 'whoa', 'ooh', 'whee', 'ah', 'bah', 'gah', 'yaa', 'phew', 'gee', 'ahem', 'eek', 'meh', 'yahoo', 'oops', 'd\'oh', 'psst', 'argh', 'grr', 'nah', 'shhh', 'whew', 'mmm', 'ooo', 'yay', 'uh-huh', 'boo', 'wow', 'nope', 'haha', 'hahaha', 'lol', 'lols', 'ya', 'hee', 'ohh', 'eh', 'yup'],
-
-  //special nouns that shouldnt be seen as a verb
-  'NN': ['nothing', 'everything', 'god', 'student', 'patent', 'funding', 'banking', 'ceiling', 'energy', 'purpose', 'friend', 'event', 'room', 'door', 'thing', 'things', 'stuff', 'lunch', 'breakfast', 'dinner', 'home', 'problem', 'body', 'world', 'city', 'death', 'others'],
-  //family-terms are people
-  PN: ['father', 'mother', 'mom', 'dad', 'mommy', 'daddy', 'sister', 'brother', 'aunt', 'uncle', 'grandfather', 'grandmother', 'cousin', 'stepfather', 'stepmother', 'boy', 'girl', 'man', 'men', 'woman', 'women', 'guy', 'dude', 'bro', 'gentleman', 'someone']
-};
-//unpack the compact terms into the misc lexicon..
-var keys = Object.keys(compact);
-for (var i = 0; i < keys.length; i++) {
-  var arr = compact[keys[i]];
-  for (var i2 = 0; i2 < arr.length; i2++) {
-    misc[arr[i2]] = keys[i];
-  }
-}
-// console.log(misc.a);
-module.exports = misc;
-
-},{}],13:[function(_dereq_,module,exports){
-'use strict';
-
-//common terms that are multi-word, but one part-of-speech
-//these should not include phrasal verbs, like 'looked out'. These are handled elsewhere.
-module.exports = {
-  'a few': 'CD', //different than 'few people'
-  'of course': 'RB',
-  'at least': 'RB',
-  'no longer': 'RB',
-  'sort of': 'RB',
-  // 'at first': 'RB',
-  'once again': 'RB',
-  'once more': 'RB',
-  'up to': 'RB',
-  'by now': 'RB',
-  'all but': 'RB',
-  'just about': 'RB',
-  'so called': 'JJ', //?
-  'on board': 'JJ',
-  'a lot': 'RB',
-  'by far': 'RB',
-  'at best': 'RB',
-  'at large': 'RB',
-  'for good': 'RB',
-  'for example': 'RB',
-  'vice versa': 'JJ',
-  'en route': 'JJ',
-  'for sure': 'RB',
-  'upside down': 'JJ',
-  'at most': 'RB',
-  'per se': 'RB',
-  'at worst': 'RB',
-  'upwards of': 'RB',
-  'en masse': 'RB',
-  'point blank': 'RB',
-  'up front': 'JJ',
-  'in front': 'JJ',
-  'in situ': 'JJ',
-  'in vitro': 'JJ',
-  'ad hoc': 'JJ',
-  'de facto': 'JJ',
-  'ad infinitum': 'JJ',
-  'ad nauseam': 'RB',
-  'all that': 'RB',
-  'for keeps': 'JJ',
-  'a priori': 'JJ',
-  'et cetera': 'IN',
-  'off guard': 'JJ',
-  'spot on': 'JJ',
-  'ipso facto': 'JJ',
-  'not withstanding': 'RB',
-  'de jure': 'RB',
-  'a la': 'IN',
-  'ad hominem': 'NN',
-  'par excellence': 'RB',
-  'de trop': 'RB',
-  'a posteriori': 'RB',
-  'fed up': 'JJ',
-  'brand new': 'JJ',
-  'old fashioned': 'JJ',
-  'bona fide': 'JJ',
-  'well off': 'JJ',
-  'far off': 'JJ',
-  'straight forward': 'JJ',
-  'hard up': 'JJ',
-  'sui generis': 'JJ',
-  'en suite': 'JJ',
-  'avant garde': 'JJ',
-  'sans serif': 'JJ',
-  'gung ho': 'JJ',
-  'super duper': 'JJ',
-  'new york': 'NN',
-  'new england': 'NN',
-  'new hampshire': 'NN',
-  'new delhi': 'NN',
-  'new jersey': 'NN',
-  'new mexico': 'NN',
-  'united states': 'NN',
-  'united kingdom': 'NN',
-  'great britain': 'NN',
-  'head start': 'NN',
-  'make sure': 'VB',
-  'keep tabs': 'VB',
-  'credit card': 'NN',
-  //timezones
-  'standard time': 'DA',
-  'daylight time': 'DA',
-  'summer time': 'DA',
-  'fl oz': 'NN',
-  'us dollar': 'NN'
-};
-
-},{}],14:[function(_dereq_,module,exports){
-'use strict';
-
-var fns = _dereq_('../../fns');
-
-//the unique/uncompressed names..
-var arr = ['abby', 'amy', 'autumn', 'bobbi', 'brooke', 'carol', 'cheryl', 'claire', 'cleo', 'consuelo',
-// 'dawn',
-'eleanor', 'eliza', 'erika', 'faye', 'fern', 'genevieve', 'gertrude', 'gladys', 'inez', 'ingrid', 'jenny', 'jo', 'joni', 'kathryn', 'kelli', 'kim', 'latoya', 'leigh', 'lupe', 'luz', 'lynn', 'mae', 'maude', 'mildred', 'miriam', 'naomi', 'nikki', 'olga', 'reba', 'robyn', 'rosalind', 'ruth', 'sheryl', 'socorro', 'sonja', 'staci', 'tanya', 'therese', 'toni', 'traci', 'vicki', 'vicky'];
-
-//compressed by frequent suffixes
-var suffix_compressed = {
-  nette: 'an,antoi,ja,jea,jean,ly',
-  eline: 'ad,ang,jacqu,mad',
-  rlene: 'a,cha,da,ma',
-  stine: 'chri,erne,ju,kri',
-  tasha: 'la,na,',
-  andra: 'alex,cass,s',
-  helle: 'mic,rac,roc',
-  linda: 'be,,me',
-  stina: 'chri,cri,kri',
-  annie: ',f,je',
-  anne: ',di,je,jo,le,mari,rox,sus,suz',
-  elia: 'am,ang,cec,c,corn,d,of,sh',
-  llie: 'ca,ke,li,mi,mo,ne,o,sa',
-  anna: ',de,di,jo,joh,sh',
-  ette: 'bernad,b,bridg,claud,paul,yv',
-  ella: 'd,,est,lu,marc,st',
-  nnie: 'bo,co,je,mi,wi',
-  elle: 'dani,est,gabri,isab,jan',
-  icia: 'al,fel,let,patr,tr',
-  leen: 'ai,cath,col,ei,kath',
-  elma: ',s,th,v',
-  etta: ',henri,lor,ros',
-  anie: 'j,mel,stef,steph',
-  anda: 'am,mir,w,yol',
-  arla: 'c,d,k,m',
-  lena: 'e,he,,magda',
-  rina: 'kat,ma,sab,t',
-  isha: 'al,ke,lat,tr',
-  olly: 'd,m,p',
-  rice: 'beat,cla,pat',
-  ttie: 'be,ma,ne',
-  acie: 'gr,st,tr',
-  isty: 'chr,kr,m',
-  dith: 'e,ju,mere',
-  onya: 'lat,s,t',
-  onia: 'ant,s,t',
-  erri: 'k,sh,t',
-  lisa: 'a,e,',
-  rine: 'cathe,katha,kathe',
-  nita: 'a,bo,jua',
-  elyn: 'ev,jacqu,joc',
-  nine: 'ja,jea,jean',
-  nice: 'ber,eu,ja',
-  tney: 'brit,cour,whi',
-  ssie: 'be,ca,e',
-  beth: ',elisa,eliza',
-  ine: 'carol,ela,franc,gerald,jasm,joseph,lorra,max,nad,paul',
-  ana: 'adri,,d,de,di,j,ju,l,sh,sus',
-  rie: 'car,che,lau,lo,ma,marjo,rosema,sher,vale',
-  ina: 'angel,carol,d,georg,g,josef,mart,n,t',
-  ora: 'c,deb,d,fl,len,l,n,',
-  ara: 'barb,c,cl,k,l,s,tam,t',
-  ela: 'ang,carm,gabri,graci,l,manu,pam',
-  ica: 'angel,er,jess,mon,patr,veron',
-  nda: 'bre,gle,luci,ly,rho,ro',
-  ley: 'ash,kel,kimber,les,shel,shir',
-  eri: 'ch,j,k,sh,t',
-  ndy: 'ci,ma,mi,sa,we',
-  ene: 'hel,imog,ir,jol,lor',
-  ula: 'e,l,pa,urs',
-  ann: ',jo,le,mary',
-  ola: 'le,l,,vi',
-  nna: 'do,gle,je,lado',
-  nne: 'adrie,cori,ly,yvo',
-  lie: 'ju,les,nata,rosa',
-  ise: 'den,el,elo,lou',
-  die: 'ad,gol,jo,sa',
-  ena: 'd,lor,r,she',
-  ian: 'jill,lill,mar,viv',
-  lyn: 'caro,gwendo,jac,mari',
-  ssa: 'aly,mari,meli,vane',
-  thy: 'ca,doro,dor,ka',
-  tha: 'ber,mar,saman,tabi',
-  sie: 'el,jo,ro,su',
-  bel: 'isa,ma,mari',
-  via: 'oli,sil,syl',
-  tie: 'chris,ka,kris',
-  dra: 'au,ken,son',
-  ria: 'glo,ma,victo',
-  gie: 'an,mag,mar',
-  lly: 'ke,sa,she',
-  ila: 'le,l,she',
-  rna: 'lo,my,ve',
-  ole: 'car,nich,nic',
-  rma: 'e,i,no',
-  any: 'beth,britt,tiff',
-  ona: 'le,m,ram',
-  rta: 'albe,ma,robe',
-  en: 'carm,dore,ell,gretch,gw,hel,kar,kirst,krist,laur,maure',
-  ia: 'cecil,claud,cynth,eugen,georg,jul,luc,lyd,marc,soph,virgin',
-  le: 'ade,camil,ceci,ga,gay,luci,lucil,mab,miche,myrt',
-  ie: 'bobb,debb,dix,eff,jack,lizz,mam,soph,tamm,vick',
-  ra: 'barb,deb,elvi,lau,may,my,pet,ve',
-  er: 'amb,est,esth,heath,jenif,jennif,summ',
-  da: 'a,ai,fre,frie,hil,i,matil',
-  ce: 'ali,canda,candi,constan,floren,gra,joy',
-  ah: 'beul,debor,hann,le,rebek,sar',
-  sa: 'el,lui,mari,ro,tere,there',
-  ne: 'daph,dia,ja,jay,laver,simo',
-  el: 'eth,laur,muri,racha,rach,raqu',
-  is: 'delor,dor,jan,lo,mav,phyll',
-  et: 'bridg,harri,jan,margar,margr',
-  ta: 'al,chris,kris,margari,ri',
-  es: 'agn,delor,dolor,franc,merced',
-  an: 'jo,meag,meg,megh,sus',
-  cy: 'lu,mar,nan,sta,tra',
-  in: 'caitl,er,kar,krist',
-  ey: 'audr,linds,stac,trac',
-  ca: 'bian,blan,francis,rebec',
-  on: 'alis,allis,shann,shar',
-  il: 'abiga,apr,ga,syb',
-  ly: 'bever,emi,kimber,li',
-  ea: 'andr,chels,doroth,l',
-  ee: 'aim,d,desir,ren',
-  ma: 'al,em,wil',
-  di: 'bran,hei,jo',
-  va: 'el,e,i',
-  ue: 'dominiq,moniq,s',
-  ay: 'f,k,linds',
-  te: 'celes,ka,margueri',
-  ry: 'ma,rosema,sher',
-  na: 'ed,shau,shaw',
-  dy: 'jo,ju,tru',
-  ti: 'chris,kris,pat',
-  sy: 'bet,dai,pat',
-  ri: 'ka,lo,sha',
-  la: 'kay,priscil,wil',
-  al: 'cryst,kryst,op',
-  ll: 'jewe,ji,ne'
-};
-arr = fns.expand_suffixes(arr, suffix_compressed);
-
-var prefix_compressed = {
-  mar: 'go,isol,itza,sha',
-  tam: 'i,ika,my',
-  be: 'atriz,cky,tty,ttye',
-  pe: 'arl,ggy,nny',
-  pa: 'ige,m,tty'
-};
-arr = fns.expand_prefixes(arr, prefix_compressed);
-
-module.exports = arr;
-
-},{"../../fns":23}],15:[function(_dereq_,module,exports){
-'use strict';
-
-var fns = _dereq_('../../fns');
-
-//the unique/uncompressed names..
-var arr = ['adolfo', 'angelo', 'anthony', 'armand', 'arthur', 'bill', 'billy', 'bobby', 'bradford', 'bret', 'caleb', 'carroll', 'cliff', 'clifford', 'craig', 'curt', 'derek', 'doug', 'dwight', 'edmund', 'eli', 'elliot', 'enrique', 'erik', 'felipe', 'felix', 'francisco', 'frank', 'george', 'glenn', 'greg', 'gregg', 'hans', 'hugh', 'ira', 'irving', 'isaac', 'jim', 'kermit', 'kurt', 'leo', 'levi', 'lorenzo', 'lou', 'pablo', 'pat', 'percy', 'philip', 'phillip', 'rex', 'ricky', 'ruben', 'shaun', 'shawn', 'sterling', 'steve', 'tim', 'timothy', 'wilbur', 'williams', 'wm', 'woodrow'];
-
-//compressed by frequent suffixes
-var suffix_compressed = {
-  rence: 'cla,lau,law,te,ter',
-  lbert: 'a,de,e,gi,wi',
-  ustin: 'ag,a,d,j',
-  berto: 'al,gil,hum,ro',
-  ester: 'ch,l,sylv',
-  onnie: 'd,l,r',
-  wayne: 'de,d,',
-  erick: ',fred,rod',
-  athan: 'john,jon,n',
-  elvin: ',k,m',
-  anuel: 'em,emm,m',
-  bert: ',her,hu,nor,ro',
-  rick: 'der,fred,kend,pat,',
-  land: 'cleve,gar,le,ro',
-  ando: 'arm,fern,orl,rol',
-  ardo: 'edu,ger,leon,ric',
-  lton: 'a,car,e,mi',
-  arry: 'b,g,h,l',
-  nton: 'a,cli,qui',
-  fred: 'al,,wil',
-  ance: 'l,terr,v',
-  mmie: 'ji,sa,to',
-  erry: 'j,p,t',
-  mond: 'des,ed,ray',
-  rman: 'he,no,she',
-  rvin: 'e,i,ma',
-  nald: 'do,regi,ro',
-  rett: 'b,eve,gar',
-  son: 'harri,jack,ja,ma,nel,ty,wil',
-  ell: 'darn,darr,low,mitch,russ,terr,wend',
-  ard: 'bern,edw,ger,how,leon,rich,will',
-  ian: 'adr,br,christ,dam,fab,,jul',
-  don: 'bran,,el,gor,shel',
-  ron: 'aa,by,came,my,',
-  ton: 'bur,clay,clif,pres,wins',
-  lan: 'a,al,dy,har,no',
-  rey: 'ca,co,geoff,jeff',
-  ent: 'br,k,tr,vinc',
-  ael: 'ism,mich,raf,raph',
-  mmy: 'ji,sa,ti,to',
-  mon: 'da,ra,si,solo',
-  las: 'dal,doug,nicho,nico',
-  vin: 'al,cal,de,ke',
-  nny: 'be,da,joh,ke',
-  ius: 'cornel,dar,demetr,jul',
-  ley: 'brad,har,stan,wes',
-  lio: 'emi,ju,roge',
-  ben: ',reu,ru',
-  ory: 'c,greg,r',
-  lie: 'bil,char,wil',
-  van: 'e,i,',
-  roy: 'le,,t',
-  all: 'kend,marsh,rand',
-  ary: 'c,g,zach',
-  ddy: 'bu,fre,te',
-  art: 'b,stew,stu',
-  iel: 'dan,gabr,nathan',
-  lin: 'co,frank,mar',
-  yle: 'do,k,l',
-  her: 'christop,kristop,lut',
-  oyd: 'b,fl,ll',
-  ren: 'dar,lo,war',
-  ter: 'dex,pe,wal',
-  arl: 'c,e,k',
-  ane: 'd,du,sh',
-  aul: 'p,r,s',
-  dan: 'bren,,jor',
-  nie: 'ben,er,john',
-  ine: 'anto,bla,jerma',
-  lph: 'ra,rando,rudo',
-  est: 'earn,ern,forr',
-  win: 'dar,ed,er',
-  is: 'chr,curt,den,denn,ell,franc,lew,lou,lu,morr,ot,trav,will',
-  er: 'alexand,elm,grov,hom,jasp,javi,oliv,rodg,rog,spenc,tyl,xavi',
-  an: 'bry,de,esteb,eth,ju,log,rom,ry,se,st,steph',
-  el: 'ab,darr,fid,jo,lion,marc,mich,migu,no,russ,samu',
-  in: 'benjam,bra,dar,darr,efra,joaqu,mart,quent',
-  ie: 'arch,edd,frank,fredd,lou,regg,robb',
-  en: 'all,dami,gl,k,ow,steph,stev',
-  ey: 'dew,harv,jo,mick,rick,rodn,sidn',
-  al: ',h,jam,miche,ne,rand',
-  on: 'bry,j,jonath,le,marl,vern',
-  or: 'hect,juni,salvad,tayl,trev,vict',
-  dy: 'an,bra,co,gra,ran,ru',
-  ce: 'bru,bry,hora,mauri,roy,walla',
-  il: 'cec,em,ne,ph,virg',
-  ar: 'ces,edg,lam,om,osc',
-  es: 'andr,charl,jam,mil,mos',
-  ro: 'alejand,alva,artu,ped,rami',
-  am: 'abrah,ad,grah,s,willi',
-  ck: 'chu,domini,ja,ma,ni',
-  io: 'anton,gregor,ignac,mar,serg',
-  ah: 'elij,jeremi,mic,no',
-  nt: 'brya,cli,gra,lamo',
-  re: 'and,pier,salvato,theodo',
-  ed: ',jar,n,t',
-  ld: 'arno,gera,haro,jera',
-  as: 'eli,luc,thom,tom',
-  os: 'am,carl,marc,sant',
-  ew: 'andr,dr,math,matth',
-  ke: 'bla,ja,lu,mi',
-  tt: 'ellio,emme,ma,sco',
-  ty: 'mar,mon,rus,scot',
-  th: 'hea,kei,kenne,se',
-  ay: 'cl,j,murr,r',
-  le: 'da,mer,orvil',
-  te: 'mon,pe,vicen',
-  us: 'jes,marc,ruf',
-  od: 'elwo,jarr,r',
-  ob: 'b,jac,r',
-  to: 'beni,ernes,ot',
-  ne: 'euge,ge,tyro',
-  go: 'domin,hu,santia',
-  de: 'clau,cly,wa',
-  do: 'alfre,reynal,wilfre',
-  rk: 'cla,ki,ma',
-  se: 'cha,jes,jo',
-  ry: 'hen,jeffe,jeff',
-  ic: 'cedr,domin,er',
-  ad: 'br,ch,conr'
-};
-
-arr = fns.expand_suffixes(arr, suffix_compressed);
-
-var prefix_compressed = {
-  jos: 'eph,h,hua',
-  ro: 'cky,dolfo,osevelt,scoe,ss',
-  je: 'ff,remy,rome,ss',
-  to: 'by,dd,m,ny',
-  da: 'rryl,ryl,ve,vid',
-  jo: 'e,esph,hn,rge',
-  ma: 'lcolm,rc,rco,x',
-  al: 'ex,fonso,i,onzo',
-  gu: 'illermo,stavo,y'
-};
-arr = fns.expand_prefixes(arr, prefix_compressed);
-
-module.exports = arr;
-
-},{"../../fns":23}],16:[function(_dereq_,module,exports){
-'use strict';
-
-var cardinal = {
-  ones: {
-    'a': 1,
-    'zero': 0,
-    'one': 1,
-    'two': 2,
-    'three': 3,
-    'four': 4,
-    'five': 5,
-    'six': 6,
-    'seven': 7,
-    'eight': 8,
-    'nine': 9
-  },
-  teens: {
-    'ten': 10,
-    'eleven': 11,
-    'twelve': 12,
-    'thirteen': 13,
-    'fourteen': 14,
-    'fifteen': 15,
-    'sixteen': 16,
-    'seventeen': 17,
-    'eighteen': 18,
-    'nineteen': 19
-  },
-  tens: {
-    'twenty': 20,
-    'thirty': 30,
-    'forty': 40,
-    'fifty': 50,
-    'sixty': 60,
-    'seventy': 70,
-    'eighty': 80,
-    'ninety': 90
-  },
-  multiples: {
-    'hundred': 1e2,
-    'grand': 1e3,
-    'thousand': 1e3,
-    'million': 1e6,
-    'billion': 1e9,
-    'trillion': 1e12,
-    'quadrillion': 1e15,
-    'quintillion': 1e18,
-    'sextillion': 1e21,
-    'septillion': 1e24
-  }
-};
-
-var ordinal = {
-  ones: {
-    'first': 1,
-    'second': 2,
-    'third': 3,
-    'fourth': 4,
-    'fifth': 5,
-    'sixth': 6,
-    'seventh': 7,
-    'eighth': 8,
-    'ninth': 9
-  },
-  teens: {
-    'tenth': 10,
-    'eleventh': 11,
-    'twelfth': 12,
-    'thirteenth': 13,
-    'fourteenth': 14,
-    'fifteenth': 15,
-    'sixteenth': 16,
-    'seventeenth': 17,
-    'eighteenth': 18,
-    'nineteenth': 19
-  },
-  tens: {
-    'twentieth': 20,
-    'thirtieth': 30,
-    'fourtieth': 40,
-    'fiftieth': 50,
-    'sixtieth': 60,
-    'seventieth': 70,
-    'eightieth': 80,
-    'ninetieth': 90
-  },
-  multiples: {
-    'hundredth': 1e2,
-    'thousandth': 1e3,
-    'millionth': 1e6,
-    'billionth': 1e9,
-    'trillionth': 1e12,
-    'quadrillionth': 1e15,
-    'quintillionth': 1e18,
-    'sextillionth': 1e21,
-    'septillionth': 1e24
-  }
-};
-
-//used for the units
-var prefixes = {
-  'yotta': 1,
-  'zetta': 1,
-  'exa': 1,
-  'peta': 1,
-  'tera': 1,
-  'giga': 1,
-  'mega': 1,
-  'kilo': 1,
-  'hecto': 1,
-  'deka': 1,
-  'deci': 1,
-  'centi': 1,
-  'milli': 1,
-  'micro': 1,
-  'nano': 1,
-  'pico': 1,
-  'femto': 1,
-  'atto': 1,
-  'zepto': 1,
-  'yocto': 1,
-
-  'square': 1,
-  'cubic': 1,
-  'quartic': 1
-};
-
-module.exports = {
-  ones: cardinal.ones,
-  teens: cardinal.teens,
-  tens: cardinal.tens,
-  multiples: cardinal.multiples,
-
-  ordinal_ones: ordinal.ones,
-  ordinal_teens: ordinal.teens,
-  ordinal_tens: ordinal.tens,
-  ordinal_multiples: ordinal.multiples,
-
-  prefixes: prefixes
-};
-
-},{}],17:[function(_dereq_,module,exports){
-'use strict';
-//just a few named-organizations
-//no acronyms needed. no product/brand pollution.
-
-var organizations = ['google', 'microsoft', 'walmart', 'exxonmobil', 'glencore', 'samsung', 'chevron', 'at&t', 'verizon', 'costco', 'nestlé', '7-eleven', 'adidas', 'nike', 'acer', 'mcdonalds', 'mcdonald\'s', 'comcast', 'compaq', 'craigslist', 'cisco', 'disney', 'coca cola', 'dupont', 'ebay', 'facebook', 'fedex', 'kmart', 'kkk', 'kodak', 'monsanto', 'myspace', 'netflix', 'sony', 'telus', 'twitter', 'usps', 'ubs', 'ups', 'walgreens', 'youtube', 'yahoo!', 'yamaha'];
-
-var suffixes = ['center', 'centre', 'memorial', 'school', 'government', 'faculty', 'society', 'union', 'ministry', 'collective', 'association', 'committee', 'university', 'bank', 'college', 'foundation', 'department', 'institute', 'club', 'co', 'sons'];
-
-module.exports = {
-  suffixes: suffixes,
-  organizations: organizations
-};
-
-},{}],18:[function(_dereq_,module,exports){
-//phrasal verbs are two words that really mean one verb.
-//'beef up' is one verb, and not some direction of beefing.
-//by @spencermountain, 2015 mit
-//many credits to http://www.allmyphrasalverbs.com/
-'use strict';
-
-var verb_conjugate = _dereq_('../term/verb/conjugate/conjugate.js');
-
-//start the list with some randoms
-var main = ['be onto', 'fall behind', 'fall through', 'fool with', 'get across', 'get along', 'get at', 'give way', 'hear from', 'hear of', 'lash into', 'make do', 'run across', 'set upon', 'take aback', 'keep from'];
-
-//if there's a phrasal verb "keep on", there's often a "keep off"
-var opposites = {
-  'away': 'back',
-  'in': 'out',
-  'on': 'off',
-  'over': 'under',
-  'together': 'apart',
-  'up': 'down'
-};
-
-//forms that have in/out symmetry
-var symmetric = {
-  'away': 'blow,bounce,bring,call,come,cut,drop,fire,get,give,go,keep,pass,put,run,send,shoot,switch,take,tie,throw',
-  'in': 'bang,barge,bash,beat,block,book,box,break,bring,burn,butt,carve,cash,check,come,cross,drop,fall,fence,fill,give,grow,hand,hang,head,jack,keep,leave,let,lock,log,move,opt,pack,peel,pull,put,reach,ring,rub,send,set,settle,shut,sign,smash,snow,strike,take,try,turn,type,warm,wave,wean,wear,wheel',
-  'on': 'add,call,carry,catch,count,feed,get,give,go,grind,head,hold,keep,lay,log,pass,pop,power,put,send,show,snap,switch,take,tell,try,turn,wait',
-  'over': 'come,go,look,read,run,talk',
-  'together': 'come,pull,put',
-  'up': 'add,back,beat,bend,blow,boil,bottle,break,bring,buckle,bulk,bundle,call,carve,clean,cut,dress,fill,flag,fold,get,give,grind,grow,hang,hold,keep,let,load,lock,look,man,mark,melt,move,pack,pin,pipe,plump,pop,power,pull,put,rub,scale,scrape,send,set,settle,shake,show,sit,slow,smash,square,stand,strike,take,tear,tie,top,turn,use,wash,wind'
-};
-Object.keys(symmetric).forEach(function (k) {
-  symmetric[k].split(',').forEach(function (s) {
-    //add the given form
-    main.push(s + ' ' + k);
-    //add its opposite form
-    main.push(s + ' ' + opposites[k]);
-  });
-});
-
-//forms that don't have in/out symmetry
-var asymmetric = {
-  'about': 'bring,fool,gad,go,root,mess',
-  'after': 'go,look,take',
-  'ahead': 'get,go,press',
-  'along': 'bring,move',
-  'apart': 'fall,take',
-  'around': 'ask,boss,bring,call,come,fool,get,horse,joke,lie,mess,play',
-  'away': 'back,carry,file,frighten,hide,wash',
-  'back': 'fall,fight,hit,hold,look,pay,stand,think',
-  'by': 'come,drop,get,go,stop,swear,swing,tick,zip',
-  'down': 'bog,calm,fall,hand,hunker,jot,knock,lie,narrow,note,pat,pour,run,tone,trickle,wear',
-  'for': 'fend,file,gun,hanker,root,shoot',
-  'forth': 'bring,come',
-  'forward': 'come,look',
-  'in': 'cave,chip,hone,jump,key,pencil,plug,rein,shade,sleep,stop,suck,tie,trade,tuck,usher,weigh,zero',
-  'into': 'look,run',
-  'it': 'go,have',
-  'off': 'auction,be,beat,blast,block,brush,burn,buzz,cast,cool,drop,end,face,fall,fend,frighten,goof,jack,kick,knock,laugh,level,live,make,mouth,nod,pair,pay,peel,read,reel,ring,rip,round,sail,shave,shoot,sleep,slice,split,square,stave,stop,storm,strike,tear,tee,tick,tip,top,walk,work,write',
-  'on': 'bank,bargain,frown,hit,latch,pile,prattle,press,spring,spur,tack,urge,yammer',
-  'out': 'act,ask,back,bail,bear,black,blank,bleed,blow,blurt,branch,buy,cancel,cut,eat,edge,farm,figure,find,fill,find,fish,fizzle,flake,flame,flare,flesh,flip,geek,get,help,hide,hold,iron,knock,lash,level,listen,lose,luck,make,max,miss,nerd,pan,pass,pick,pig,point,print,psych,rat,read,rent,root,rule,run,scout,see,sell,shout,single,sit,smoke,sort,spell,splash,stamp,start,storm,straighten,suss,time,tire,top,trip,trot,wash,watch,weird,whip,wimp,wipe,work,zone,zonk',
-  'over': 'bend,bubble,do,fall,get,gloss,hold,keel,mull,pore,sleep,spill,think,tide,tip',
-  'round': 'get,go',
-  'through': 'go,run',
-  'to': 'keep,see',
-  'up': 'act,beef,board,bone,boot,brighten,build,buy,catch,cheer,cook,end,eye,face,fatten,feel,fess,finish,fire,firm,flame,flare,free,freeze,freshen,fry,fuel,gang,gear,goof,hack,ham,heat,hit,hole,hush,jazz,juice,lap,light,lighten,line,link,listen,live,loosen,make,mash,measure,mess,mix,mock,mop,muddle,open,own,pair,patch,pick,prop,psych,read,rough,rustle,save,shack,sign,size,slice,slip,snap,sober,spark,split,spruce,stack,start,stay,stir,stitch,straighten,string,suck,suit,sum,team,tee,think,tidy,tighten,toss,trade,trip,type,vacuum,wait,wake,warm,weigh,whip,wire,wise,word,write,zip'
-};
-Object.keys(asymmetric).forEach(function (k) {
-  asymmetric[k].split(',').forEach(function (s) {
-    main.push(s + ' ' + k);
-  });
-});
-
-//at his point all verbs are infinitive. lets make this explicit.
-main = main.reduce(function (h, s) {
-  h[s] = 'VBP';
-  return h;
-}, {});
-
-//conjugate every phrasal verb. takes ~30ms
-var tags = {
-  present: 'VB',
-  past: 'VBD',
-  future: 'VBF',
-  gerund: 'VBG',
-  infinitive: 'VBP'
-};
-var cache = {}; //cache individual verbs to speed it up
-var split = void 0,
-    verb = void 0,
-    particle = void 0,
-    phrasal = void 0;
-Object.keys(main).forEach(function (s) {
-  split = s.split(' ');
-  verb = split[0];
-  particle = split[1];
-  if (cache[verb] === undefined) {
-    cache[verb] = verb_conjugate(verb);
-  }
-  Object.keys(cache[verb]).forEach(function (k) {
-    phrasal = cache[verb][k] + ' ' + particle;
-    if (tags[k]) {
-      main[phrasal] = tags[k];
-    }
-  });
-});
-
-// console.log(main);
-// console.log(main['mess about']);
-module.exports = main;
-
-},{"../term/verb/conjugate/conjugate.js":102}],19:[function(_dereq_,module,exports){
-'use strict';
-
-var fns = _dereq_('../fns');
-
-//uncompressed country names
-var countries = ['bahamas', 'bangladesh', 'belgium', 'brazil', 'burkina faso', 'burundi', 'cape verde', 'chad', 'chile', 'comoros', 'congo-brazzaville', 'cuba', 'côte d\'ivoire', 'denmark', 'djibouti', 'ecuador', 'egypt', 'el salvador', 'fiji', 'france', 'germany', 'greece', 'guinea-bissau', 'haiti', 'honduras', 'hungary', 'iraq', 'israel', 'italy', 'jamaica', 'kenya', 'kuwait', 'laos', 'lesotho', 'libya', 'luxembourg', 'malawi', 'mali', 'malta', 'mexico', 'moldova', 'morocco', 'mozambique', 'netherlands', 'nicaragua', 'niger', 'panama', 'peru', 'solomon islands', 'sri lanka', 'suriname', 'sweden', 'timor-leste', 'turkey', 'u.s.a.', 'united kingdom', 'usa', 'ussr', 'vietnam', 'yemen', 'zimbabwe'];
-var compressed_countries = {
-  istan: 'pak,uzbek,afghan,tajik,turkmen',
-  ublic: 'czech rep,dominican rep,central african rep',
-  uinea: 'g,papua new g,equatorial g',
-  land: 'thai,po,switzer,fin,republic of ire,new zea,swazi,ice',
-  ania: 'tanz,rom,maurit,lithu,alb',
-  rica: 'ame,united states of ame,south af,costa ',
-  mbia: 'colo,za,ga',
-  eria: 'nig,alg,lib',
-  nia: 'arme,macedo,slove,esto',
-  sia: 'indone,rus,malay,tuni',
-  ina: 'ch,argent,bosnia and herzegov',
-  tan: 'kazakhs,kyrgyzs,bhu',
-  ana: 'gh,botsw,guy',
-  bia: 'saudi ara,ser,nami',
-  lia: 'austra,soma,mongo',
-  rea: 'south ko,north ko,erit',
-  dan: 'su,south su,jor',
-  ria: 'sy,aust,bulga',
-  ia: 'ind,ethiop,cambod,boliv,slovak,georg,croat,latv',
-  an: 'jap,ir,taiw,azerbaij,om',
-  da: 'ugan,cana,rwan',
-  us: 'belar,mauriti,cypr',
-  al: 'nep,seneg,portug',
-  in: 'spa,ben,bahra',
-  go: 'dr con,to,trinidad-toba',
-  la: 'venezue,ango,guatema',
-  es: 'united stat,philippin,united arab emirat',
-  on: 'camero,leban,gab',
-  ar: 'myanm,madagasc,qat',
-  ay: 'paragu,norw,urugu',
-  ne: 'ukrai,sierra leo,palesti'
-};
-countries = fns.expand_suffixes(countries, compressed_countries);
-
-/////uncomressed cities
-var cities = ['aalborg', 'abu dhabi', 'ahmedabad', 'almaty', 'antwerp', 'aqaba', 'ashdod', 'ashgabat', 'athens', 'auckland', 'bogotá', 'brno', 'brussels', 'calgary', 'cape town', 'cebu', 'cluj-napoca', 'curitiba', 'doha', 'dushanbe', 'espoo', 'frankfurt', 'genoa', 'ghent', 'giza', 'graz', 'guangzhou', 'haifa', 'hanoi', 'helsinki', 'ho chi minh', 'homs', 'iași', 'innsbruck', 'i̇zmir', 'jakarta', 'kiev', 'kingston', 'klaipėda', 'kobe', 'košice', 'kraków', 'kuwait', 'la plata', 'luxembourg', 'medellín', 'mexico', 'miskolc', 'montevideo', 'montreal', 'moscow', 'nagoya', 'nice', 'niš', 'odessa', 'oslo', 'ottawa', 'palermo', 'paris', 'perth', 'phnom penh', 'phoenix', 'port elizabeth', 'poznań', 'prague', 'reykjavik', 'riga', 'rome', 'rosario', 'seville', 'skopje', 'split', 'stockholm', 'stuttgart', 'sydney', 'tbilisi', 'tegucigalpa', 'the hague', 'thessaloniki', 'tokyo', 'toulouse', 'trondheim', 'tunis', 'turku', 'utrecht', 'vantaa', 'västerås', 'warsaw', 'winnipeg', 'wrocław', 'zagreb', 'zaragoza', 'łódź'];
-
-var suffix_compressed_cities = {
-  burg: 'saint peters,yekaterin,ham,til,gothen,salz',
-  ton: 'hous,edmon,welling,hamil',
-  ion: 'hauts-bassins reg,nord reg,herakl',
-  ana: 'hav,tir,ljublj',
-  ara: 'guadalaj,ank,timișo',
-  an: 'tehr,mil,durb,bus,tain,abidj,amm,yerev',
-  ia: 'philadelph,brasíl,alexandr,pretor,valenc,sof,nicos',
-  on: 'ly,lond,yang,inche,daeje,lisb',
-  en: 'shenzh,eindhov,pils,copenhag,berg',
-  ng: 'beiji,chittago,pyongya,kaohsiu,taichu',
-  in: 'tianj,berl,tur,dubl,duned',
-  es: 'los angel,nant,napl,buenos air,f',
-  la: 'pueb,mani,barranquil,kampa,guatema',
-  or: 'salvad,san salvad,ulan bat,marib',
-  us: 'damasc,pirae,aarh,vilni',
-  as: 'carac,patr,burg,kaun',
-  va: 'craio,petah tik,gene,bratisla',
-  ai: 'shangh,mumb,chenn,chiang m',
-  ne: 'colog,melbour,brisba,lausan',
-  er: 'manchest,vancouv,tangi',
-  ka: 'dha,osa,banja lu',
-  ro: 'rio de janei,sappo,cai',
-  am: 'birmingh,amsterd,rotterd',
-  ur: 'kuala lump,winterth,kópavog',
-  ch: 'muni,züri,christchur',
-  na: 'barcelo,vien,var',
-  ma: 'yokoha,li,pana',
-  ul: 'istanb,seo,kab',
-  to: 'toron,qui,por',
-  iv: 'khark,lv,tel av',
-  sk: 'dnipropetrov,gdań,min'
-};
-
-cities = fns.expand_suffixes(cities, suffix_compressed_cities);
-
-var prefix_compressed_cities = {
-  'new ': 'delhi,york,taipei',
-  san: 'a\'a,tiago, josé',
-  ta: 'ipei,mpere,llinn,rtu',
-  ba: 'ngalore,ngkok,ku,sel',
-  li: 'verpool,ège,nz,massol',
-  ma: 'rseille,ndalay,drid,lmö',
-  be: 'rn,lgrade,irut',
-  ka: 'rachi,raj,ndy',
-  da: 'egu,kar,ugavpils',
-  ch: 'icago,arleroi,ișinău',
-  co: 'lombo,nstanța,rk',
-  bu: 'rsa,charest,dapest'
-};
-cities = fns.expand_prefixes(cities, prefix_compressed_cities);
-
-//some of the busiest airports in the world from
-//https://www.world-airport-codes.com/world-top-30-airports.html
-var airports = ['ams', 'atl', 'bcn', 'bkk', 'cdg', 'cgk', 'clt', 'den', 'dfw', 'dxb', 'fco', 'fra', 'hkg', 'hnd', 'iax', 'icn', 'ist', 'jfk', 'kul', 'las', 'lax', 'lgw', 'lhr', 'mco', 'mia', 'muc', 'ord', 'pek', 'phl', 'phx', 'sfo', 'syd', 'yyz'];
-
-module.exports = {
-  countries: countries,
-  cities: cities,
-  airports: airports
-};
-// console.log(cities[99]);
-// console.log(countries[99]);
-
-},{"../fns":23}],20:[function(_dereq_,module,exports){
-'use strict';
-
-//professions 'lawyer' that aren't covered by verb.to_actor()
-
-module.exports = ['accountant', 'advisor', 'farmer', 'mechanic', 'technician', 'architect', 'clerk', 'therapist', 'bricklayer', 'butcher', 'carpenter', 'nurse', 'engineer', 'supervisor', 'attendant', 'operator', 'dietician', 'housekeeper', 'advisor', 'agent', 'firefighter', 'fireman', 'policeman', 'attendant', 'scientist', 'gardener', 'hairdresser', 'instructor', 'programmer', 'administrator', 'journalist', 'assistant', 'lawyer', 'officer', 'plumber', 'inspector', 'psychologist', 'receptionist', 'roofer', 'sailor', 'security guard', 'photographer', 'soldier', 'surgeon', 'researcher', 'practitioner', 'politician', 'musician', 'artist', 'secretary', 'minister', 'deputy', 'president'];
-
-},{}],21:[function(_dereq_,module,exports){
-'use strict';
-
-//common nouns that have no plural form. These are suprisingly rare
-//used in noun.inflect(), and added as nouns in lexicon
-module.exports = ['aircraft', 'bass', 'bison', 'fowl', 'halibut', 'moose', 'salmon', 'spacecraft', 'tuna', 'trout', 'advice', 'information', 'knowledge', 'trouble', 'enjoyment', 'fun', 'recreation', 'relaxation', 'meat', 'rice', 'bread', 'cake', 'coffee', 'ice', 'water', 'oil', 'grass', 'hair', 'fruit', 'wildlife', 'equipment', 'machinery', 'furniture', 'mail', 'luggage', 'jewelry', 'clothing', 'money', 'mathematics', 'economics', 'physics', 'civics', 'ethics', 'gymnastics', 'mumps', 'measles', 'news', 'tennis', 'baggage', 'currency', 'soap', 'toothpaste', 'food', 'sugar', 'butter', 'flour', 'research', 'leather', 'wool', 'wood', 'coal', 'weather', 'homework', 'cotton', 'silk', 'patience', 'impatience', 'vinegar', 'art', 'beef', 'blood', 'cash', 'chaos', 'cheese', 'chewing', 'conduct', 'confusion', 'education', 'electricity', 'entertainment', 'fiction', 'forgiveness', 'gold', 'gossip', 'ground', 'happiness', 'history', 'honey', 'hospitality', 'importance', 'justice', 'laughter', 'leisure', 'lightning', 'literature', 'luck', 'melancholy', 'milk', 'mist', 'music', 'noise', 'oxygen', 'paper', 'peace', 'peanut', 'pepper', 'petrol', 'plastic', 'pork', 'power', 'pressure', 'rain', 'recognition', 'sadness', 'safety', 'salt', 'sand', 'scenery', 'shopping', 'silver', 'snow', 'softness', 'space', 'speed', 'steam', 'sunshine', 'tea', 'thunder', 'time', 'traffic', 'trousers', 'violence', 'warmth', 'wine', 'steel', 'soccer', 'hockey', 'golf', 'fish', 'gum', 'liquid', 'series', 'sheep', 'species', 'fahrenheit', 'celcius', 'kelvin', 'hertz', 'everyone', 'everybody'];
-
-},{}],22:[function(_dereq_,module,exports){
-//most-frequent non-irregular verbs, in infinitive form, to be conjugated for the lexicon
-//this list is the seed, from which various forms are conjugated
-'use strict';
-
-var fns = _dereq_('../fns');
-
-//suffix-index adjectives
-//  {cial:'cru,spe'} -> 'crucial', 'special'
-var compressed = {
-  prove: ',im,ap,disap',
-  serve: ',de,ob,re',
-  ress: 'exp,p,prog,st,add,d',
-  lect: 'ref,se,neg,col,e',
-  sist: 'in,con,per,re,as',
-  tain: 'ob,con,main,s,re',
-  mble: 'rese,gru,asse,stu',
-  ture: 'frac,lec,tor,fea',
-  port: 're,sup,ex,im',
-  ate: 'rel,oper,indic,cre,h,activ,estim,particip,d,anticip,evalu',
-  use: ',ca,over,ref,acc,am,pa,ho',
-  ive: 'l,rece,d,arr,str,surv,thr,rel',
-  are: 'prep,c,comp,sh,st,decl,d,sc',
-  ine: 'exam,imag,determ,comb,l,decl,underm,def',
-  nce: 'annou,da,experie,influe,bou,convi,enha',
-  ain: 'tr,rem,expl,dr,compl,g,str',
-  ent: 'prev,repres,r,res,rel,inv',
-  age: 'dam,mess,man,encour,eng,discour',
-  rge: 'su,cha,eme,u,me',
-  ise: 'ra,exerc,prom,surpr,pra',
-  ect: 'susp,dir,exp,def,rej',
-  ter: 'en,mat,cen,ca,al',
-  end: ',t,dep,ext,att',
-  est: 't,sugg,prot,requ,r',
-  ock: 'kn,l,sh,bl,unl',
-  nge: 'cha,excha,ra,challe,plu',
-  ase: 'incre,decre,purch,b,ce',
-  ish: 'establ,publ,w,fin,distingu',
-  mit: 'per,ad,sub,li',
-  ure: 'fig,ens,end,meas',
-  der: 'won,consi,mur,wan',
-  ave: 's,sh,w,cr',
-  ire: 'requ,des,h,ret',
-  tch: 'scra,swi,ma,stre',
-  ack: 'att,l,p,cr',
-  ion: 'ment,quest,funct,envis',
-  ump: 'j,l,p,d',
-  ide: 'dec,prov,gu,s',
-  ush: 'br,cr,p,r',
-  eat: 'def,h,tr,ch',
-  ash: 'sm,spl,w,fl',
-  rry: 'ca,ma,hu,wo',
-  ear: 'app,f,b,disapp',
-  er: 'answ,rememb,off,suff,cov,discov,diff,gath,deliv,both,empow,with',
-  le: 'fi,sett,hand,sca,whist,enab,smi,ming,ru,sprink,pi',
-  st: 'exi,foreca,ho,po,twi,tru,li,adju,boa,contra,boo',
-  it: 'vis,ed,depos,sp,awa,inhib,cred,benef,prohib,inhab',
-  nt: 'wa,hu,pri,poi,cou,accou,confro,warra,pai',
-  ch: 'laun,rea,approa,sear,tou,ar,enri,atta',
-  ss: 'discu,gue,ki,pa,proce,cro,glo,dismi',
-  ll: 'fi,pu,ki,ca,ro,sme,reca,insta',
-  rn: 'tu,lea,conce,retu,bu,ea,wa,gove',
-  ce: 'redu,produ,divor,fa,noti,pla,for,repla',
-  te: 'contribu,uni,tas,vo,no,constitu,ci',
-  rt: 'sta,comfo,exe,depa,asse,reso,conve',
-  ck: 'su,pi,che,ki,tri,wre',
-  ct: 'intera,restri,predi,attra,depi,condu',
-  ke: 'sta,li,bra,overta,smo,disli',
-  se: 'collap,suppo,clo,rever,po,sen',
-  nd: 'mi,surrou,dema,remi,expa,comma',
-  ve: 'achie,invol,remo,lo,belie,mo',
-  rm: 'fo,perfo,confi,confo,ha',
-  or: 'lab,mirr,fav,monit,hon',
-  ue: 'arg,contin,val,iss,purs',
-  ow: 'all,foll,sn,fl,borr',
-  ay: 'pl,st,betr,displ,portr',
-  ze: 'recogni,reali,snee,ga,emphasi',
-  ip: 'cl,d,gr,sl,sk',
-  re: 'igno,sto,interfe,sco',
-  ng: 'spri,ba,belo,cli',
-  ew: 'scr,vi,revi,ch',
-  gh: 'cou,lau,outwei,wei',
-  ly: 'app,supp,re,multip',
-  ge: 'jud,acknowled,dod,alle',
-  en: 'list,happ,threat,strength',
-  ee: 'fors,agr,disagr,guarant',
-  et: 'budg,regr,mark,targ',
-  rd: 'rega,gua,rewa,affo',
-  am: 'dre,j,sl,ro',
-  ry: 'va,t,c,bu'
-};
-var arr = ['hope', 'thank', 'work', 'stop', 'control', 'join', 'enjoy', 'fail', 'aid', 'ask', 'talk', 'add', 'walk', 'describe', 'study', 'seem', 'occur', 'claim', 'fix', 'help', 'design', 'include', 'need', 'keep', 'assume', 'accept', 'do', 'look', 'die', 'seek', 'attempt', 'bomb', 'cook', 'copy', 'claw', 'doubt', 'drift', 'envy', 'fold', 'flood', 'focus', 'lift', 'link', 'load', 'loan', 'melt', 'overlap', 'rub', 'repair', 'sail', 'sleep', 'trade', 'trap', 'travel', 'tune', 'undergo', 'undo', 'uplift', 'yawn', 'plan', 'reveal', 'owe', 'sneak', 'drop', 'name', 'head', 'spoil', 'echo', 'deny', 'yield', 'reason', 'defy', 'applaud', 'risk', 'step', 'deem', 'embody', 'adopt', 'convey', 'pop', 'grab', 'revel', 'stem', 'mark', 'drag', 'pour', 'reckon', 'assign', 'rank', 'destroy', 'float', 'appeal', 'grasp', 'shout', 'overcome', 'relax', 'excel', 'plug', 'proclaim', 'ruin', 'abandon', 'overwhelm', 'wipe', 'added', 'took', 'goes', 'avoid', 'come', 'set', 'pay', 'grow', 'inspect', 'instruct', 'know', 'take', 'let', 'sort', 'put', 'take', 'cut', 'become', 'reply', 'happen', 'watch', 'associate', 'send', 'archive', 'cancel', 'learn', 'transfer', 'minus', 'plus', 'multiply', 'divide'];
-
-module.exports = fns.expand_suffixes(arr, compressed);
-
-},{"../fns":23}],23:[function(_dereq_,module,exports){
-'use strict';
-
-exports.pluck = function (arr, str) {
-  arr = arr || [];
-  return arr.map(function (o) {
-    return o[str];
-  });
-};
-
-//make an array of strings easier to lookup
-exports.toObj = function (arr) {
-  return arr.reduce(function (h, a) {
-    h[a] = true;
-    return h;
-  }, {});
-};
-//turn key->value into value->key
-exports.reverseObj = function (obj) {
-  return Object.keys(obj).reduce(function (h, k) {
-    h[obj[k]] = k;
-    return h;
-  }, {});
-};
-
-//turn a nested array into one array
-exports.flatten = function (arr) {
-  var all = [];
-  arr.forEach(function (a) {
-    all = all.concat(a);
-  });
-  return all;
-};
-
-//string utilities
-exports.endsWith = function (str, suffix) {
-  //if suffix is regex
-  if (suffix && suffix instanceof RegExp) {
-    if (str.match(suffix)) {
-      return true;
-    }
-  }
-  //if suffix is a string
-  if (str && suffix && str.indexOf(suffix, str.length - suffix.length) !== -1) {
-    return true;
-  }
-  return false;
-};
-exports.startsWith = function (str, prefix) {
-  if (str && str.length && str.substr(0, 1) === prefix) {
-    return true;
-  }
-  return false;
-};
-
-exports.extend = function (a, b) {
-  var keys = Object.keys(b);
-  for (var i = 0; i < keys.length; i++) {
-    a[keys[i]] = b[keys[i]];
-  }
-  return a;
-};
-
-exports.titlecase = function (str) {
-  if (!str) {
-    return '';
-  }
-  str = str.toLowerCase();
-  return str.charAt(0).toUpperCase() + str.slice(1);
-};
-
-// typeof obj == "function" also works
-// but not in older browsers. :-/
-exports.isFunction = function (obj) {
-  return Object.prototype.toString.call(obj) === '[object Function]';
-};
-
-//uncompress data in the adhoc compressed form {'ly':'kind,quick'}
-exports.expand_suffixes = function (list, obj) {
-  var keys = Object.keys(obj);
-  var l = keys.length;
-  for (var i = 0; i < l; i++) {
-    var arr = obj[keys[i]].split(',');
-    for (var i2 = 0; i2 < arr.length; i2++) {
-      list.push(arr[i2] + keys[i]);
-    }
-  }
-  return list;
-};
-//uncompress data in the adhoc compressed form {'over':'blown,kill'}
-exports.expand_prefixes = function (list, obj) {
-  var keys = Object.keys(obj);
-  var l = keys.length;
-  for (var i = 0; i < l; i++) {
-    var arr = obj[keys[i]].split(',');
-    for (var i2 = 0; i2 < arr.length; i2++) {
-      list.push(keys[i] + arr[i2]);
-    }
-  }
-  return list;
-};
-
-},{}],24:[function(_dereq_,module,exports){
-'use strict';
-
-var _typeof = typeof Symbol === "function" && typeof Symbol.iterator === "symbol" ? function (obj) { return typeof obj; } : function (obj) { return obj && typeof Symbol === "function" && obj.constructor === Symbol && obj !== Symbol.prototype ? "symbol" : typeof obj; };
-
-var fns = _dereq_('./fns.js');
-
-var models = {
-  Term: _dereq_('./term/term.js'),
-  Text: _dereq_('./text/text.js'),
-  Sentence: _dereq_('./sentence/sentence.js'),
-  Statement: _dereq_('./sentence/statement/statement.js'),
-  Question: _dereq_('./sentence/question/question.js'),
-  Verb: _dereq_('./term/verb/verb.js'),
-  Adjective: _dereq_('./term/adjective/adjective.js'),
-  Adverb: _dereq_('./term/adverb/adverb.js'),
-  Noun: _dereq_('./term/noun/noun.js'),
-  Value: _dereq_('./term/noun/value/value.js'),
-  Person: _dereq_('./term/noun/person/person.js'),
-  Place: _dereq_('./term/noun/place/place.js'),
-  Date: _dereq_('./term/noun/date/date.js'),
-  Organization: _dereq_('./term/noun/organization/organization.js')
-};
-
-function NLP() {
-
-  this.plugin = function (obj) {
-    obj = obj || {};
-    // if obj is a function, pass it an instance of this nlp library
-    if (fns.isFunction(obj)) {
-      // run it in this current context
-      obj = obj.call(this, this);
-    }
-    //apply each plugin to the correct prototypes
-    Object.keys(obj).forEach(function (k) {
-      Object.keys(obj[k]).forEach(function (method) {
-        models[k].prototype[method] = obj[k][method];
-      });
-    });
-  };
-  this.lexicon = function (obj) {
-    obj = obj || {};
-    var lex = _dereq_('./lexicon.js');
-
-    Object.keys(obj).forEach(function (k) {
-      lex[k] = obj[k];
-    });
-
-    return lex;
-  };
-
-  this.term = function (s) {
-    return new models.Term(s);
-  };
-  this.noun = function (s) {
-    return new models.Noun(s);
-  };
-  this.verb = function (s) {
-    return new models.Verb(s);
-  };
-  this.adjective = function (s) {
-    return new models.Adjective(s);
-  };
-  this.adverb = function (s) {
-    return new models.Adverb(s);
-  };
-
-  this.value = function (s) {
-    return new models.Value(s);
-  };
-  this.person = function (s) {
-    return new models.Person(s);
-  };
-  this.place = function (s) {
-    return new models.Place(s);
-  };
-  this.date = function (s) {
-    return new models.Date(s);
-  };
-  this.organization = function (s) {
-    return new models.Organization(s);
-  };
-
-  this.text = function (s, options) {
-    return new models.Text(s, options);
-  };
-  this.sentence = function (s, options) {
-    return new models.Sentence(s, options);
-  };
-  this.statement = function (s) {
-    return new models.Statement(s);
-  };
-  this.question = function (s) {
-    return new models.Question(s);
-  };
-}
-
-var nlp = new NLP();
-//export to window or webworker
-if ((typeof window === 'undefined' ? 'undefined' : _typeof(window)) === 'object' || typeof DedicatedWorkerGlobalScope === 'function') {
-  self.nlp_compromise = nlp;
-}
-//export to commonjs
-if (typeof module !== 'undefined' && module.exports) {
-  module.exports = nlp;
-}
-//export to amd
-if (typeof define === 'function' && define.amd) {
-  define(nlp);
-}
-
-// console.log(nlp.verb('played').conjugate());
-
-},{"./fns.js":23,"./lexicon.js":25,"./sentence/question/question.js":57,"./sentence/sentence.js":60,"./sentence/statement/statement.js":63,"./term/adjective/adjective.js":64,"./term/adverb/adverb.js":69,"./term/noun/date/date.js":74,"./term/noun/noun.js":80,"./term/noun/organization/organization.js":82,"./term/noun/person/person.js":86,"./term/noun/place/place.js":88,"./term/noun/value/value.js":100,"./term/term.js":101,"./term/verb/verb.js":111,"./text/text.js":114}],25:[function(_dereq_,module,exports){
-//the lexicon is a big hash of words to pos tags
-//it's built by conjugating and inflecting a small seed of terms
-'use strict';
-
-var fns = _dereq_('./fns.js');
-var verb_conjugate = _dereq_('./term/verb/conjugate/conjugate.js');
-var verb_to_adjective = _dereq_('./term/verb/to_adjective.js');
-var to_comparative = _dereq_('./term/adjective/to_comparative.js');
-var to_superlative = _dereq_('./term/adjective/to_superlative.js');
-var to_adverb = _dereq_('./term/adjective/to_adverb.js');
-var grand_mapping = _dereq_('./sentence/pos/parts_of_speech.js').tag_mapping;
-
-var lexicon = {};
-
-var addObj = function addObj(obj) {
-  var keys = Object.keys(obj);
-  var l = keys.length;
-  for (var i = 0; i < l; i++) {
-    lexicon[keys[i]] = obj[keys[i]];
-  }
-};
-
-var addArr = function addArr(arr, tag) {
-  var l = arr.length;
-  for (var i = 0; i < l; i++) {
-    lexicon[arr[i]] = tag;
-  }
-};
-
-//conjugate all verbs.
-var verbMap = {
-  infinitive: 'Infinitive',
-  present: 'PresentTense',
-  past: 'PastTense',
-  gerund: 'Gerund',
-  actor: 'Actor',
-  future: 'FutureTense',
-  pluperfect: 'PluperfectTense',
-  perfect: 'PerfectTense',
-
-  PerfectTense: 'PerfectTense',
-  PluperfectTense: 'PluperfectTense',
-  FutureTense: 'FutureTense',
-  PastTense: 'PastTense',
-  PresentTense: 'PresentTense'
-};
-
-var irregulars = _dereq_('./data/irregular_verbs.js');
-var verbs = _dereq_('./data/verbs.js').concat(Object.keys(irregulars));
-
-var _loop = function _loop(i) {
-  var o = verb_conjugate(verbs[i]);
-  Object.keys(o).forEach(function (k) {
-    if (k && o[k] && verbMap[k]) {
-      lexicon[o[k]] = verbMap[k];
-    }
-  });
-  //also add their adjective form - "walkable"
-  lexicon[verb_to_adjective(verbs[i])] = 'Adjective';
-};
-
-for (var i = 0; i < verbs.length; i++) {
-  _loop(i);
-}
-
-var orgs = _dereq_('./data/organizations.js');
-addArr(orgs.organizations, 'Organization');
-addArr(orgs.suffixes, 'Noun');
-
-var places = _dereq_('./data/places.js');
-addArr(places.countries, 'Country');
-addArr(places.cities, 'City');
-
-_dereq_('./data/adjectives.js').forEach(function (s) {
-  lexicon[s] = 'Adjective';
-  lexicon[to_comparative(s)] = 'Comparative';
-  lexicon[to_superlative(s)] = 'Superlative';
-  lexicon[to_adverb(s)] = 'Adverb';
-});
-Object.keys(_dereq_('./data/convertables.js')).forEach(function (s) {
-  lexicon[s] = 'Adjective';
-  lexicon[to_comparative(s)] = 'Comparative';
-  lexicon[to_superlative(s)] = 'Superlative';
-  lexicon[to_adverb(s)] = 'Adverb';
-});
-
-addArr(_dereq_('./data/abbreviations.js').abbreviations, 'Abbreviation');
-addArr(_dereq_('./data/demonyms.js'), 'Demonym');
-addArr(_dereq_('./data/currencies.js'), 'Currency');
-addArr(_dereq_('./data/honourifics.js'), 'Honourific');
-addArr(_dereq_('./data/uncountables.js'), 'Noun');
-var dates = _dereq_('./data/dates.js');
-addArr(dates.days, 'Date');
-addArr(dates.months, 'Date');
-addArr(dates.durations, 'Date');
-addArr(dates.relative, 'Date');
-
-//unpack the numbers
-var nums = _dereq_('./data/numbers.js');
-var all_nums = Object.keys(nums).reduce(function (arr, k) {
-  arr = arr.concat(Object.keys(nums[k]));
-  return arr;
-}, []);
-addArr(all_nums, 'Value');
-
-//a little fancy
-var firstNames = _dereq_('./data/firstnames.js');
-//add all names
-addArr(Object.keys(firstNames.all), 'Person');
-//overwrite to MalePerson, FemalePerson
-addArr(firstNames.male, 'MalePerson');
-addArr(firstNames.female, 'FemalePerson');
-//add irregular nouns
-var irregNouns = _dereq_('./data/irregular_nouns.js');
-addArr(fns.pluck(irregNouns, 0), 'Noun');
-addArr(fns.pluck(irregNouns, 1), 'Plural');
-
-addObj(_dereq_('./data/misc.js'));
-addObj(_dereq_('./data/multiples.js'));
-addObj(_dereq_('./data/phrasal_verbs.js'));
-//add named holidays, like 'easter'
-Object.keys(_dereq_('./data/holidays.js')).forEach(function (k) {
-  lexicon[k] = 'Date';
-});
-
-//professions
-addArr(_dereq_('./data/professions.js'), 'Actor');
-
-//just in case
-delete lexicon[false];
-delete lexicon[true];
-delete lexicon[undefined];
-delete lexicon[null];
-delete lexicon[''];
-
-//use 'Noun', not 'NN'
-Object.keys(lexicon).forEach(function (k) {
-  lexicon[k] = grand_mapping[lexicon[k]] || lexicon[k];
-});
-
-module.exports = lexicon;
-// console.log(lexicon['doing']);
-
-},{"./data/abbreviations.js":1,"./data/adjectives.js":2,"./data/convertables.js":3,"./data/currencies.js":4,"./data/dates.js":5,"./data/demonyms.js":6,"./data/firstnames.js":7,"./data/holidays.js":8,"./data/honourifics.js":9,"./data/irregular_nouns.js":10,"./data/irregular_verbs.js":11,"./data/misc.js":12,"./data/multiples.js":13,"./data/numbers.js":16,"./data/organizations.js":17,"./data/phrasal_verbs.js":18,"./data/places.js":19,"./data/professions.js":20,"./data/uncountables.js":21,"./data/verbs.js":22,"./fns.js":23,"./sentence/pos/parts_of_speech.js":38,"./term/adjective/to_adverb.js":65,"./term/adjective/to_comparative.js":66,"./term/adjective/to_superlative.js":68,"./term/verb/conjugate/conjugate.js":102,"./term/verb/to_adjective.js":110}],26:[function(_dereq_,module,exports){
-'use strict';
-// a regex-like lookup for a list of terms.
-// returns matches in a 'Terms' class
-
-var Result = _dereq_('./result');
-var syntax_parse = _dereq_('./syntax_parse');
-var match_term = _dereq_('./match_term');
-
-// take a slice of our terms, and try a match starting here
-var tryFromHere = function tryFromHere(terms, regs, options) {
-  var result = [];
-  var which_term = 0;
-  for (var i = 0; i < regs.length; i++) {
-    var term = terms[which_term];
-    //if we hit the end of terms, prematurely
-    if (!term) {
-      return null;
-    }
-    //find a match with term, (..), [..], or ~..~ syntax
-    if (match_term(term, regs[i], options)) {
-      //handle '$' logic
-      if (regs[i].signals.trailing && terms[which_term + 1]) {
-        return null;
-      }
-      //handle '^' logic
-      if (regs[i].signals.leading && which_term !== 0) {
-        return null;
-      }
-      result.push(terms[which_term]);
-      which_term += 1;
-      continue;
-    }
-    //if it's a contraction, go to next term
-    if (term.normal === '') {
-      result.push(terms[which_term]);
-      which_term += 1;
-      term = terms[which_term];
-    }
-    //support wildcards, some matching logic
-    // '.' means easy-pass
-    if (regs[i].signals.any_one) {
-      result.push(terms[which_term]);
-      which_term += 1;
-      continue;
-    }
-    //else, if term was optional, continue anyways
-    if (regs[i].signals.optional) {
-      continue; //(this increments i, but not which_term)
-    }
-    //attempt is dead.
-    return null;
-  }
-  //success, return terms subset
-  return result;
-};
-
-//find first match and return []Terms
-var findAll = function findAll(terms, regs, options) {
-  var result = [];
-  regs = syntax_parse(regs || '');
-  // one-off lookup for ^
-  // '^' token is 'must start at 0'
-  if (regs[0].signals.leading) {
-    var match = tryFromHere(terms, regs, options) || [];
-    if (match) {
-      return [new Result(match)];
-    } else {
-      return null;
-    }
-  }
-
-  //repeating version starting from each term
-  var len = terms.length; // - regs.length + 1;
-  for (var i = 0; i < len; i++) {
-    var termSlice = terms.slice(i, terms.length);
-    var _match = tryFromHere(termSlice, regs, options);
-    if (_match) {
-      result.push(new Result(_match));
-    }
-  }
-  //if we have no results, return null
-  if (result.length === 0) {
-    return null;
-  }
-  return result;
-};
-
-//calls Terms.replace() on each found result
-var replaceAll = function replaceAll(terms, regs, replacement, options) {
-  var list = findAll(terms, regs, options);
-  if (list) {
-    list.forEach(function (t) {
-      t.replace(replacement, options);
-    });
-  }
-};
-
-module.exports = {
-  findAll: findAll,
-  replaceAll: replaceAll
-};
-
-},{"./match_term":27,"./result":28,"./syntax_parse":29}],27:[function(_dereq_,module,exports){
-'use strict';
-
-var fns = _dereq_('../fns.js');
-
-//a regex-like string search
-// returns a boolean for match/not
-var match_term = function match_term(term, reg) {
-  //fail-fast
-  if (!term || !reg || !reg.signals) {
-    return false;
-  }
-  var signals = reg.signals;
-
-  //support optional (foo|bar) syntax
-  if (signals.one_of) {
-    var arr = reg.term.split('|');
-    for (var i = 0; i < arr.length; i++) {
-      if (arr[i] === term.normal || arr[i] === term.text) {
-        return true;
-      }
-    }
-    return false;
-  }
-  //support [Pos] syntax
-  if (signals.pos) {
-    var pos = fns.titlecase(reg.term);
-    if (term.pos[pos]) {
-      return true;
-    }
-    return false;
-  }
-  //support ~alias~ syntax
-  if (signals.alias) {
-    if (reg.term === term.root()) {
-      return true;
-    }
-    return false;
-  }
-  //straight-up text match
-  if (reg.term === term.normal || reg.term === term.text || reg.term === term.expansion) {
-    return true;
-  }
-
-  return false;
-};
-
-module.exports = match_term;
-
-},{"../fns.js":23}],28:[function(_dereq_,module,exports){
-'use strict';
-
-var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
-
-function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
-
-var _match = _dereq_('./match.js');
-
-// a slice of term objects returned from .match()
-// ideally changes that happen here happen in the original object
-
-var Result = function () {
-  function Result(terms) {
-    _classCallCheck(this, Result);
-
-    this.terms = terms;
-  }
-  //wha, this is possible eg. text.match().match()
-
-
-  _createClass(Result, [{
-    key: 'match',
-    value: function match(str, options) {
-      return _match(this.terms, str, options);
-    }
-    //a 1-1 replacement of strings
-
-  }, {
-    key: 'replace',
-    value: function replace(words) {
-      for (var i = 0; i < this.terms.length; i++) {
-        //umm, this is like a capture-group in regexp..
-        //so just leave it
-        if (words[i] === '$') {
-          continue;
-        }
-        //allow replacements with the capture group, like 'cyber-$1'
-        if (words[i].match(/\$1/)) {
-          var combined = words[1].replace(/\$1/, this.terms[i].text);
-          this.terms[i].changeTo(combined);
-          continue;
-        }
-        this.terms[i].changeTo(words[i] || '');
-      }
-      return this;
-    }
-  }, {
-    key: 'text',
-    value: function text() {
-      return this.terms.reduce(function (s, t) {
-        //implicit contractions shouldn't be included
-        if (t.text) {
-          s += ' ' + t.text;
-        }
-        return s;
-      }, '').trim();
-    }
-  }, {
-    key: 'normal',
-    value: function normal() {
-      return this.terms.reduce(function (s, t) {
-        //implicit contractions shouldn't be included
-        if (t.normal) {
-          s += ' ' + t.normal;
-        }
-        return s;
-      }, '').trim();
-    }
-  }]);
-
-  return Result;
-}();
-//a slice of term objects
-
-
-module.exports = Result;
-
-},{"./match.js":26}],29:[function(_dereq_,module,exports){
-'use strict';
-// parse a search lookup term find the regex-like syntax in this term
-
-var fns = _dereq_('../fns.js');
-// flags:
-// {
-//   pos: true,
-//   optional: true,
-//   one_of: true,
-//   alias: true,
-//   leading: true,
-//   trailing: true,
-//   any_one: true,
-//   any_many: true,
-// }
-
-
-var parse_term = function parse_term(term, i) {
-  term = term || '';
-  term = term.trim();
-  var signals = {};
-  //order matters!
-
-  //leading ^ flag
-  if (fns.startsWith(term, '^')) {
-    term = term.substr(1, term.length);
-    signals.leading = true;
-  }
-  //trailing $ flag means ending
-  if (fns.endsWith(term, '$')) {
-    term = term.replace(/\$$/, '');
-    signals.trailing = true;
-  }
-  //optional flag
-  if (fns.endsWith(term, '?')) {
-    term = term.replace(/\?$/, '');
-    signals.optional = true;
-  }
-
-  //pos flag
-  if (fns.startsWith(term, '[') && fns.endsWith(term, ']')) {
-    term = term.replace(/\]$/, '');
-    term = term.replace(/^\[/, '');
-    signals.pos = true;
-  }
-  //one_of options flag
-  if (fns.startsWith(term, '(') && fns.endsWith(term, ')')) {
-    term = term.replace(/\)$/, '');
-    term = term.replace(/^\(/, '');
-    signals.one_of = true;
-  }
-  //alias flag
-  if (fns.startsWith(term, '~')) {
-    term = term.replace(/^\~/, '');
-    term = term.replace(/\~$/, '');
-    signals.alias = true;
-  }
-  //addition flag
-  if (fns.startsWith(term, '+')) {
-    term = term.replace(/^\+/, '');
-    term = term.replace(/\+$/, '');
-    signals.extra = true;
-  }
-
-  //a period means anything
-  if (term === '.') {
-    signals.any_one = true;
-  }
-  //a * means anything
-  if (term === '*') {
-    signals.any_many = true;
-  }
-  return {
-    term: term,
-    signals: signals,
-    i: i
-  };
-};
-// console.log(parse_term('(one|1) (two|2)'));
-
-
-//turn a match string into an array of objects
-var parse_all = function parse_all(regs) {
-  regs = regs || [];
-  return regs.map(parse_term);
-};
-// console.log(parse_all(''));
-
-module.exports = parse_all;
-
-},{"../fns.js":23}],30:[function(_dereq_,module,exports){
-'use strict';
-//change a sentence to past, present, or future tense
-
-var pos = _dereq_('./pos/parts_of_speech.js');
-
-//conjugate a specific verb
-var flip_verb = function flip_verb(t, tense) {
-  if (tense === 'present') {
-    t.to_present();
-  } else if (tense === 'past') {
-    t.to_past();
-  } else if (tense === 'future') {
-    t.to_future();
-  }
-  return t;
-};
-
-var change_tense = function change_tense(s, tense) {
-  //convert all verbs
-  for (var i = 0; i < s.terms.length; i++) {
-    var t = s.terms[i];
-    if (t instanceof pos.Verb) {
-      //ignore gerunds too - "is walking"
-      if (t.pos['Gerund']) {
-        continue;
-      }
-      //ignore true infinitives, "go to sleep"
-      if (t.pos['Infinitive']) {
-        if (s.terms[i - 1] && s.terms[i - 1].normal === 'to') {
-          continue;
-        }
-      }
-      s.terms[i] = flip_verb(t, tense);
-    }
-  }
-  return s;
-};
-
-// [
-//   'john walks to the church',
-//   'john walks and feeds the birds',
-//   'john always walks',
-//   'will you walk?',
-// ];
-
-
-module.exports = change_tense;
-
-},{"./pos/parts_of_speech.js":38}],31:[function(_dereq_,module,exports){
-'use strict';
-//turns 'is not' into "isn't", and "he is" into "he's"
-
-var contractor = {
-  'will': 'll',
-  'would': 'd',
-  'have': 've',
-  'are': 're',
-  'not': 't',
-  'is': 's'
-  // 'was': 's' //this is too folksy
-};
-
-var contract = function contract(terms) {
-  for (var i = 1; i < terms.length; i++) {
-    if (contractor[terms[i].normal]) {
-      //remember expansion
-      terms[i - 1].expansion = terms[i - 1].text;
-      terms[i].expansion = terms[i].text;
-      //handle special `n't` case
-      if (terms[i].normal === 'not') {
-        terms[i - 1].text += 'n';
-      }
-      terms[i - 1].text += '\'' + contractor[terms[i].normal];
-      terms[i - 1].rebuild();
-      terms[i].text = '';
-      terms[i].rebuild();
-    }
-  }
-  return terms;
-};
-
-module.exports = contract;
-
-},{}],32:[function(_dereq_,module,exports){
-'use strict';
-
-var expand = function expand(terms) {
-  for (var i = 0; i < terms.length; i++) {
-    if (terms[i].expansion) {
-      terms[i].text = terms[i].expansion;
-      terms[i].rebuild();
-    }
-  }
-  return terms;
-};
-
-module.exports = expand;
-
-},{}],33:[function(_dereq_,module,exports){
-'use strict';
-
-//boolean if sentence has
-
-// "[copula] [pastTense] by"
-// "[pastParticiple] by"
-
-var passive_voice = function passive_voice(s) {
-  var terms = s.terms;
-  for (var i = 0; i < terms.length - 2; i++) {
-    if (terms[i].pos['Copula'] && terms[i + 1].pos['Verb'] && terms[i + 2].normal === 'by') {
-      //don't do 'june was approaching by then'
-      if (terms[i + 1].pos['Gerund']) {
-        continue;
-      }
-      return true;
-    }
-  }
-  return false;
-};
-
-module.exports = passive_voice;
-
-},{}],34:[function(_dereq_,module,exports){
-'use strict';
-
-var pos = _dereq_('./parts_of_speech');
-
-//set the part-of-speech of a particular term
-var assign = function assign(t, tag, reason) {
-  //check if redundant, first
-  if (t.pos[tag]) {
-    return t;
-  }
-  var P = pos.classMapping[tag] || pos.Term;
-  var expansion = t.expansion;
-  var whitespace = t.whitespace;
-  var reasoning = t.reasoning;
-  t = new P(t.text, tag);
-  t.reasoning = reasoning;
-  t.reasoning.push(reason);
-  t.whitespace = whitespace;
-  t.expansion = expansion;
-  return t;
-};
-module.exports = assign;
-
-},{"./parts_of_speech":38}],35:[function(_dereq_,module,exports){
-'use strict';
-
-var pos = _dereq_('../parts_of_speech');
-var fns = _dereq_('../../../fns');
-
-//get the combined text
-var new_string = function new_string(a, b) {
-  var space = a.whitespace.trailing + b.whitespace.preceding;
-  return a.text + space + b.text;
-};
-
-var combine_two = function combine_two(terms, i, tag, reason) {
-  var a = terms[i];
-  var b = terms[i + 1];
-  //fail-fast
-  if (!a || !b) {
-    return terms;
-  }
-  //keep relevant/consistant old POS tags
-  var old_pos = {};
-  if (a.pos[tag]) {
-    old_pos = a.pos;
-  }
-  if (b.pos[tag]) {
-    old_pos = fns.extend(old_pos, b.pos);
-  }
-  //find the new Pos class
-  var Pos = pos.classMapping[tag] || pos.Term;
-  terms[i] = new Pos(new_string(a, b), tag);
-  //copy-over reasoning
-  terms[i].reasoning = [a.reasoning.join(', '), b.reasoning.join(', ')];
-  terms[i].reasoning.push(reason);
-  //copy-over old pos
-  terms[i].pos = fns.extend(terms[i].pos, old_pos);
-  //combine whitespace
-  terms[i].whitespace.preceding = a.whitespace.preceding;
-  terms[i].whitespace.trailing = b.whitespace.trailing;
-  //kill 'b'
-  terms[i + 1] = null;
-  return terms;
-};
-
-var combine_three = function combine_three(terms, i, tag, reason) {
-  var a = terms[i];
-  var b = terms[i + 1];
-  var c = terms[i + 2];
-  //fail-fast
-  if (!a || !b || !c) {
-    return terms;
-  }
-  var Pos = pos.classMapping[tag] || pos.Term;
-  var space1 = a.whitespace.trailing + b.whitespace.preceding;
-  var space2 = b.whitespace.trailing + c.whitespace.preceding;
-  var text = a.text + space1 + b.text + space2 + c.text;
-  terms[i] = new Pos(text, tag);
-  terms[i].reasoning = [a.reasoning.join(', '), b.reasoning.join(', ')];
-  terms[i].reasoning.push(reason);
-  //transfer unused-up whitespace
-  terms[i].whitespace.preceding = a.whitespace.preceding;
-  terms[i].whitespace.trailing = c.whitespace.trailing;
-  terms[i + 1] = null;
-  terms[i + 2] = null;
-  return terms;
-};
-
-module.exports = {
-  two: combine_two,
-  three: combine_three
-};
-
-},{"../../../fns":23,"../parts_of_speech":38}],36:[function(_dereq_,module,exports){
-'use strict';
-
-var combine = _dereq_('./combine').three;
-
-// const dont_lump = [
-// {
-//   condition: (a, b, c) => (),
-//   reason: ''
-// },
-// ];
-
-var do_lump = [{
-  //John & Joe's
-  condition: function condition(a, b, c) {
-    return a.pos.Noun && (b.text === '&' || b.normal === 'n') && c.pos.Noun;
-  },
-  result: 'Person',
-  reason: 'Noun-&-Noun'
-}, {
-  //June the 5th
-  condition: function condition(a, b, c) {
-    return a.pos.Date && b.normal === 'the' && c.pos.Value;
-  },
-  result: 'Date',
-  reason: 'Date-the-Value'
-}, {
-  //5th of June
-  condition: function condition(a, b, c) {
-    return a.pos.Value && (b.pos.Conjunction || b.pos.Preposition) && c.pos.Date;
-  },
-  result: 'Date',
-  reason: 'Value-Prep-Date'
-}, {
-  //June 5th to 7th
-  condition: function condition(a, b, c) {
-    return a.pos.Date && (b.pos.Conjunction || b.pos.Preposition) && c.pos.Value;
-  },
-  result: 'Date',
-  reason: 'Date-Preposition-Value'
-}, {
-  //3hrs after 5pm
-  condition: function condition(a, b, c) {
-    return a.pos.Date && (c.pos.Date || c.pos.Ordinal) && (b.pos.Preposition || b.pos.Determiner || b.pos.Conjunction || b.pos.Adjective);
-  },
-  result: 'Date',
-  reason: 'Date-Preposition-Date'
-}, {
-  //President of Mexico
-  condition: function condition(a, b, c) {
-    return a.is_capital() && b.normal === 'of' && c.is_capital();
-  },
-  result: 'Noun',
-  reason: 'Capital-of-Capital'
-}, {
-  //three-word quote
-  condition: function condition(a, b, c) {
-    return a.text.match(/^["']/) && !b.text.match(/["']/) && c.text.match(/["']$/);
-  },
-  result: 'Noun',
-  reason: 'Three-word-quote'
-}, {
-  //will have walk
-  condition: function condition(a, b, c) {
-    return a.normal === 'will' && b.normal === 'have' && c.pos.Verb;
-  },
-  result: 'FutureTense',
-  reason: 'will-have-Verb'
-}, {
-  //two hundred and three
-  condition: function condition(a, b, c) {
-    return a.pos.Value && b.normal === 'and' && c.pos.Value;
-  },
-  result: 'Value',
-  reason: 'Value-and-Value'
-}];
-
-var lump_three = function lump_three(terms) {
-  //fail-fast
-  if (terms.length < 3) {
-    return terms;
-  }
-  for (var i = 0; i < terms.length - 2; i++) {
-    var a = terms[i];
-    var b = terms[i + 1];
-    var c = terms[i + 2];
-    if (!a || !b || !c) {
-      continue;
-    }
-    for (var o = 0; o < do_lump.length; o++) {
-      if (do_lump[o].condition(a, b, c)) {
-        var new_tag = do_lump[o].result;
-        var reason = do_lump[o].reason;
-        terms = combine(terms, i, new_tag, reason);
-        break;
-      }
-    }
-  }
-  //remove empties
-  terms = terms.filter(function (t) {
-    return t;
-  });
-  return terms;
-};
-
-module.exports = lump_three;
-
-},{"./combine":35}],37:[function(_dereq_,module,exports){
-'use strict';
-//apply lumper+splitter words to terms to combine them
-
-var combine = _dereq_('./combine').two;
-
-//not just 'Noun', but something more deliberate
-var is_specific = function is_specific(t) {
-  var specific = ['Person', 'Place', 'Value', 'Date', 'Organization'];
-  for (var i = 0; i < specific.length; i++) {
-    if (t.pos[specific[i]]) {
-      return true;
-    }
-  }
-  return false;
-};
-
-//rules that combine two words
-var do_lump = [{
-  condition: function condition(a, b) {
-    return a.pos.Person && b.pos.Honourific || a.pos.Honourific && b.pos.Person;
-  }, //"John sr."
-  result: 'Person',
-  reason: 'person-words'
-}, {
-  //6 am
-  condition: function condition(a, b) {
-    return (a.pos.Value || a.pos.Date) && (b.normal === 'am' || b.normal === 'pm');
-  },
-  result: 'Date',
-  reason: 'date-am/pm'
-}, {
-  //'Dr. John'
-  condition: function condition(a, b) {
-    return a.pos.Honourific && b.is_capital();
-  },
-  result: 'Person',
-  reason: 'person-honourific'
-}, {
-  // "john lkjsdf's"
-  condition: function condition(a, b) {
-    return a.pos.Person && b.pos.Possessive;
-  },
-  result: 'Person',
-  reason: 'person-possessive'
-}, {
-  //"John Abcd" - needs to be careful
-  condition: function condition(a, b) {
-    return a.pos.Person && !a.pos.Pronoun && !a.pos.Possessive && !a.has_comma() && b.is_capital() && !a.is_acronym() && !b.pos.Verb;
-  }, //'Person, Capital -> Person'
-  result: 'Person',
-  reason: 'person-titleCase'
-}, {
-  //June 4
-  condition: function condition(a, b) {
-    return a.pos.Date && b.pos.Value;
-  },
-  result: 'Date',
-  reason: 'date-value'
-}, {
-  //4 June
-  condition: function condition(a, b) {
-    return a.pos.Value && b.pos.Date;
-  },
-  result: 'Date',
-  reason: 'value-date'
-}, {
-  //last wednesday
-  condition: function condition(a, b) {
-    return (a.normal === 'last' || a.normal === 'next' || a.normal === 'this') && b.pos.Date;
-  },
-  result: 'Date',
-  reason: 'relative-date'
-}, {
-  //Aircraft designer
-  condition: function condition(a, b) {
-    return a.pos.Noun && b.pos.Actor;
-  },
-  result: 'Actor',
-  reason: 'thing-doer'
-}, {
-  //Canada Inc
-  condition: function condition(a, b) {
-    return a.is_capital() && a.pos.Noun && b.pos['Organization'] || b.is_capital() && a.pos['Organization'];
-  },
-  result: 'Organization',
-  reason: 'organization-org'
-}, {
-  //two-word quote
-  condition: function condition(a, b) {
-    return a.text.match(/^["']/) && b.text.match(/["']$/);
-  },
-  result: 'Quotation',
-  reason: 'two-word-quote'
-}, {
-  //will walk (perfect)
-  condition: function condition(a, b) {
-    return a.normal === 'will' && b.pos.Verb;
-  },
-  result: 'PerfectTense',
-  reason: 'will-verb'
-}, {
-  //will have walked (pluperfect)
-  condition: function condition(a, b) {
-    return a.normal.match(/^will ha(ve|d)$/) && b.pos.Verb;
-  },
-  result: 'PluperfectTense',
-  reason: 'will-have-verb'
-}, {
-  //timezones
-  condition: function condition(a, b) {
-    return b.normal.match(/(standard|daylight|summer) time/) && (a.pos['Adjective'] || a.pos['Place']);
-  },
-  result: 'Date',
-  reason: 'timezone'
-}, {
-  //canadian dollar, Brazilian pesos
-  condition: function condition(a, b) {
-    return a.pos.Demonym && b.pos.Currency;
-  },
-  result: 'Currency',
-  reason: 'demonym-currency'
-}, {
-  //for verbs in Past/Present Continuous ('is raining')
-  condition: function condition(a, b) {
-    return a.pos.Copula && a.normal.match(/^(am|is|are|was|were)$/) && b.pos.Verb && b.normal.match(/ing$/);
-  },
-  result: 'Verb',
-  reason: 'copula-gerund'
-}, {
-  //7 ft
-  condition: function condition(a, b) {
-    return a.pos.Value && b.pos.Abbreviation || a.pos.Abbreviation && b.pos.Value;
-  },
-  result: 'Value',
-  reason: 'value-abbreviation'
-}, {
-  //NASA Flordia
-  condition: function condition(a, b) {
-    return a.pos.Noun && b.pos.Abbreviation || a.pos.Abbreviation && b.pos.Noun;
-  },
-  result: 'Noun',
-  reason: 'noun-abbreviation'
-}, {
-  //both dates
-  condition: function condition(a, b) {
-    return a.pos.Date && b.pos.Date;
-  },
-  result: 'Date',
-  reason: 'two-dates'
-}, {
-  //both values
-  condition: function condition(a, b) {
-    return a.pos.Value && b.pos.Value;
-  },
-  result: 'Value',
-  reason: 'two-values'
-}, {
-  //both places
-  condition: function condition(a, b) {
-    return a.pos.Place && b.pos.Place;
-  },
-  result: 'Place',
-  reason: 'two-places'
-}, {
-  //'have not'
-  condition: function condition(a, b) {
-    return (a.pos.Infinitive || a.pos.Copula || a.pos.PresentTense) && b.normal === 'not';
-  },
-  result: 'Verb',
-  reason: 'verb-not'
-}, {
-  //both places (this is the most aggressive rule of them all)
-  condition: function condition(a, b) {
-    return a.pos.Noun && b.pos.Noun && !is_specific(a) && !is_specific(b);
-  },
-  result: 'Noun',
-  reason: 'two-nouns'
-}];
-
-//exceptions or guards to the above rules, more or less
-var dont_lump = [{ //don't chunk non-word things with word-things
-  condition: function condition(a, b) {
-    return a.is_word() === false || b.is_word() === false;
-  },
-  reason: 'not a word'
-}, {
-  //if A has a comma, don't chunk it, (unless it's a date)
-  condition: function condition(a) {
-    return a.has_comma() && !a.pos.Date;
-  },
-  reason: 'has a comma'
-}, { //dont chunk over possessives, eg "spencer's house"
-  condition: function condition(a) {
-    return a.pos['Possessive'];
-  },
-  reason: 'has possessive'
-}, {
-  condition: function condition(a) {
-    return a.pos['Expression'] || a.pos['Phrasal'] || a.pos['Pronoun'];
-  },
-  reason: 'unchunkable pos'
-}, { //dont chunk contractions (again)
-  condition: function condition(a, b) {
-    return a.expansion || b.expansion;
-  },
-  reason: 'is contraction'
-}, { //"Toronto Montreal"
-  condition: function condition(a, b) {
-    return a.pos['City'] && b.pos['City'];
-  },
-  reason: 'two cities'
-}, { //"Canada Cuba"
-  condition: function condition(a, b) {
-    return a.pos['Country'] && b.pos['Country'];
-  },
-  reason: 'two countries'
-}, { //"John you"
-  condition: function condition(a, b) {
-    return a.pos['Person'] && b.pos['Pronoun'];
-  },
-  reason: 'person-pronoun'
-}, { //url singleton
-  condition: function condition(a, b) {
-    return a.pos['Url'] || b.pos['Url'];
-  },
-  reason: 'url-no-lump'
-}, { //Hashtag singleton
-  condition: function condition(a, b) {
-    return a.pos['Hashtag'] || b.pos['Hashtag'];
-  },
-  reason: 'hashtag-no-lump'
-}, { //Email singleton
-  condition: function condition(a, b) {
-    return a.pos['Email'] || b.pos['Email'];
-  },
-  reason: 'email-no-lump'
-}, { //Quotation singleton
-  condition: function condition(a, b) {
-    return a.pos['Quotation'] || b.pos['Quotation'];
-  },
-  reason: 'quotation-no-lump'
-}];
-
-//check lumping 'blacklist'
-var ignore_pair = function ignore_pair(a, b) {
-  for (var o = 0; o < dont_lump.length; o++) {
-    if (dont_lump[o].condition(a, b)) {
-      return true;
-    }
-  }
-  return false;
-};
-
-//pairwise-compare two terms (find the 'twosies')
-var lump_two = function lump_two(terms) {
-  //each term..
-  for (var i = 0; i < terms.length; i++) {
-    var a = terms[i];
-    var b = terms[i + 1];
-    if (!a || !b) {
-      continue;
-    }
-    //first check lumping 'blacklist'
-    if (ignore_pair(a, b)) {
-      continue;
-    }
-    //check each lumping rule
-    for (var o = 0; o < do_lump.length; o++) {
-      //should it combine?
-      if (do_lump[o].condition(a, b)) {
-        var new_tag = do_lump[o].result;
-        var reason = do_lump[o].reason;
-        // console.log(a.normal);
-        // console.log(a.pos);
-        terms = combine(terms, i, new_tag, 'chunked ' + reason);
-        break;
-      }
-    }
-  }
-  //remove empties
-  terms = terms.filter(function (t) {
-    return t;
-  });
-  return terms;
-};
-
-module.exports = lump_two;
-
-},{"./combine":35}],38:[function(_dereq_,module,exports){
-'use strict';
-
-var Term = _dereq_('../../term/term.js');
-
-var Verb = _dereq_('../../term/verb/verb.js');
-var Adverb = _dereq_('../../term/adverb/adverb.js');
-var Adjective = _dereq_('../../term/adjective/adjective.js');
-
-var Noun = _dereq_('../../term/noun/noun.js');
-var Person = _dereq_('../../term/noun/person/person.js');
-var Place = _dereq_('../../term/noun/place/place.js');
-var Organization = _dereq_('../../term/noun/organization/organization.js');
-var Value = _dereq_('../../term/noun/value/value.js');
-var _Date = _dereq_('../../term/noun/date/date.js');
-var Url = _dereq_('../../term/noun/url/url.js');
-
-var tag_mapping = {
-  //nouns
-  'NNA': 'Acronym',
-  'NNS': 'Plural',
-  'NN': 'Noun',
-  'NNO': 'Possessive',
-  'CD': 'Value',
-  // 'NNP': 'Noun',
-  // 'NNPA': 'Noun',
-  // 'NNAB': 'Noun',
-  // 'NNPS': 'Noun',
-  // 'NNG': 'Noun',
-  'AC': 'Actor',
-  'DA': 'Date',
-  'CO': 'Condition',
-  'PN': 'Person',
-
-  //glue
-  'PP': 'Possessive',
-  'PRP': 'Pronoun',
-  'EX': 'Expression', //interjection
-  'DT': 'Determiner',
-  'CC': 'Conjunction',
-  'IN': 'Preposition',
-
-  //verbs
-  'VB': 'Verb',
-  'VBD': 'PastTense',
-  'VBF': 'FutureTense',
-  'VBP': 'Infinitive',
-  'VBZ': 'PresentTense',
-  'VBG': 'Gerund',
-  'VBN': 'Verb',
-  'CP': 'Copula',
-  'MD': 'Modal',
-  'JJ': 'Adjective',
-  'JJR': 'Comparative',
-  'JJS': 'Superlative',
-  'RB': 'Adverb',
-
-  'QU': 'Question'
-};
-
-var classMapping = {
-  'Noun': Noun,
-  'Honourific': Noun,
-  'Acronym': Noun,
-  'Plural': Noun,
-  'Pronoun': Noun,
-  'Actor': Noun,
-  'Abbreviation': Noun,
-  'Currency': Noun,
-
-  'Verb': Verb,
-  'PresentTense': Verb,
-  'FutureTense': Verb,
-  'PastTense': Verb,
-  'Infinitive': Verb,
-  'PerfectTense': Verb,
-  'PluperfectTense': Verb,
-  'Gerund': Verb,
-  'Copula': Verb,
-  'Modal': Verb,
-
-  'Comparative': Adjective,
-  'Superlative': Adjective,
-  'Adjective': Adjective,
-  'Demonym': Adjective,
-
-  'Determiner': Term,
-  'Preposition': Term,
-  'Expression': Term,
-  'Conjunction': Term,
-  'Possessive': Term,
-  'Question': Term,
-  'Symbol': Term,
-
-  'Email': Noun,
-  'AtMention': Noun,
-  'HashTag': Noun,
-  'Url': Url,
-
-  //not yet fully-supported as a POS
-  'MalePerson': Person,
-  'FemalePerson': Person,
-
-  'Adverb': Adverb,
-  'Value': Value,
-
-  'Place': Place,
-  'City': Place,
-  'Country': Place,
-
-  'Person': Person,
-  'Organization': Organization,
-  'Date': _Date
-};
-
-module.exports = {
-  tag_mapping: tag_mapping,
-  classMapping: classMapping,
-  Term: Term,
-  'Date': _Date,
-  Value: Value,
-  Verb: Verb,
-  Person: Person,
-  Place: Place,
-  Organization: Organization,
-  Adjective: Adjective,
-  Adverb: Adverb,
-  Noun: Noun
-};
-
-},{"../../term/adjective/adjective.js":64,"../../term/adverb/adverb.js":69,"../../term/noun/date/date.js":74,"../../term/noun/noun.js":80,"../../term/noun/organization/organization.js":82,"../../term/noun/person/person.js":86,"../../term/noun/place/place.js":88,"../../term/noun/url/url.js":93,"../../term/noun/value/value.js":100,"../../term/term.js":101,"../../term/verb/verb.js":111}],39:[function(_dereq_,module,exports){
-'use strict';
-
-var assign = _dereq_('../assign');
-
-//date words that are sometimes-not..
-var tough_dates = {
-  may: true,
-  april: true,
-  march: true,
-  june: true,
-  jan: true
-};
-
-//an integer that looks year-like
-var maybe_year = function maybe_year(t) {
-  if (t.pos.Value) {
-    var num = t.number || 0;
-    if (num >= 1900 && num < 2030) {
-      return true;
-    }
-  }
-  return false;
-};
-
-//neighbouring words that indicate it is a date
-var date_signals = {
-  between: true,
-  before: true,
-  after: true,
-  during: true,
-  from: true,
-  to: true,
-  in: true,
-  of: true,
-  the: true,
-  next: true
-};
-
-var ambiguous_dates = function ambiguous_dates(terms) {
-  for (var i = 0; i < terms.length; i++) {
-    var t = terms[i];
-    if (tough_dates[t.normal] || maybe_year(t)) {
-      //'march' or '2015'
-      //if nearby another date or value
-      if (terms[i + 1] && (terms[i + 1].pos['Value'] || terms[i + 1].pos['Date'])) {
-        terms[i] = assign(t, 'Date', 'date_signal');
-        continue;
-      }
-      if (terms[i - 1] && (terms[i - 1].pos['Value'] || terms[i - 1].pos['Date'])) {
-        terms[i] = assign(t, 'Date', 'date_signal');
-        continue;
-      }
-
-      //if next term is date-like
-      if (terms[i + 1] && date_signals[terms[i + 1].normal]) {
-        terms[i] = assign(t, 'Date', 'date_signal');
-        continue;
-      }
-      //if last term is date-like
-      if (terms[i - 1] && date_signals[terms[i - 1].normal]) {
-        terms[i] = assign(t, 'Date', 'date_signal');
-        continue;
-      }
-    }
-  }
-  return terms;
-};
-
-module.exports = ambiguous_dates;
-
-},{"../assign":34}],40:[function(_dereq_,module,exports){
-'use strict';
-
-var assign = _dereq_('../assign');
-//set POS for capitalised words
-var capital_signals = function capital_signals(terms) {
-  //first words need careful rules
-  if (terms[0] && terms[0].is_acronym()) {
-    terms[0] = assign(terms[0], 'Noun', 'acronym');
-  }
-  //non-first-word capitals are nouns
-  for (var i = 1; i < terms.length; i++) {
-    if (terms[i].is_capital() || terms[i].is_acronym()) {
-      terms[i] = assign(terms[i], 'Noun', 'capital_signal');
-    }
-  }
-  return terms;
-};
-module.exports = capital_signals;
-
-},{"../assign":34}],41:[function(_dereq_,module,exports){
-'use strict';
-
-var starts = {
-  'if': true,
-  'in the event': true,
-  'in order to': true,
-  'so long as': true,
-  'provided': true,
-  'save that': true,
-  'after': true,
-  'once': true,
-  'subject to': true,
-  'without': true,
-  'effective': true,
-  'upon': true,
-  'during': true,
-  'unless': true,
-  'according': true,
-  'notwithstanding': true,
-  'when': true,
-  'before': true
-};
-
-// ensure there's a verb in a couple words
-var verbSoon = function verbSoon(terms, x) {
-  for (var i = 0; i < 5; i++) {
-    if (terms[i + x] && terms[i + x].pos['Verb']) {
-      return true;
-    }
-  }
-  return false;
-};
-
-// find the next upcoming comma
-var nextComma = function nextComma(terms, i) {
-  //don't be too aggressive
-  var max = terms.length - 1;
-  if (max > i + 7) {
-    max = i + 7;
-  }
-  for (var x = i; x < max; x++) {
-    //ensure there's a command and a verb coming up soon
-    if (terms[x].has_comma() && verbSoon(terms, x)) {
-      return x;
-    }
-  }
-  //allow trailing conditions too
-  if (i > 5 && terms.length - i < 5) {
-    return terms.length;
-  }
-  return null;
-};
-
-//set these terms as conditional
-var tagCondition = function tagCondition(terms, start, stop) {
-  for (var i = start; i <= stop; i++) {
-    if (!terms[i]) {
-      break;
-    }
-    terms[i].pos['Condition'] = true;
-  }
-};
-
-var conditional_pass = function conditional_pass(terms) {
-
-  //try leading condition
-  if (terms[0] && starts[terms[0].normal]) {
-    var until = nextComma(terms, 0);
-    if (until) {
-      tagCondition(terms, 0, until);
-    }
-  }
-
-  //try trailing condition
-  for (var i = 3; i < terms.length; i++) {
-    if (starts[terms[i].normal] && terms[i - 1].has_comma()) {
-      var _until = nextComma(terms, i);
-      if (_until) {
-        tagCondition(terms, i, _until);
-        i += _until;
-      }
-    }
-  }
-  return terms;
-};
-
-module.exports = conditional_pass;
-
-},{}],42:[function(_dereq_,module,exports){
-'use strict';
-
-var pos = _dereq_('../../parts_of_speech');
-//places a 'silent' term where a contraction, like "they're" exists
-
-//the formulaic contraction types:
-var supported = {
-  'll': 'will',
-  'd': 'would',
-  've': 'have',
-  're': 'are',
-  'm': 'am' //this is not the safest way to support i'm
-  //these ones are a bit tricksier:
-  // 't': 'not',
-  // 's': 'is' //or was
-};
-
-var irregulars = {
-  'dunno': ['do not', 'know'],
-  'wanna': ['want', 'to'],
-  'gonna': ['going', 'to'],
-  'im': ['i', 'am'],
-  'alot': ['a', 'lot'],
-
-  'dont': ['do not'],
-  'don\'t': ['do not'],
-  'dun': ['do not'],
-
-  'won\'t': ['will not'],
-  'wont': ['will not'],
-
-  'can\'t': ['can not'],
-  'cannot': ['can not'],
-
-  'aint': ['is not'], //or 'are'
-  'ain\'t': ['is not'],
-  'shan\'t': ['should not'],
-
-  'where\'d': ['where', 'did'],
-  'when\'d': ['when', 'did'],
-  'how\'d': ['how', 'did'],
-  'what\'d': ['what', 'did'],
-  'brb': ['be', 'right', 'back'],
-  'let\'s': ['let', 'us']
-};
-
-// `n't` contractions - negate doesn't have a second term
-var handle_negate = function handle_negate(terms, i) {
-  terms[i].expansion = terms[i].text.replace(/n'.*/, '');
-  terms[i].expansion += ' not';
-  return terms;
-};
-
-//puts a 'implicit term' in this sentence, at 'i'
-var handle_simple = function handle_simple(terms, i, particle) {
-  terms[i].expansion = terms[i].text.replace(/'.*/, '');
-  //make ghost-term
-  var second_word = new pos.Verb('');
-  second_word.expansion = particle;
-  second_word.whitespace.trailing = terms[i].whitespace.trailing;
-  terms[i].whitespace.trailing = ' ';
-  terms.splice(i + 1, 0, second_word);
-  return terms;
-};
-
-// expand manual contractions
-var handle_irregulars = function handle_irregulars(terms, x, arr) {
-  terms[x].expansion = arr[0];
-  for (var i = 1; i < arr.length; i++) {
-    var t = new pos.Term('');
-    t.whitespace.trailing = terms[x].whitespace.trailing; //move whitespace
-    terms[x].whitespace.trailing = ' ';
-    t.expansion = arr[i];
-    terms.splice(x + i, 0, t);
-  }
-  return terms;
-};
-
-// `'s` contractions
-var handle_copula = function handle_copula(terms, i) {
-  //fixup current term
-  terms[i].expansion = terms[i].text.replace(/'s$/, '');
-  //make ghost-term
-  var second_word = new pos.Verb('');
-  second_word.whitespace.trailing = terms[i].whitespace.trailing; //move whitespace
-  terms[i].whitespace.trailing = ' ';
-  second_word.expansion = 'is';
-  terms.splice(i + 1, 0, second_word);
-  return terms;
-};
-
-//turn all contraction-forms into 'silent' tokens
-var interpret = function interpret(terms) {
-  for (var i = 0; i < terms.length; i++) {
-    //known-forms
-    if (irregulars[terms[i].normal]) {
-      terms = handle_irregulars(terms, i, irregulars[terms[i].normal]);
-      continue;
-    }
-    //words with an apostrophe
-    if (terms[i].has_abbreviation()) {
-      var split = terms[i].normal.split(/'/);
-      var pre = split[0];
-      var post = split[1];
-      // eg "they've"
-      if (supported[post]) {
-        terms = handle_simple(terms, i, supported[post]);
-        continue;
-      }
-      // eg "couldn't"
-      if (post === 't' && pre.match(/n$/)) {
-        terms = handle_negate(terms, i);
-        continue;
-      }
-      //eg "spencer's" -if it's possessive, it's not a contraction.
-      if (post === 's' && terms[i].pos['Possessive']) {
-        continue;
-      }
-      // eg "spencer's"
-      if (post === 's') {
-        terms = handle_copula(terms, i);
-        continue;
-      }
-    }
-  }
-
-  return terms;
-};
-
-module.exports = interpret;
-
-// let t = new pos.Verb(`spencer's`);
-// let terms = interpret([t]);
-// console.log(terms);
-
-},{"../../parts_of_speech":38}],43:[function(_dereq_,module,exports){
-'use strict';
-
-var assign = _dereq_('../assign');
-var grammar_rules = _dereq_('./rules/grammar_rules');
-var fns = _dereq_('../../../fns');
-// const match = require('../../match/match');
-
-
-//tests a subset of terms against a array of tags
-var hasTags = function hasTags(terms, tags) {
-  if (terms.length !== tags.length) {
-    return false;
-  }
-  for (var i = 0; i < tags.length; i++) {
-    //do a [tag] match
-    if (fns.startsWith(tags[i], '[') && fns.endsWith(tags[i], ']')) {
-      var pos = tags[i].match(/^\[(.*?)\]$/)[1];
-      if (!terms[i].pos[pos]) {
-        return false;
-      }
-    } else if (terms[i].normal !== tags[i]) {
-      //do a text-match
-      return false;
-    }
-  }
-  return true;
-};
-
-//hints from the sentence grammar
-var grammar_rules_pass = function grammar_rules_pass(s) {
-  for (var i = 0; i < s.terms.length; i++) {
-    for (var o = 0; o < grammar_rules.length; o++) {
-      var rule = grammar_rules[o];
-      //does this rule match
-      var terms = s.terms.slice(i, i + rule.before.length);
-      if (hasTags(terms, rule.before)) {
-        //change before/after for each term
-        for (var c = 0; c < rule.before.length; c++) {
-          if (rule.after[c]) {
-            var newPos = rule.after[c].match(/^\[(.*?)\]$/)[1];
-            s.terms[i + c] = assign(s.terms[i + c], newPos, 'grammar_rule  (' + rule.before.join(',') + ')');
-          }
-        }
-        break;
-      }
-    }
-  }
-  return s.terms;
-};
-module.exports = grammar_rules_pass;
-
-},{"../../../fns":23,"../assign":34,"./rules/grammar_rules":51}],44:[function(_dereq_,module,exports){
-'use strict';
-
-var assign = _dereq_('../assign');
-
-//clear-up ambiguous interjections "ok"[Int], "thats ok"[Adj]
-var interjection_fixes = function interjection_fixes(terms) {
-  var interjections = {
-    ok: true,
-    so: true,
-    please: true,
-    alright: true,
-    well: true,
-    now: true
-  };
-  for (var i = 0; i < terms.length; i++) {
-    if (i > 3) {
-      break;
-    }
-    if (interjections[terms[i].normal]) {
-      terms[i] = assign(terms[i], 'Expression', 'interjection_fixes');
-    } else {
-      break;
-    }
-  }
-  return terms;
-};
-
-module.exports = interjection_fixes;
-
-},{"../assign":34}],45:[function(_dereq_,module,exports){
-'use strict';
-
-var defaultLexicon = _dereq_('../../../lexicon.js');
-var assign = _dereq_('../assign');
-
-//consult lexicon for this known-word
-var lexicon_pass = function lexicon_pass(terms, options) {
-  var lexicon = options.lexicon || defaultLexicon;
-  return terms.map(function (t) {
-
-    var normal = t.normal;
-    //normalize apostrophe s for grammatical purposes
-    if (t.has_abbreviation()) {
-      var split = normal.split(/'/);
-      if (split[1] === 's') {
-        normal = split[0];
-      }
-    }
-
-    //check lexicon straight-up
-    if (lexicon[normal] !== undefined) {
-      return assign(t, lexicon[normal], 'lexicon_pass');
-    }
-
-    if (lexicon[t.expansion] !== undefined) {
-      return assign(t, lexicon[t.expansion], 'lexicon_expansion');
-    }
-    //try to match it without a prefix - eg. outworked -> worked
-    if (normal.match(/^(over|under|out|-|un|re|en).{3}/)) {
-      var attempt = normal.replace(/^(over|under|out|.*?-|un|re|en)/, '');
-      if (lexicon[attempt]) {
-        return assign(t, lexicon[attempt], 'lexicon_prefix');
-      }
-    }
-    //try to match without a contraction - "they've" -> "they"
-    if (t.has_abbreviation()) {
-      var _attempt = normal.replace(/'(ll|re|ve|re|d|m|s)$/, '');
-      // attempt = attempt.replace(/n't/, '');
-      if (lexicon[_attempt]) {
-        return assign(t, lexicon[_attempt], 'lexicon_suffix');
-      }
-    }
-
-    //match 'twenty-eight'
-    if (normal.match(/-/)) {
-      var sides = normal.split('-');
-      if (lexicon[sides[0]]) {
-        return assign(t, lexicon[sides[0]], 'lexicon_dash');
-      }
-      if (lexicon[sides[1]]) {
-        return assign(t, lexicon[sides[1]], 'lexicon_dash');
-      }
-    }
-    return t;
-  });
-};
-module.exports = lexicon_pass;
-
-},{"../../../lexicon.js":25,"../assign":34}],46:[function(_dereq_,module,exports){
-'use strict';
-
-var lexicon = _dereq_('../../../lexicon.js');
-var assign = _dereq_('../assign');
-
-var should_merge = function should_merge(a, b) {
-  if (!a || !b) {
-    return false;
-  }
-  //if it's a known multiple-word term
-  if (lexicon[a.normal + ' ' + b.normal]) {
-    return true;
-  }
-  return false;
-};
-
-var multiples_pass = function multiples_pass(terms) {
-  var new_terms = [];
-  var last_one = null;
-  for (var i = 0; i < terms.length; i++) {
-    var t = terms[i];
-    //if the tags match (but it's not a hidden contraction)
-    if (should_merge(last_one, t)) {
-      var last = new_terms[new_terms.length - 1];
-      var space = t.whitespace.preceding + last.whitespace.trailing;
-      last.text += space + t.text;
-      last.rebuild();
-      last.whitespace.trailing = t.whitespace.trailing;
-      var pos = lexicon[last.normal];
-      new_terms[new_terms.length - 1] = assign(last, pos, 'multiples_pass_lexicon');
-      new_terms[new_terms.length - 1].whitespace = last.whitespace;
-    } else {
-      new_terms.push(t);
-    }
-    last_one = t;
-  }
-  return new_terms;
-};
-
-module.exports = multiples_pass;
-
-},{"../../../lexicon.js":25,"../assign":34}],47:[function(_dereq_,module,exports){
-'use strict';
-
-var assign = _dereq_('../assign');
-//decide if an apostrophe s is a contraction or not
-// 'spencer's nice' -> 'spencer is nice'
-// 'spencer's house' -> 'spencer's house'
-
-//these are always contractions
-var blacklist = {
-  'it\'s': true,
-  'that\'s': true
-};
-
-//a possessive means "'s" describes ownership, not a contraction, like 'is'
-var is_possessive = function is_possessive(terms, x) {
-  //these are always contractions, not possessive
-  if (blacklist[terms[x].normal]) {
-    return false;
-  }
-  //"spencers'" - this is always possessive - eg "flanders'"
-  if (terms[x].normal.match(/[a-z]s'$/)) {
-    return true;
-  }
-  //if no apostrophe s, return
-  if (!terms[x].normal.match(/[a-z]'s$/)) {
-    return false;
-  }
-  //some parts-of-speech can't be possessive
-  if (terms[x].pos['Pronoun']) {
-    return false;
-  }
-  var nextWord = terms[x + 1];
-  //last word is possessive  - "better than spencer's"
-  if (!nextWord) {
-    return true;
-  }
-  //next word is 'house'
-  if (nextWord.pos['Noun']) {
-    return true;
-  }
-  //rocket's red glare
-  if (nextWord.pos['Adjective'] && terms[x + 2] && terms[x + 2].pos['Noun']) {
-    return true;
-  }
-  //next word is an adjective
-  if (nextWord.pos['Adjective'] || nextWord.pos['Verb'] || nextWord.pos['Adverb']) {
-    return false;
-  }
-  return false;
-};
-
-//tag each term as possessive, if it should
-var possessive_pass = function possessive_pass(terms) {
-  for (var i = 0; i < terms.length; i++) {
-    if (is_possessive(terms, i)) {
-      //if it's not already a noun, co-erce it to one
-      if (!terms[i].pos['Noun']) {
-        terms[i] = assign(terms[i], 'Noun', 'possessive_pass');
-      }
-      terms[i].pos['Possessive'] = true;
-    }
-  }
-  return terms;
-};
-module.exports = possessive_pass;
-
-},{"../assign":34}],48:[function(_dereq_,module,exports){
-'use strict';
-
-var assign = _dereq_('../assign');
-// question-words are awkward,
-// 'why',  //*
-// 'where',
-// 'when',
-// 'what',
-// 'who',
-// 'whom',
-// 'whose',
-// 'which'
-
-//differentiate pos for "who walked?" -vs- "he who walked"
-// Pick up that book on the floor.
-var is_pronoun = function is_pronoun(terms, x) {
-  var determiners = {
-    who: true,
-    whom: true,
-    whose: true,
-    which: true
-  };
-  //if it starts a sentence, it's probably a question
-  if (x === 0) {
-    return false;
-  }
-  if (determiners[terms[x].normal]) {
-    //if it comes after a Noun..
-    if (terms[x - 1] && terms[x - 1].pos['Noun']) {
-      //if next word is a verb
-      if (terms[x + 1] && (terms[x + 1].pos['Verb'] || terms[x + 1].pos['Adverb'])) {
-        return true;
-      }
-    }
-  }
-  return false;
-};
-
-var question_pass = function question_pass(terms) {
-  for (var i = 0; i < terms.length; i++) {
-    if (terms[i].pos.Question && is_pronoun(terms, i)) {
-      terms[i] = assign(terms[i], 'Pronoun', 'question_is_pronoun');
-    }
-  }
-  return terms;
-};
-
-module.exports = question_pass;
-
-},{"../assign":34}],49:[function(_dereq_,module,exports){
-'use strict';
-// knowing if something is inside a quotation is important grammatically
-//set all the words inside quotations marks as pos['Quotation']=true
-// verbatim change of narration only, 'scare quotes' don't count.
-
-var startQuote = function startQuote(s) {
-  return s.match(/^["\u201C]./);
-};
-var endQuote = function endQuote(s) {
-  return s.match(/.["\u201D]$/);
-};
-
-//find the next quotation terminator
-var quotation_ending = function quotation_ending(terms, start) {
-  for (var i = start; i < terms.length; i++) {
-    if (endQuote(terms[i].text)) {
-      return i;
-    }
-  }
-  return null;
-};
-
-//set these terms as quotations
-var tagQuotation = function tagQuotation(terms, start, stop) {
-  for (var i = start; i <= stop; i++) {
-    if (!terms[i]) {
-      break;
-    }
-    terms[i].pos['Quotation'] = true;
-  }
-};
-
-//hunt
-var quotation_pass = function quotation_pass(terms) {
-  for (var i = 0; i < terms.length; i++) {
-    if (startQuote(terms[i].text)) {
-      var end = quotation_ending(terms, [i]);
-      if (end !== null) {
-        tagQuotation(terms, i, end);
-        return terms;
-      }
-    }
-  }
-  return terms;
-};
-
-module.exports = quotation_pass;
-
-},{}],50:[function(_dereq_,module,exports){
-'use strict';
-
-var word_rules = _dereq_('./rules/word_rules');
-var assign = _dereq_('../assign');
-
-//word-rules that run on '.text', not '.normal'
-var punct_rules = [{ //'+'
-  reg: new RegExp('^[@%^&*+=~-]?$', 'i'),
-  pos: 'Symbol',
-  reason: 'independent-symbol'
-}, { //2:54pm
-  reg: new RegExp('^[12]?[0-9]\:[0-9]{2}( am| pm)?$', 'i'),
-  pos: 'Date',
-  reason: 'time_reg'
-}, { //1999/12/25
-  reg: new RegExp('^[0-9]{1,4}[-/][0-9]{1,2}[-/][0-9]{1,4}$', 'i'),
-  pos: 'Date',
-  reason: 'numeric_date'
-}, { //3:32
-  reg: new RegExp('^[0-9]{1,2}:[0-9]{2}(:[0-9]{2})?', 'i'),
-  pos: 'Date',
-  reason: 'time'
-}];
-
-var regex_pass = function regex_pass(terms) {
-  terms.forEach(function (t, i) {
-    //don't overwrite
-    if (terms[i].tag !== '?') {
-      return;
-    }
-    var text = terms[i].text;
-    var normal = terms[i].normal;
-    //normalize apostrophe s for grammatical purposes
-    if (terms[i].has_abbreviation()) {
-      var split = terms[i].normal.split(/'/);
-      if (split[1] === 's') {
-        normal = split[0];
-      }
-    }
-    //regexes that involve punctuation
-    for (var o = 0; o < punct_rules.length; o++) {
-      if (text.match(punct_rules[o].reg)) {
-        terms[i] = assign(terms[i], punct_rules[o].pos, punct_rules[o].rules);
-        return;
-      }
-    }
-    //bigger list of regexes on normal
-    for (var _o = 0; _o < word_rules.length; _o++) {
-      if (normal.match(word_rules[_o].reg)) {
-        var reason = 'regex #' + _o + ' ' + word_rules[_o].pos;
-        terms[i] = assign(terms[i], word_rules[_o].pos, reason);
-        return;
-      }
-    }
-  });
-  return terms;
-};
-
-module.exports = regex_pass;
-
-},{"../assign":34,"./rules/word_rules":52}],51:[function(_dereq_,module,exports){
-'use strict';
-
-module.exports = [
-//determiner hints
-{
-  'before': ['[Determiner]', '[?]'],
-  'after': ['[Determiner]', '[Noun]']
-}, {
-  'before': ['the', '[Verb]'],
-  'after': [null, '[Noun]']
-}, {
-  'before': ['[Determiner]', '[Adjective]', '[Verb]'],
-  'after': ['[Noun]', '[Noun]', '[Noun]']
-}, {
-  'before': ['[Determiner]', '[Adverb]', '[Adjective]', '[?]'],
-  'after': ['[Determiner]', '[Adverb]', '[Adjective]', '[Noun]']
-}, {
-  'before': ['[?]', '[Determiner]', '[Noun]'],
-  'after': ['[Verb]', '[Determiner]', '[Noun]']
-},
-//"peter the great"
-{
-  'before': ['[Person]', 'the', '[Noun]'],
-  'after': ['[Person]', null, '[Noun]']
-},
-// //"book the flight"
-{
-  'before': ['[Noun]', 'the', '[Noun]'],
-  'after': ['[Verb]', null, '[Noun]']
-},
-
-//Possessive hints
-{
-  'before': ['[Possessive]', '[?]'],
-  'after': ['[Possessive]', '[Noun]']
-},
-// {
-//   'before': ['[Possessive]', '[Verb]'],
-//   'after': ['[Possessive]', '[Noun]'],
-// },
-{
-  'before': ['[?]', '[Possessive]', '[Noun]'],
-  'after': ['[Verb]', '[Possessive]', '[Noun]']
-},
-//copula hints
-{
-  'before': ['[Copula]', '[?]'],
-  'after': ['[Copula]', '[Adjective]'] }, {
-  'before': ['[Copula]', '[Adverb]', '[?]'],
-  'after': ['[Copula]', '[Adverb]', '[Adjective]'] },
-//preposition hints
-{
-  'before': ['[?]', '[Preposition]'],
-  'after': ['[Verb]', '[Preposition]']
-},
-//conjunction hints, like lists (a little sloppy)
-{
-  'before': ['[Adverb]', '[Conjunction]', '[Adverb]'],
-  'after': ['[Adverb]', '[Adverb]', '[Adverb]']
-},
-//do not
-// {
-//   'before': ['[Verb]', 'not'],
-//   'after': ['[Verb]', '[Verb]'],
-// },
-// {
-//   'before': ['[Noun]', '[Conjunction]', '[Noun]'],
-//   'after': ['[Noun]', '[Noun]', '[Noun]'],
-// },
-{
-  'before': ['[Adjective]', '[Conjunction]', '[Adjective]'],
-  'after': ['[Adjective]', '[Adjective]', '[Adjective]']
-}, {
-  'before': ['[?]', '[Conjunction]', '[Verb]'],
-  'after': ['[Verb]', '[Conjunction]', '[Verb]']
-}, {
-  'before': ['[Verb]', '[Conjunction]', '[?]'],
-  'after': ['[Verb]', '[Conjunction]', '[Verb]']
-},
-//adverb hints
-{
-  'before': ['[Noun]', '[Adverb]', '[Noun]'],
-  'after': ['[Noun]', '[Adverb]', '[Verb]']
-},
-//pronoun hints
-{
-  'before': ['[?]', '[Pronoun]'],
-  'after': ['[Verb]', '[Pronoun]']
-},
-//modal hints
-{
-  'before': ['[Modal]', '[?]'],
-  'after': ['[Modal]', '[Verb]']
-}, {
-  'before': ['[Modal]', '[Adverb]', '[?]'],
-  'after': ['[Modal]', '[Adverb]', '[Verb]']
-}, { // 'red roses' => Adjective, Noun
-  'before': ['[Adjective]', '[Verb]'],
-  'after': ['[Adjective]', '[Noun]']
-}, { // 5 kittens => Value, Nouns
-  'before': ['[Value]', '[Verb]'],
-  'after': ['[Value]', '[Noun]']
-},
-
-//ambiguous dates (march/may)
-// {
-//   'before': ['[Modal]', '[Value]'],
-//   'after': ['[Modal]', '[Verb]'],
-// },
-{
-  'before': ['[Adverb]', '[Value]'],
-  'after': ['[Adverb]', '[Verb]']
-}];
-
-},{}],52:[function(_dereq_,module,exports){
-'use strict';
-
-var tag_mapping = _dereq_('../../parts_of_speech.js').tag_mapping;
-//regex patterns and parts of speech],
-module.exports = [['^[0-9]+ ?(am|pm)$', 'DA'], ['^[0-9]+(st|nd|rd)?$', 'CD'], ['^[a-z]et$', 'VB'], ['cede$', 'VB'], ['.[cts]hy$', 'JJ'], ['.[st]ty$', 'JJ'], ['.[lnr]ize$', 'VB'], ['.[gk]y$', 'JJ'], ['.fies$', 'VB'], ['.some$', 'JJ'], ['.[nrtumcd]al$', 'JJ'], ['.que$', 'JJ'], ['.[tnl]ary$', 'JJ'], ['.[di]est$', 'JJS'], ['^(un|de|re)\\-[a-z]..', 'VB'], ['.lar$', 'JJ'], ['[bszmp]{2}y', 'JJ'], ['.zes$', 'VB'], ['.[icldtgrv]ent$', 'JJ'], ['.[rln]ates$', 'VBZ'], ['.[oe]ry$', 'NN'], ['[rdntkdhs]ly$', 'RB'], ['.[lsrnpb]ian$', 'JJ'], ['.[^aeiou]ial$', 'JJ'], ['.[^aeiou]eal$', 'JJ'], ['.[vrl]id$', 'JJ'], ['.[ilk]er$', 'JJR'], ['.ike$', 'JJ'], ['.ends?$', 'VB'], ['.wards$', 'RB'], ['.rmy$', 'JJ'], ['.rol$', 'NN'], ['.tors$', 'NN'], ['.azy$', 'JJ'], ['.where$', 'RB'], ['.ify$', 'VB'], ['.bound$', 'JJ'], ['.[^z]ens$', 'VB'], ['.oid$', 'JJ'], ['.vice$', 'NN'], ['.rough$', 'JJ'], ['.mum$', 'JJ'], ['.teen(th)?$', 'CD'], ['.oses$', 'VB'], ['.ishes$', 'VB'], ['.ects$', 'VB'], ['.tieth$', 'CD'], ['.ices$', 'NN'], ['.pose$', 'VB'], ['.ions$', 'NN'], ['.ean$', 'JJ'], ['.[ia]sed$', 'JJ'], ['.tized$', 'VB'], ['.llen$', 'JJ'], ['.fore$', 'RB'], ['.ances$', 'NN'], ['.gate$', 'VB'], ['.nes$', 'VB'], ['.less$', 'RB'], ['.ried$', 'JJ'], ['.gone$', 'JJ'], ['.made$', 'JJ'], ['.ing$', 'VB'], //likely to be converted to adjective after lexicon pass
-['.tions$', 'NN'], ['.tures$', 'NN'], ['.ous$', 'JJ'], ['.ports$', 'NN'], ['. so$', 'RB'], ['.ints$', 'NN'], ['.[gt]led$', 'JJ'], ['.lked$', 'VB'], ['.fully$', 'RB'], ['.*ould$', 'MD'], ['^-?[0-9]+(.[0-9]+)?$', 'CD'], ['[a-z]*\\-[a-z]*\\-', 'JJ'], ['[a-z]\'s$', 'NNO'], ['.\'n$', 'VB'], ['.\'re$', 'CP'], ['.\'ll$', 'MD'], ['.\'t$', 'VB'], ['.tches$', 'VB'], ['^https?\:?\/\/[a-z0-9]', 'NN'], //the colon is removed in normalisation
-['^www\.[a-z0-9]', 'NN'], ['.ize$', 'VB'], ['.[^aeiou]ise$', 'VB'], ['.[aeiou]te$', 'VB'], ['.ea$', 'NN'], ['[aeiou][pns]er$', 'NN'], ['.ia$', 'NN'], ['.sis$', 'NN'], ['.[aeiou]na$', 'NN'], ['.[^aeiou]ity$', 'NN'], ['.[^aeiou]ium$', 'NN'], ['.[^aeiou][ei]al$', 'JJ'], ['.ffy$', 'JJ'], ['.[^aeiou]ic$', 'JJ'], ['.(gg|bb|zz)ly$', 'JJ'], ['.[aeiou]my$', 'JJ'], ['.[^aeiou][ai]ble$', 'JJ'], ['.[^aeiou]eable$', 'JJ'], ['.[^aeiou]ful$', 'JJ'], ['.[^aeiou]ish$', 'JJ'], ['.[^aeiou]ica$', 'NN'], ['[aeiou][^aeiou]is$', 'NN'], ['[^aeiou]ard$', 'NN'], ['[^aeiou]ism$', 'NN'], ['.[^aeiou]ity$', 'NN'], ['.[^aeiou]ium$', 'NN'], ['.[lstrn]us$', 'NN'], ['..ic$', 'JJ'], ['[aeiou][^aeiou]id$', 'JJ'], ['.[^aeiou]ish$', 'JJ'], ['.[^aeiou]ive$', 'JJ'], ['[ea]{2}zy$', 'JJ'], ['[^aeiou]ician$', 'AC'], ['.keeper$', 'AC'], ['.logist$', 'AC'], ['..ier$', 'AC'], ['.[^aeiou][ao]pher$', 'AC'], ['.tive$', 'AC'], ['[aeiou].*ist$', 'JJ'], ['[^i]fer$', 'VB'],
-//slang things
-['^um+$', 'EX'], //ummmm
-['^([hyj]a)+$', 'EX'], //hahah
-['^(k)+$', 'EX'], //kkkk
-['^(yo)+$', 'EX'], //yoyo
-['^yes+$', 'EX'], //yessss
-['^no+$', 'EX'], //noooo
-['^lol[sz]$', 'EX'], //lol
-['^woo+[pt]?$', 'EX'], //woo
-['^ug?h+$', 'EX'], //uhh
-['^uh[ -]?oh$', 'EX']].map(function (a) {
-  return {
-    reg: new RegExp(a[0], 'i'),
-    pos: tag_mapping[a[1]]
-  };
-});
-
-},{"../../parts_of_speech.js":38}],53:[function(_dereq_,module,exports){
-'use strict';
-//identify urls, hashtags, @mentions, emails
-
-var assign = _dereq_('../assign');
-// 'Email': Noun,
-// 'Url': Noun,
-// 'AtMention': Noun,
-// 'HashTag': Noun,
-
-var is_email = function is_email(str) {
-  if (str.match(/^\w+@\w+\.[a-z]{2,3}$/)) {
-    //not fancy
-    return true;
-  }
-  return false;
-};
-
-var is_hashtag = function is_hashtag(str) {
-  if (str.match(/^#[a-z0-9_]{2,}$/)) {
-    return true;
-  }
-  return false;
-};
-
-var is_atmention = function is_atmention(str) {
-  if (str.match(/^@\w{2,}$/)) {
-    return true;
-  }
-  return false;
-};
-
-var is_url = function is_url(str) {
-  //with http/www
-  if (str.match(/^(https?:\/\/|www\.)\w+\.[a-z]{2,3}/)) {
-    //not fancy
-    return true;
-  }
-  // 'boo.com'
-  //http://mostpopularwebsites.net/top-level-domain
-  if (str.match(/^[\w\.\/]+\.(com|net|gov|org|ly|edu|info|biz|ru|jp|de|in|uk|br)/)) {
-    return true;
-  }
-  return false;
-};
-
-var web_pass = function web_pass(terms) {
-  for (var i = 0; i < terms.length; i++) {
-    var str = terms[i].text.trim().toLowerCase();
-    if (is_email(str)) {
-      terms[i] = assign(terms[i], 'Email', 'web_pass');
-    }
-    if (is_hashtag(str)) {
-      terms[i] = assign(terms[i], 'HashTag', 'web_pass');
-    }
-    if (is_atmention(str)) {
-      terms[i] = assign(terms[i], 'AtMention', 'web_pass');
-    }
-    if (is_url(str)) {
-      terms[i] = assign(terms[i], 'Url', 'web_pass');
-    }
-  }
-  return terms;
-};
-
-module.exports = web_pass;
-
-},{"../assign":34}],54:[function(_dereq_,module,exports){
-//part-of-speech tagging
-'use strict';
-
-var lump_two = _dereq_('./lumper/lump_two');
-var lump_three = _dereq_('./lumper/lump_three');
-var pos = _dereq_('./parts_of_speech');
-var assign = _dereq_('./assign');
-
-var grammar_pass = _dereq_('./passes/grammar_pass');
-var interjection_fixes = _dereq_('./passes/interjection_fixes');
-var lexicon_pass = _dereq_('./passes/lexicon_pass');
-var capital_signals = _dereq_('./passes/capital_signals');
-var conditional_pass = _dereq_('./passes/conditional_pass');
-var ambiguous_dates = _dereq_('./passes/ambiguous_dates');
-var multiple_pass = _dereq_('./passes/multiples_pass');
-var regex_pass = _dereq_('./passes/regex_pass');
-var quotation_pass = _dereq_('./passes/quotation_pass');
-var possessive_pass = _dereq_('./passes/possessive_pass');
-var contraction_pass = _dereq_('./passes/contractions/interpret');
-var question_pass = _dereq_('./passes/question_pass');
-var web_text_pass = _dereq_('./passes/web_text_pass');
-
-var noun_fallback = function noun_fallback(terms) {
-  for (var i = 0; i < terms.length; i++) {
-    if (terms[i].tag === '?' && terms[i].normal.match(/[a-z]/)) {
-      terms[i] = assign(terms[i], 'Noun', 'fallback');
-    }
-  }
-  return terms;
-};
-
-//turn nouns into person/place
-var specific_noun = function specific_noun(terms) {
-  for (var i = 0; i < terms.length; i++) {
-    var t = terms[i];
-    if (t instanceof pos.Noun) {
-      //don't overwrite known forms...
-      if (t.pos.Person || t.pos.Place || t.pos.Value || t.pos.Date || t.pos.Organization) {
-        continue;
-      }
-      if (t.is_person()) {
-        terms[i] = assign(t, 'Person', 'is_person');
-      } else if (t.is_place()) {
-        terms[i] = assign(t, 'Place', 'is_place');
-      } else if (t.is_value()) {
-        terms[i] = assign(t, 'Value', 'is_value');
-      } else if (t.is_date()) {
-        terms[i] = assign(t, 'Date', 'is_date');
-      } else if (t.is_organization()) {
-        terms[i] = assign(t, 'Organization', 'is_organization');
-      }
-    }
-  }
-  return terms;
-};
-
-var tagger = function tagger(s, options) {
-  //word-level rules
-  s.terms = capital_signals(s.terms);
-  s.terms = lexicon_pass(s.terms, options);
-  s.terms = multiple_pass(s.terms);
-  s.terms = regex_pass(s.terms);
-  s.terms = interjection_fixes(s.terms);
-  s.terms = web_text_pass(s.terms);
-  //sentence-level rules
-  //(repeat these steps a couple times, to wiggle-out the grammar)
-  for (var i = 0; i < 3; i++) {
-    s.terms = grammar_pass(s);
-    s.terms = specific_noun(s.terms);
-    s.terms = ambiguous_dates(s.terms);
-    s.terms = possessive_pass(s.terms);
-    s.terms = lump_two(s.terms);
-    s.terms = noun_fallback(s.terms);
-    s.terms = lump_three(s.terms);
-  }
-  s.terms = conditional_pass(s.terms);
-  s.terms = quotation_pass(s.terms);
-  s.terms = contraction_pass(s.terms);
-  s.terms = question_pass(s.terms);
-  return s.terms;
-};
-
-module.exports = tagger;
-
-},{"./assign":34,"./lumper/lump_three":36,"./lumper/lump_two":37,"./parts_of_speech":38,"./passes/ambiguous_dates":39,"./passes/capital_signals":40,"./passes/conditional_pass":41,"./passes/contractions/interpret":42,"./passes/grammar_pass":43,"./passes/interjection_fixes":44,"./passes/lexicon_pass":45,"./passes/multiples_pass":46,"./passes/possessive_pass":47,"./passes/question_pass":48,"./passes/quotation_pass":49,"./passes/regex_pass":50,"./passes/web_text_pass":53}],55:[function(_dereq_,module,exports){
-'use strict';
-//build-out this mapping
-
-var interrogatives = {
-  'who': 'who',
-  'whose': 'who',
-  'whom': 'who',
-  'which person': 'who',
-
-  'where': 'where',
-  'when': 'when',
-
-  'why': 'why',
-  'how come': 'why'
-};
-
-var easyForm = function easyForm(s, i) {
-  var t = s.terms[i];
-  var nextTerm = s.terms[i + 1];
-
-  //some interrogative forms are two-terms, try it.
-  if (nextTerm) {
-    var twoTerm = t.normal + ' ' + nextTerm.normal;
-    if (interrogatives[twoTerm]) {
-      return interrogatives[twoTerm];
-    }
-  }
-  //try an interrogative first - 'who'
-  if (interrogatives[t.normal]) {
-    return interrogatives[t.normal];
-  }
-  //an interrogative as a contraction - 'why'd'
-  if (interrogatives[t.expansion]) {
-    return interrogatives[t.expansion];
-  }
-  return false;
-};
-
-module.exports = easyForm;
-
-},{}],56:[function(_dereq_,module,exports){
-'use strict';
-
-var hardFormVerb = {
-  'which': 'which',
-  'what': 'what'
-};
-
-// "what time" -> 'when'
-var knownForm = {
-  time: 'when',
-  day: 'when',
-  year: 'when',
-
-  person: 'who', //more covered by pos["Actor"]
-
-  amount: 'number',
-  number: 'number'
-};
-
-var hardForm = function hardForm(s, i) {
-  var t = s.terms[i];
-  var nextTerm = s.terms[i + 1];
-  // which, or what
-  var questionWord = hardFormVerb[t.normal] || hardFormVerb[t.expanded];
-  // end early.
-  if (!nextTerm || !questionWord) {
-    return null;
-  }
-
-  //"which is.."
-  if (nextTerm.pos['Copula']) {
-    return t.normal;
-  }
-  //"which politician.."
-  if (nextTerm.pos['Actor']) {
-    return 'who';
-  }
-  //"what time.."
-  if (knownForm[nextTerm.normal]) {
-    return knownForm[nextTerm.normal];
-  }
-
-  return questionWord;
-};
-
-module.exports = hardForm;
-
-},{}],57:[function(_dereq_,module,exports){
-'use strict';
-
-var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
-
-function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
-
-function _possibleConstructorReturn(self, call) { if (!self) { throw new ReferenceError("this hasn't been initialised - super() hasn't been called"); } return call && (typeof call === "object" || typeof call === "function") ? call : self; }
-
-function _inherits(subClass, superClass) { if (typeof superClass !== "function" && superClass !== null) { throw new TypeError("Super expression must either be null or a function, not " + typeof superClass); } subClass.prototype = Object.create(superClass && superClass.prototype, { constructor: { value: subClass, enumerable: false, writable: true, configurable: true } }); if (superClass) Object.setPrototypeOf ? Object.setPrototypeOf(subClass, superClass) : subClass.__proto__ = superClass; }
-
-var Sentence = _dereq_('../sentence.js');
-var question_form = _dereq_('./question_form');
-
-var Question = function (_Sentence) {
-  _inherits(Question, _Sentence);
-
-  function Question(str, options) {
-    _classCallCheck(this, Question);
-
-    return _possibleConstructorReturn(this, (Question.__proto__ || Object.getPrototypeOf(Question)).call(this, str, options));
-  }
-
-  _createClass(Question, [{
-    key: 'form',
-    value: function form() {
-      return question_form(this);
-    }
-  }]);
-
-  return Question;
-}(Sentence);
-
-Question.fn = Question.prototype;
-
-module.exports = Question;
-
-// let q = new Question(`accordingly, is he cool?`);
-// let q = new Question(`what time did you show up?`);
-// console.log(q.form());
-
-},{"../sentence.js":60,"./question_form":58}],58:[function(_dereq_,module,exports){
-'use strict';
-//classifies a question into:
-
-var yesNoTerm = _dereq_('./yesNo.js');
-var easyForm = _dereq_('./easyForm.js');
-var hardForm = _dereq_('./hardForm.js');
-
-// how, when, where, who, why
-// what, which
-// number
-// yesNo
-
-//exceptions:
-// You bought what!? - Echo question
-// Who bought what? - Multiple wh-expressions
-// I wonder who Fred will ask to leave. - passive question
-
-// "Five Ws and one H" + 'which'
-// let forms = {
-// how: ['in what way'],
-// what: ['what\'s'],
-// which: ['what one'],
-// number: ['how many', 'how much', 'how far', 'how long'],
-// };
-
-var question_form = function question_form(s) {
-  //loop through and find first signal
-  for (var i = 0; i < s.terms.length; i++) {
-
-    //who is.. -> "who"
-    var form = easyForm(s, i);
-    if (form) {
-      return form;
-    }
-    //which politician.. -> "who"
-    form = hardForm(s, i);
-    if (form) {
-      return form;
-    }
-    //is he..  -> "yesNo"
-    if (yesNoTerm(s, i)) {
-      return 'yesNo';
-    }
-  }
-  return null;
-};
-
-module.exports = question_form;
-
-},{"./easyForm.js":55,"./hardForm.js":56,"./yesNo.js":59}],59:[function(_dereq_,module,exports){
-'use strict';
-
-// Yes/No questions take the form:
-// he is -> is he?
-
-var yesNoVerb = {
-  is: true,
-  are: true,
-  was: true,
-  will: true,
-  do: true,
-  did: true
-};
-
-var yesNoTerm = function yesNoTerm(s, i) {
-  var t = s.terms[i];
-  var lastTerm = s.terms[i - 1];
-  var nextTerm = s.terms[i + 1];
-  //try a yes/no question then
-  if (yesNoVerb[t.normal] || yesNoVerb[t.expansion]) {
-    //leading 'is x...' is a question
-    if (!lastTerm) {
-      return true;
-    }
-    //ending '... are.' is a not question
-    if (!lastTerm) {
-      return false;
-    }
-    // 'he is' is not a question..
-    if (lastTerm.pos['Pronoun'] || lastTerm.pos['Person']) {
-      return false;
-    }
-    // 'is he' is a question..
-    if (nextTerm.pos['Pronoun'] || nextTerm.pos['Person']) {
-      return true;
-    }
-  }
-  return false;
-};
-
-module.exports = yesNoTerm;
-
-},{}],60:[function(_dereq_,module,exports){
-'use strict';
-
-var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
-
-function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
-
-var Term = _dereq_('../term/term');
-var tagger = _dereq_('./pos/tagger');
-var passive_voice = _dereq_('./passive_voice');
-var contractions = {
-  contract: _dereq_('./contractions/contract'),
-  expand: _dereq_('./contractions/expand')
-};
-var change_tense = _dereq_('./change_tense');
-var spot = _dereq_('./spot');
-var _match = _dereq_('../match/match');
-var tokenize_match = function tokenize_match() {};
-
-//a sentence is an array of Term objects, along with their various methods
-
-var Sentence = function () {
-  function Sentence(str, options) {
-    _classCallCheck(this, Sentence);
-
-    this.str = '';
-    if (typeof str === 'string') {
-      this.str = str;
-    } else if (typeof str === 'number') {
-      this.str = '' + str;
-    }
-    options = options || {};
-    var the = this;
-    var words = this.str.split(/( +)/);
-    //build-up term-objects
-    this.terms = [];
-    if (words[0] === '') {
-      words.shift();
-    }
-    for (var i = 0; i < words.length; i++) {
-      if (!words[i] || !words[i].match(/\S/i)) {
-        continue;
-      }
-      var whitespace = {
-        preceding: words[i - 1],
-        trailing: words[i + 1]
-      };
-      //don't use them twice
-      words[i - 1] = null;
-      words[i + 1] = null;
-      this.terms.push(new Term(words[i], null, whitespace));
-    }
-    // console.log(this.terms);
-    //part-of-speech tagging
-    this.terms = tagger(this, options);
-    // process contractions
-    //now the hard part is already done, just flip them
-    this.contractions = {
-      // "he'd go" -> "he would go"
-      expand: function expand() {
-        the.terms = contractions.expand(the.terms);
-        return the;
-      },
-      // "he would go" -> "he'd go"
-      contract: function contract() {
-        the.terms = contractions.contract(the.terms);
-        return the;
-      }
-    };
-  }
-
-  //Sentence methods:
-
-  //insert a new word at this point
-
-
-  _createClass(Sentence, [{
-    key: 'addBefore',
-    value: function addBefore(i, str) {
-      var t = new Term(str);
-      this.terms.splice(i, 0, t);
-    }
-  }, {
-    key: 'addAfter',
-    value: function addAfter(i, str) {
-      var t = new Term(str);
-      this.terms.splice(i + 1, 0, t);
-    }
-
-    // a regex-like lookup for a list of terms.
-    // returns [] of matches in a 'Terms' class
-
-  }, {
-    key: 'match',
-    value: function match(match_str, options) {
-      var regs = tokenize_match(match_str);
-      return _match.findAll(this.terms, regs, options);
-    }
-    //returns a transformed sentence
-
-  }, {
-    key: 'replace',
-    value: function replace(match_str, replacement, options) {
-      var regs = tokenize_match(match_str);
-      replacement = tokenize_match(replacement);
-      _match.replaceAll(this.terms, regs, replacement, options);
-      return this;
-    }
-
-    //the ending punctuation
-
-  }, {
-    key: 'terminator',
-    value: function terminator() {
-      var allowed = {
-        '.': true,
-        '?': true,
-        '!': true
-      };
-      var char = this.str.match(/([\.\?\!])\W*$/);
-      if (char && allowed[char[1]]) {
-        return char[1];
-      }
-      return '';
-    }
-
-    //part-of-speech assign each term
-
-  }, {
-    key: 'tag',
-    value: function tag() {
-      this.terms = tagger(this);
-      return this.terms;
-    }
-
-    //is it a question/statement
-
-  }, {
-    key: 'sentence_type',
-    value: function sentence_type() {
-      var char = this.terminator();
-      var types = {
-        '?': 'interrogative',
-        '!': 'exclamative',
-        '.': 'declarative'
-      };
-      return types[char] || 'declarative';
-    }
-
-    // A was verbed by B - B verbed A
-
-  }, {
-    key: 'is_passive',
-    value: function is_passive() {
-      return passive_voice(this);
-    }
-    // Question doesn't have negate, this is a placeholder
-
-  }, {
-    key: 'negate',
-    value: function negate() {
-      return this;
-    }
-
-    //map over Term methods
-
-  }, {
-    key: 'text',
-    value: function text() {
-      return this.terms.reduce(function (s, t) {
-        //implicit contractions shouldn't be included
-        if (t.text) {
-          s += (t.whitespace.preceding || '') + t.text + (t.whitespace.trailing || '');
-        }
-        return s;
-      }, '');
-    }
-    //like text but for cleaner text
-
-  }, {
-    key: 'normal',
-    value: function normal() {
-      var str = this.terms.reduce(function (s, t) {
-        if (t.normal) {
-          s += ' ' + t.normal;
-        }
-        return s;
-      }, '').trim();
-      return str + this.terminator();
-    }
-
-    //further 'lemmatisation/inflection'
-
-  }, {
-    key: 'root',
-    value: function root() {
-      return this.terms.reduce(function (s, t) {
-        s += ' ' + t.root();
-        return s;
-      }, '').trim();
-    }
-    //return only the main POS classnames/tags
-
-  }, {
-    key: 'tags',
-    value: function tags() {
-      return this.terms.map(function (t) {
-        return t.tag || '?';
-      });
-    }
-    //mining for specific things
-
-  }, {
-    key: 'people',
-    value: function people() {
-      return this.terms.filter(function (t) {
-        return t.pos['Person'];
-      });
-    }
-  }, {
-    key: 'places',
-    value: function places() {
-      return this.terms.filter(function (t) {
-        return t.pos['Place'];
-      });
-    }
-  }, {
-    key: 'dates',
-    value: function dates() {
-      return this.terms.filter(function (t) {
-        return t.pos['Date'];
-      });
-    }
-  }, {
-    key: 'organizations',
-    value: function organizations() {
-      return this.terms.filter(function (t) {
-        return t.pos['Organization'];
-      });
-    }
-  }, {
-    key: 'values',
-    value: function values() {
-      return this.terms.filter(function (t) {
-        return t.pos['Value'];
-      });
-    }
-
-    //parts of speech
-
-  }, {
-    key: 'nouns',
-    value: function nouns() {
-      return this.terms.filter(function (t) {
-        return t.pos['Noun'];
-      });
-    }
-  }, {
-    key: 'adjectives',
-    value: function adjectives() {
-      return this.terms.filter(function (t) {
-        return t.pos['Adjective'];
-      });
-    }
-  }, {
-    key: 'verbs',
-    value: function verbs() {
-      return this.terms.filter(function (t) {
-        return t.pos['Verb'];
-      });
-    }
-  }, {
-    key: 'adverbs',
-    value: function adverbs() {
-      return this.terms.filter(function (t) {
-        return t.pos['Adverb'];
-      });
-    }
-
-    // john walks quickly -> john walked quickly
-
-  }, {
-    key: 'to_past',
-    value: function to_past() {
-      change_tense(this, 'past');
-      return this;
-    }
-    // john walked quickly -> john walks quickly
-
-  }, {
-    key: 'to_present',
-    value: function to_present() {
-      change_tense(this, 'present');
-      return this;
-    }
-    // john walked quickly -> john will walk quickly
-
-  }, {
-    key: 'to_future',
-    value: function to_future() {
-      change_tense(this, 'future');
-      return this;
-    }
-  }, {
-    key: 'strip_conditions',
-    value: function strip_conditions() {
-      var _this = this;
-
-      this.terms = this.terms.filter(function (t, i) {
-        //remove preceding condition
-        if (i > 0 && t.pos['Condition'] && !_this.terms[i - 1].pos['Condition']) {
-          _this.terms[i - 1].text = _this.terms[i - 1].text.replace(/,$/, '');
-          _this.terms[i - 1].whitespace.trailing = '';
-          _this.terms[i - 1].rebuild();
-        }
-        return !t.pos['Condition'];
-      });
-      return this;
-    }
-
-    //'semantic' word-count, skips over implicit terms and things
-
-  }, {
-    key: 'word_count',
-    value: function word_count() {
-      return this.terms.filter(function (t) {
-        //a quiet term, from a contraction
-        if (t.normal === '') {
-          return false;
-        }
-        return true;
-      }).length;
-    }
-
-    //named-entity recognition
-
-  }, {
-    key: 'topics',
-    value: function topics() {
-      return spot(this);
-    }
-  }]);
-
-  return Sentence;
-}();
-
-//unpublished methods
-//tokenize the match string, just like you'd tokenize the sentence.
-//this avoids lumper/splitter problems between haystack and needle
-
-
-tokenize_match = function tokenize_match(str) {
-  var regs = new Sentence(str).terms; //crazy!
-  regs = regs.map(function (t) {
-    return t.text;
-  });
-  regs = regs.filter(function (t) {
-    return t !== '';
-  });
-  return regs;
-};
-
-Sentence.fn = Sentence.prototype;
-
-module.exports = Sentence;
-
-// let s = new Sentence(`don't go`);
-// console.log(s.text());
-// s.contractions.expand();
-// console.log(s.text());
-// s.contractions.contract();
-// console.log(s.text());
-
-},{"../match/match":26,"../term/term":101,"./change_tense":30,"./contractions/contract":31,"./contractions/expand":32,"./passive_voice":33,"./pos/tagger":54,"./spot":61}],61:[function(_dereq_,module,exports){
-'use strict';
-//generic named-entity-recognition
-
-var blacklist = {
-  man: true,
-  woman: true,
-  girl: true,
-  boy: true,
-  guy: true,
-  father: true,
-  mother: true,
-  sister: true,
-  brother: true
-};
-
-var consolidate = function consolidate(topics) {
-  var names = {};
-  for (var i = 0; i < topics.length; i++) {
-    var normal = topics[i].root();
-    if (normal) {
-      names[normal] = names[normal] || {
-        count: 0,
-        text: normal
-      };
-      names[normal].count += 1;
-    }
-  }
-  //sort by freq
-  var arr = Object.keys(names).map(function (k) {
-    return names[k];
-  });
-  return arr.sort(function (a, b) {
-    if (a.count > b.count) {
-      return -1;
-    } else {
-      return 1;
-    }
-  });
-};
-
-var spot = function spot(s) {
-  var topics = [];
-  for (var i = 0; i < s.terms.length; i++) {
-    var t = s.terms[i];
-    //some stop-words
-    if (blacklist[t.normal]) {
-      continue;
-    }
-    //grab person, place, locations
-    if (t.pos['Place'] || t.pos['Organization']) {
-      topics.push(t);
-      continue;
-    }
-    if (t.pos['Person'] && !t.pos['Pronoun']) {
-      topics.push(t);
-      continue;
-    }
-    //add capitalized nouns...
-    if (i !== 0 && t.pos['Noun'] && t.is_capital()) {
-      //no dates, or values
-      if (t.pos['Value'] || t.pos['Date'] || t.pos['Pronoun']) {
-        continue;
-      }
-      topics.push(t);
-    }
-  }
-  return consolidate(topics);
-};
-
-module.exports = spot;
-
-},{}],62:[function(_dereq_,module,exports){
-'use strict';
-
-var fns = _dereq_('../../../fns');
-
-//these terms are nicer ways to negate a sentence
-//ie. john always walks -> john always doesn't walk
-var logical_negate = {
-  'everyone': 'no one',
-  'everybody': 'nobody',
-  'someone': 'no one',
-  'somebody': 'nobody',
-  // everything:"nothing",
-  'always': 'never'
-};
-//create corrollary
-var logical_affirm = fns.reverseObj(logical_negate);
-//these are not symmetic
-logical_affirm['nobody'] = 'somebody';
-
-var negate = function negate(s) {
-  var _loop = function _loop(i) {
-    var t = s.terms[i];
-    //these verbs are red-herrings
-    if (t.pos['Condition'] || t.pos['Quotation']) {
-      return 'continue';
-    }
-    //logical-negations are smoother than verb-negations
-    //ie. always -> never
-    if (logical_negate[t.normal]) {
-      t.changeTo(logical_negate[t.normal]);
-      return 'break';
-    }
-    if (logical_affirm[t.normal]) {
-      t.changeTo(logical_affirm[t.normal]);
-      return 'break';
-    }
-    //negate the first verb
-    if (t.pos['Verb']) {
-
-      //different rule for i/we/they/you + infinitive
-      //that is, 'i walk' -> 'i don\'t walk', not 'I not walk'
-      var isPronounAndInfinitive = function isPronounAndInfinitive() {
-        if (s.terms[i - 1]) {
-          var p = s.terms[i - 1].text;
-          return (p === 'i' || p === 'we' || p === 'they' || p === 'you') && t.pos['Infinitive'];
-        }
-        return false;
-      };
-
-      if (isPronounAndInfinitive()) {
-        t.changeTo('don\'t ' + t.text);
-        return 'break';
-      }
-      t.negate();
-      return 'break';
-    }
-  };
-
-  _loop2: for (var i = 0; i < s.terms.length; i++) {
-    var _ret = _loop(i);
-
-    switch (_ret) {
-      case 'continue':
-        continue;
-
-      case 'break':
-        break _loop2;}
-  }
-
-  return;
-};
-
-module.exports = negate;
-
-},{"../../../fns":23}],63:[function(_dereq_,module,exports){
-'use strict';
-
-var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
-
-function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
-
-function _possibleConstructorReturn(self, call) { if (!self) { throw new ReferenceError("this hasn't been initialised - super() hasn't been called"); } return call && (typeof call === "object" || typeof call === "function") ? call : self; }
-
-function _inherits(subClass, superClass) { if (typeof superClass !== "function" && superClass !== null) { throw new TypeError("Super expression must either be null or a function, not " + typeof superClass); } subClass.prototype = Object.create(superClass && superClass.prototype, { constructor: { value: subClass, enumerable: false, writable: true, configurable: true } }); if (superClass) Object.setPrototypeOf ? Object.setPrototypeOf(subClass, superClass) : subClass.__proto__ = superClass; }
-
-var Sentence = _dereq_('../sentence.js');
-var _negate = _dereq_('./negate/negate.js');
-
-var Statement = function (_Sentence) {
-  _inherits(Statement, _Sentence);
-
-  function Statement(str, options) {
-    _classCallCheck(this, Statement);
-
-    return _possibleConstructorReturn(this, (Statement.__proto__ || Object.getPrototypeOf(Statement)).call(this, str, options));
-  }
-
-  _createClass(Statement, [{
-    key: 'negate',
-    value: function negate() {
-      _negate(this);
-      return this;
-    }
-  }]);
-
-  return Statement;
-}(Sentence);
-
-Statement.fn = Statement.prototype;
-
-module.exports = Statement;
-
-// let s = new Statement('john is a person');
-// console.log(s);
-
-},{"../sentence.js":60,"./negate/negate.js":62}],64:[function(_dereq_,module,exports){
-'use strict';
-
-var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
-
-function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
-
-function _possibleConstructorReturn(self, call) { if (!self) { throw new ReferenceError("this hasn't been initialised - super() hasn't been called"); } return call && (typeof call === "object" || typeof call === "function") ? call : self; }
-
-function _inherits(subClass, superClass) { if (typeof superClass !== "function" && superClass !== null) { throw new TypeError("Super expression must either be null or a function, not " + typeof superClass); } subClass.prototype = Object.create(superClass && superClass.prototype, { constructor: { value: subClass, enumerable: false, writable: true, configurable: true } }); if (superClass) Object.setPrototypeOf ? Object.setPrototypeOf(subClass, superClass) : subClass.__proto__ = superClass; }
-
-var Term = _dereq_('../term.js');
-
-var _to_comparative = _dereq_('./to_comparative');
-var _to_superlative = _dereq_('./to_superlative');
-var adj_to_adv = _dereq_('./to_adverb');
-var adj_to_noun = _dereq_('./to_noun');
-
-var Adjective = function (_Term) {
-  _inherits(Adjective, _Term);
-
-  function Adjective(str, tag) {
-    _classCallCheck(this, Adjective);
-
-    var _this = _possibleConstructorReturn(this, (Adjective.__proto__ || Object.getPrototypeOf(Adjective)).call(this, str));
-
-    _this.tag = tag;
-    if (tag) {
-      _this.pos[tag] = true;
-    }
-    _this.pos['Adjective'] = true;
-    return _this;
-  }
-
-  _createClass(Adjective, [{
-    key: 'to_comparative',
-    value: function to_comparative() {
-      return _to_comparative(this.normal);
-    }
-  }, {
-    key: 'to_superlative',
-    value: function to_superlative() {
-      return _to_superlative(this.normal);
-    }
-  }, {
-    key: 'to_noun',
-    value: function to_noun() {
-      return adj_to_noun(this.normal);
-    }
-  }, {
-    key: 'to_adverb',
-    value: function to_adverb() {
-      return adj_to_adv(this.normal);
-    }
-  }, {
-    key: 'conjugate',
-    value: function conjugate() {
-      return {
-        comparative: _to_comparative(this.normal),
-        superlative: _to_superlative(this.normal),
-        adverb: adj_to_adv(this.normal),
-        noun: adj_to_noun(this.normal)
-      };
-    }
-  }, {
-    key: 'all_forms',
-    value: function all_forms() {
-      var forms = this.conjugate();
-      forms['normal'] = this.normal;
-      return forms;
-    }
-  }]);
-
-  return Adjective;
-}(Term);
-
-Adjective.fn = Adjective.prototype;
-
-//let t = new Adjective("quick")
-//console.log(t.all_forms());
-
-module.exports = Adjective;
-
-},{"../term.js":101,"./to_adverb":65,"./to_comparative":66,"./to_noun":67,"./to_superlative":68}],65:[function(_dereq_,module,exports){
-//turn 'quick' into 'quickly'
-'use strict';
-
-var adj_to_adv = function adj_to_adv(str) {
-  var irregulars = {
-    'idle': 'idly',
-    'public': 'publicly',
-    'vague': 'vaguely',
-    'day': 'daily',
-    'icy': 'icily',
-    'single': 'singly',
-    'female': 'womanly',
-    'male': 'manly',
-    'simple': 'simply',
-    'whole': 'wholly',
-    'special': 'especially',
-    'straight': 'straight',
-    'wrong': 'wrong',
-    'fast': 'fast',
-    'hard': 'hard',
-    'late': 'late',
-    'early': 'early',
-    'well': 'well',
-    'good': 'well',
-    'little': 'little',
-    'long': 'long',
-    'low': 'low',
-    'best': 'best',
-    'latter': 'latter',
-    'bad': 'badly'
-  };
-
-  var dont = {
-    'foreign': 1,
-    'black': 1,
-    'modern': 1,
-    'next': 1,
-    'difficult': 1,
-    'degenerate': 1,
-    'young': 1,
-    'awake': 1,
-    'back': 1,
-    'blue': 1,
-    'brown': 1,
-    'orange': 1,
-    'complex': 1,
-    'cool': 1,
-    'dirty': 1,
-    'done': 1,
-    'empty': 1,
-    'fat': 1,
-    'fertile': 1,
-    'frozen': 1,
-    'gold': 1,
-    'grey': 1,
-    'gray': 1,
-    'green': 1,
-    'medium': 1,
-    'parallel': 1,
-    'outdoor': 1,
-    'unknown': 1,
-    'undersized': 1,
-    'used': 1,
-    'welcome': 1,
-    'yellow': 1,
-    'white': 1,
-    'fixed': 1,
-    'mixed': 1,
-    'super': 1,
-    'guilty': 1,
-    'tiny': 1,
-    'able': 1,
-    'unable': 1,
-    'same': 1,
-    'adult': 1
-  };
-
-  var transforms = [{
-    reg: /al$/i,
-    repl: 'ally'
-  }, {
-    reg: /ly$/i,
-    repl: 'ly'
-  }, {
-    reg: /(.{3})y$/i,
-    repl: '$1ily'
-  }, {
-    reg: /que$/i,
-    repl: 'quely'
-  }, {
-    reg: /ue$/i,
-    repl: 'uly'
-  }, {
-    reg: /ic$/i,
-    repl: 'ically'
-  }, {
-    reg: /ble$/i,
-    repl: 'bly'
-  }, {
-    reg: /l$/i,
-    repl: 'ly'
-  }];
-
-  var not_matches = [/airs$/, /ll$/, /ee.$/, /ile$/];
-
-  if (dont[str]) {
-    return null;
-  }
-  if (irregulars[str]) {
-    return irregulars[str];
-  }
-  if (str.length <= 3) {
-    return null;
-  }
-  for (var i = 0; i < not_matches.length; i++) {
-    if (str.match(not_matches[i])) {
-      return null;
-    }
-  }
-  for (var _i = 0; _i < transforms.length; _i++) {
-    if (str.match(transforms[_i].reg)) {
-      return str.replace(transforms[_i].reg, transforms[_i].repl);
-    }
-  }
-  return str + 'ly';
-};
-// console.log(adj_to_adv('direct'))
-
-module.exports = adj_to_adv;
-
-},{}],66:[function(_dereq_,module,exports){
-//turn 'quick' into 'quickly'
-'use strict';
-
-var convertables = _dereq_('../../data/convertables.js');
-
-var irregulars = {
-  'grey': 'greyer',
-  'gray': 'grayer',
-  'green': 'greener',
-  'yellow': 'yellower',
-  'red': 'redder',
-  'good': 'better',
-  'well': 'better',
-  'bad': 'worse',
-  'sad': 'sadder',
-  'big': 'bigger'
-};
-
-var dont = {
-  'overweight': 1,
-  'main': 1,
-  'nearby': 1,
-  'asleep': 1,
-  'weekly': 1,
-  'secret': 1,
-  'certain': 1
-};
-
-var transforms = [{
-  reg: /y$/i,
-  repl: 'ier'
-}, {
-  reg: /([aeiou])t$/i,
-  repl: '$1tter'
-}, {
-  reg: /([aeou])de$/i,
-  repl: '$1der'
-}, {
-  reg: /nge$/i,
-  repl: 'nger'
-}];
-
-var matches = [/ght$/, /nge$/, /ough$/, /ain$/, /uel$/, /[au]ll$/, /ow$/, /old$/, /oud$/, /e[ae]p$/];
-
-var not_matches = [/ary$/, /ous$/];
-
-var to_comparative = function to_comparative(str) {
-  if (dont.hasOwnProperty(str)) {
-    return null;
-  }
-
-  if (irregulars.hasOwnProperty(str)) {
-    return irregulars[str];
-  }
-
-  for (var i = 0; i < transforms.length; i++) {
-    if (str.match(transforms[i].reg)) {
-      return str.replace(transforms[i].reg, transforms[i].repl);
-    }
-  }
-
-  if (convertables.hasOwnProperty(str)) {
-    if (str.match(/e$/)) {
-      return str + 'r';
-    }
-    return str + 'er';
-  }
-
-  for (var _i = 0; _i < not_matches.length; _i++) {
-    if (str.match(not_matches[_i])) {
-      return 'more ' + str;
-    }
-  }
-
-  for (var _i2 = 0; _i2 < matches.length; _i2++) {
-    if (str.match(matches[_i2])) {
-      return str + 'er';
-    }
-  }
-  return 'more ' + str;
-};
-
-// console.log(to_comparative('big'));
-
-module.exports = to_comparative;
-
-},{"../../data/convertables.js":3}],67:[function(_dereq_,module,exports){
-//convert cute to cuteness
-'use strict';
-
-var to_noun = function to_noun(w) {
-  var irregulars = {
-    'clean': 'cleanliness',
-    'naivety': 'naivety'
-  };
-  if (!w) {
-    return '';
-  }
-  if (irregulars.hasOwnProperty(w)) {
-    return irregulars[w];
-  }
-  if (w.match(' ')) {
-    return w;
-  }
-  if (w.match(/w$/)) {
-    return w;
-  }
-  var transforms = [{
-    'reg': /y$/,
-    'repl': 'iness'
-  }, {
-    'reg': /le$/,
-    'repl': 'ility'
-  }, {
-    'reg': /ial$/,
-    'repl': 'y'
-  }, {
-    'reg': /al$/,
-    'repl': 'ality'
-  }, {
-    'reg': /ting$/,
-    'repl': 'ting'
-  }, {
-    'reg': /ring$/,
-    'repl': 'ring'
-  }, {
-    'reg': /bing$/,
-    'repl': 'bingness'
-  }, {
-    'reg': /sing$/,
-    'repl': 'se'
-  }, {
-    'reg': /ing$/,
-    'repl': 'ment'
-  }, {
-    'reg': /ess$/,
-    'repl': 'essness'
-  }, {
-    'reg': /ous$/,
-    'repl': 'ousness'
-  }];
-
-  for (var i = 0; i < transforms.length; i++) {
-    if (w.match(transforms[i].reg)) {
-      return w.replace(transforms[i].reg, transforms[i].repl);
-    }
-  }
-
-  if (w.match(/s$/)) {
-    return w;
-  }
-  return w + 'ness';
-};
-
-// console.log(to_noun("great"))
-
-module.exports = to_noun;
-
-},{}],68:[function(_dereq_,module,exports){
-//turn 'quick' into 'quickest'
-'use strict';
-
-var convertables = _dereq_('../../data/convertables.js');
-
-var irregulars = {
-  'nice': 'nicest',
-  'late': 'latest',
-  'hard': 'hardest',
-  'inner': 'innermost',
-  'outer': 'outermost',
-  'far': 'furthest',
-  'worse': 'worst',
-  'bad': 'worst',
-  'good': 'best',
-  'big': 'biggest'
-};
-
-var dont = {
-  'overweight': 1,
-  'ready': 1
-};
-
-var transforms = [{
-  'reg': /y$/i,
-  'repl': 'iest'
-}, {
-  'reg': /([aeiou])t$/i,
-  'repl': '$1ttest'
-}, {
-  'reg': /([aeou])de$/i,
-  'repl': '$1dest'
-}, {
-  'reg': /nge$/i,
-  'repl': 'ngest'
-}];
-
-var matches = [/ght$/, /nge$/, /ough$/, /ain$/, /uel$/, /[au]ll$/, /ow$/, /oud$/, /...p$/];
-
-var not_matches = [/ary$/];
-
-var generic_transformation = function generic_transformation(s) {
-  if (s.match(/e$/)) {
-    return s + 'st';
-  }
-  return s + 'est';
-};
-
-var to_superlative = function to_superlative(str) {
-  if (irregulars.hasOwnProperty(str)) {
-    return irregulars[str];
-  }
-  for (var i = 0; i < transforms.length; i++) {
-    if (str.match(transforms[i].reg)) {
-      return str.replace(transforms[i].reg, transforms[i].repl);
-    }
-  }
-
-  if (convertables.hasOwnProperty(str)) {
-    return generic_transformation(str);
-  }
-
-  if (dont.hasOwnProperty(str)) {
-    return 'most ' + str;
-  }
-
-  for (var _i = 0; _i < not_matches.length; _i++) {
-    if (str.match(not_matches[_i])) {
-      return 'most ' + str;
-    }
-  }
-
-  for (var _i2 = 0; _i2 < matches.length; _i2++) {
-    if (str.match(matches[_i2])) {
-      if (irregulars.hasOwnProperty(str)) {
-        return irregulars[str];
-      }
-      return generic_transformation(str);
-    }
-  }
-  return 'most ' + str;
-};
-
-// console.log(to_superlative("great"))
-
-module.exports = to_superlative;
-
-},{"../../data/convertables.js":3}],69:[function(_dereq_,module,exports){
-'use strict';
-
-var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
-
-function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
-
-function _possibleConstructorReturn(self, call) { if (!self) { throw new ReferenceError("this hasn't been initialised - super() hasn't been called"); } return call && (typeof call === "object" || typeof call === "function") ? call : self; }
-
-function _inherits(subClass, superClass) { if (typeof superClass !== "function" && superClass !== null) { throw new TypeError("Super expression must either be null or a function, not " + typeof superClass); } subClass.prototype = Object.create(superClass && superClass.prototype, { constructor: { value: subClass, enumerable: false, writable: true, configurable: true } }); if (superClass) Object.setPrototypeOf ? Object.setPrototypeOf(subClass, superClass) : subClass.__proto__ = superClass; }
-
-var Term = _dereq_('../term.js');
-var _to_adjective = _dereq_('./to_adjective.js');
-
-var Adverb = function (_Term) {
-  _inherits(Adverb, _Term);
-
-  function Adverb(str, tag) {
-    _classCallCheck(this, Adverb);
-
-    var _this = _possibleConstructorReturn(this, (Adverb.__proto__ || Object.getPrototypeOf(Adverb)).call(this, str));
-
-    _this.tag = tag;
-    _this.pos['Adverb'] = true;
-    return _this;
-  }
-
-  _createClass(Adverb, [{
-    key: 'to_adjective',
-    value: function to_adjective() {
-      return _to_adjective(this.normal);
-    }
-  }, {
-    key: 'all_forms',
-    value: function all_forms() {
-      return {
-        adjective: this.to_adjective(),
-        normal: this.normal
-      };
-    }
-  }]);
-
-  return Adverb;
-}(Term);
-
-Adverb.fn = Adverb.prototype;
-
-//let t = new Adverb("quickly")
-//console.log(t.all_forms());
-
-module.exports = Adverb;
-
-},{"../term.js":101,"./to_adjective.js":70}],70:[function(_dereq_,module,exports){
-//turns 'quickly' into 'quick'
-'use strict';
-
-var to_adjective = function to_adjective(str) {
-  var irregulars = {
-    'idly': 'idle',
-    'sporadically': 'sporadic',
-    'basically': 'basic',
-    'grammatically': 'grammatical',
-    'alphabetically': 'alphabetical',
-    'economically': 'economical',
-    'conically': 'conical',
-    'politically': 'political',
-    'vertically': 'vertical',
-    'practically': 'practical',
-    'theoretically': 'theoretical',
-    'critically': 'critical',
-    'fantastically': 'fantastic',
-    'mystically': 'mystical',
-    'pornographically': 'pornographic',
-    'fully': 'full',
-    'jolly': 'jolly',
-    'wholly': 'whole'
-  };
-  var transforms = [{
-    'reg': /bly$/i,
-    'repl': 'ble'
-  }, {
-    'reg': /gically$/i,
-    'repl': 'gical'
-  }, {
-    'reg': /([rsdh])ically$/i,
-    'repl': '$1ical'
-  }, {
-    'reg': /ically$/i,
-    'repl': 'ic'
-  }, {
-    'reg': /uly$/i,
-    'repl': 'ue'
-  }, {
-    'reg': /ily$/i,
-    'repl': 'y'
-  }, {
-    'reg': /(.{3})ly$/i,
-    'repl': '$1'
-  }];
-  if (irregulars.hasOwnProperty(str)) {
-    return irregulars[str];
-  }
-  for (var i = 0; i < transforms.length; i++) {
-    if (str.match(transforms[i].reg)) {
-      return str.replace(transforms[i].reg, transforms[i].repl);
-    }
-  }
-  return str;
-};
-
-// console.log(to_adjective('quickly') === 'quick')
-// console.log(to_adjective('marvelously') === 'marvelous')
-module.exports = to_adjective;
-
-},{}],71:[function(_dereq_,module,exports){
-'use strict';
-//turn "plz"  "please"
-
-var implications = {
-  'plz': 'please',
-  'tmrw': 'tomorrow',
-  'wat': 'what',
-  'r': 'are',
-  'u': 'you'
-};
-
-var implied = function implied(str) {
-  if (implications[str]) {
-    return implications[str];
-  }
-  return null;
-};
-
-module.exports = implied;
-
-},{}],72:[function(_dereq_,module,exports){
-'use strict';
-
-var is_acronym = function is_acronym(str) {
-  //like N.D.A
-  if (str.match(/([A-Z]\.)+[A-Z]?$/)) {
-    return true;
-  }
-  //like NDA
-  if (str.match(/[A-Z]{2,}$/)) {
-    return true;
-  }
-  return false;
-};
-module.exports = is_acronym;
-
-},{}],73:[function(_dereq_,module,exports){
-'use strict';
-
-var is_acronym = _dereq_('../is_acronym.js');
-
-//chooses an indefinite aricle 'a/an' for a word
-var irregulars = {
-  'hour': 'an',
-  'heir': 'an',
-  'heirloom': 'an',
-  'honest': 'an',
-  'honour': 'an',
-  'honor': 'an',
-  'uber': 'an' //german u
-};
-
-var indefinite_article = function indefinite_article(str) {
-  if (!str) {
-    return null;
-  }
-
-  //pronounced letters of acronyms that get a 'an'
-  var an_acronyms = {
-    A: true,
-    E: true,
-    F: true,
-    H: true,
-    I: true,
-    L: true,
-    M: true,
-    N: true,
-    O: true,
-    R: true,
-    S: true,
-    X: true
-  };
-  //'a' regexes
-  var a_regexs = [/^onc?e/i, //'wu' sound of 'o'
-  /^u[bcfhjkqrstn][aeiou]/i, // 'yu' sound for hard 'u'
-  /^eul/i];
-
-  //begin business time
-  ////////////////////
-  //explicit irregular forms
-  if (irregulars.hasOwnProperty(str)) {
-    return irregulars[str];
-  }
-  //spelled-out acronyms
-  if (is_acronym(str) && an_acronyms.hasOwnProperty(str.substr(0, 1))) {
-    return 'an';
-  }
-  //'a' regexes
-  for (var i = 0; i < a_regexs.length; i++) {
-    if (str.match(a_regexs[i])) {
-      return 'a';
-    }
-  }
-  //basic vowel-startings
-  if (str.match(/^[aeiou]/i)) {
-    return 'an';
-  }
-  return 'a';
-};
-
-module.exports = indefinite_article;
-
-// console.log(indefinite_article('N.D.A'));
-
-},{"../is_acronym.js":72}],74:[function(_dereq_,module,exports){
-'use strict';
-
-var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
-
-function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
-
-function _possibleConstructorReturn(self, call) { if (!self) { throw new ReferenceError("this hasn't been initialised - super() hasn't been called"); } return call && (typeof call === "object" || typeof call === "function") ? call : self; }
-
-function _inherits(subClass, superClass) { if (typeof superClass !== "function" && superClass !== null) { throw new TypeError("Super expression must either be null or a function, not " + typeof superClass); } subClass.prototype = Object.create(superClass && superClass.prototype, { constructor: { value: subClass, enumerable: false, writable: true, configurable: true } }); if (superClass) Object.setPrototypeOf ? Object.setPrototypeOf(subClass, superClass) : subClass.__proto__ = superClass; }
-
-var Noun = _dereq_('../noun.js');
-var parse_date = _dereq_('./parse_date.js');
-
-var _Date = function (_Noun) {
-  _inherits(_Date, _Noun);
-
-  function _Date(str, tag) {
-    _classCallCheck(this, _Date);
-
-    var _this = _possibleConstructorReturn(this, (_Date.__proto__ || Object.getPrototypeOf(_Date)).call(this, str));
-
-    _this.tag = tag;
-    _this.pos['Date'] = true;
-    _this.data = parse_date(_this.text) || {};
-    return _this;
-  }
-
-  //can we make it a js Date object?
-
-
-  _createClass(_Date, [{
-    key: 'is_date',
-    value: function is_date() {
-      var o = this.data;
-      if (o.month === null || o.day === null || o.year === null) {
-        return false;
-      }
-      return true;
-    }
-  }, {
-    key: 'date',
-    value: function date() {
-      if (this.is_date() === false) {
-        return null;
-      }
-      var d = new Date();
-      if (this.data.year) {
-        d.setYear(this.data.year);
-      }
-      if (this.data.month !== null) {
-        d.setMonth(this.data.month);
-      }
-      if (this.data.day !== null) {
-        d.setDate(this.data.day);
-      }
-      return d;
-    }
-  }]);
-
-  return _Date;
-}(Noun);
-
-_Date.fn = _Date.prototype;
-
-module.exports = _Date;
-
-// let d = new _Date('June 4th 1993');
-// console.log(d.date());
-
-},{"../noun.js":80,"./parse_date.js":77}],75:[function(_dereq_,module,exports){
-'use strict';
-
-var months = _dereq_('../../../data/dates').months.concat(['march', 'may']); //(march and may are ambiguous grammatically)
-var month = '(' + months.join('|') + ')';
-var day = '([0-9]{1,2})';
-var year = '\'?([12][0-9]{3})';
-
-var rules = [{
-  reg: month + ' ' + day + ' ' + year, //'March 1st 1987'
-  order: ['month', 'day', 'year']
-}, {
-  reg: day + ' of ' + month + ' ' + year, //'3rd of March 1969',
-  order: ['day', 'month', 'year']
-},
-
-//incomplete versions
-{
-  reg: day + ' of ' + month, //'3rd of March',
-  order: ['day', 'month']
-}, {
-  reg: month + ' ' + year, //'March 1969',
-  order: ['month', 'year']
-}, {
-  reg: month + ' ' + day, //'March 18th',
-  order: ['month', 'day']
-}, {
-  reg: day + ' ' + month, //'18th of March',
-  order: ['day', 'month']
-}, {
-  reg: '' + month, //'january'
-  order: ['month']
-}, {
-  reg: '' + year, //'1998'
-  order: ['year']
-}].map(function (o) {
-  o.reg = new RegExp('\\b' + o.reg + '\\b', '');
-  return o;
-});
-module.exports = rules;
-
-},{"../../../data/dates":5}],76:[function(_dereq_,module,exports){
-
-'use strict';
-
-var dates = _dereq_('../../../data/dates');
-
-//build date regex
-var terms = dates.months.concat(dates.days);
-var day_reg = '(\\b' + terms.join('\\b|\\b') + '\\b)';
-day_reg = new RegExp(day_reg, 'i');
-var times_reg = /1?[0-9]:[0-9]{2}/;
-var is_date = function is_date(str) {
-  if (str.match(day_reg) || str.match(times_reg)) {
-    return true;
-  }
-  //a straight-up year, like '2016'
-  if (str.match(/^[12][0-9]{3}$/)) {
-    var n = parseInt(str, 10);
-    if (n > 1300 && n < 2100) {
-      return true;
-    }
-  }
-  return false;
-};
-
-module.exports = is_date;
-
-// console.log(is_date('2015'));
-
-},{"../../../data/dates":5}],77:[function(_dereq_,module,exports){
-'use strict';
-// #generates properly-formatted dates from free-text date forms
-// #by spencer kelly 2015
-
-var to_number = _dereq_('../value/parse/to_number.js');
-//regexes to top-parse
-var rules = _dereq_('./date_rules.js');
-
-//return integers from strings
-var wrangle = {
-
-  year: function year(s) {
-    var num = s.match(/[0-9]+/);
-    num = parseInt(num, 10);
-    if (!num || num > 2900 || num < 0) {
-      return null;
-    }
-    //honestly, prob not a year either
-    if (num > 100 && num < 1000) {
-      return null;
-    }
-    //'20BC' becomes -20
-    if (s.match(/[0-9] ?bc/i)) {
-      return num *= -1;
-    }
-    // '98 becomes 1998
-    if (num < 100 && num > 30) {
-      num += 1900;
-    }
-    return num;
-  },
-
-  month: function month(s) {
-    //0 based months, 1 based days...
-    var months_obj = {
-      january: 0,
-      february: 1,
-      march: 2,
-      april: 3,
-      may: 4,
-      june: 5,
-      july: 6,
-      august: 7,
-      september: 8,
-      october: 9,
-      november: 10,
-      december: 11,
-      jan: 0,
-      feb: 1,
-      mar: 2,
-      apr: 3,
-      jun: 5,
-      jul: 6,
-      aug: 7,
-      sep: 8,
-      sept: 8,
-      oct: 9,
-      nov: 10,
-      dec: 11
-    };
-    return months_obj[s];
-  },
-
-  day: function day(s) {
-    var n = to_number(s) || parseInt(s, 10);
-    if (n < 0 || n > 31) {
-      return null;
-    }
-    return n;
-  }
-};
-
-//cleanup string
-var preprocess = function preprocess(str) {
-  str = str.toLowerCase();
-  str = str.replace(/([0-9]+)(nd|rd|th|st)/i, '$1');
-  var words = str.split(' ').map(function (w) {
-    if (!w.match(/[0-9]/)) {
-      return to_number(w) || w;
-    }
-    return w;
-  });
-  return words.join(' ');
-};
-
-var date_parser = function date_parser(str) {
-  str = preprocess(str);
-  var result = {
-    year: null,
-    month: null,
-    day: null
-  };
-  for (var i = 0; i < rules.length; i++) {
-    if (str.match(rules[i].reg)) {
-      var m = str.match(rules[i].reg);
-      for (var o = 0; o < rules[i].order.length; o++) {
-        var type = rules[i].order[o];
-        result[type] = wrangle[type](m[o + 1]);
-      }
-      break;
-    }
-  }
-  return result;
-};
-module.exports = date_parser;
-// console.log(wrangle.year('1998'));
-// console.log(date_parser('March 1st 1987'));
-// console.log(date_extractor('june second 1999'));
-
-},{"../value/parse/to_number.js":97,"./date_rules.js":75}],78:[function(_dereq_,module,exports){
-'use strict';
-
-var irregulars = _dereq_('../../data/irregular_nouns');
-
-//similar to plural/singularize rules, but not the same
-var plural_indicators = [/(^v)ies$/i, /ises$/i, /ives$/i, /(antenn|formul|nebul|vertebr|vit)ae$/i, /(octop|vir|radi|nucle|fung|cact|stimul)i$/i, /(buffal|tomat|tornad)oes$/i, /(analy|ba|diagno|parenthe|progno|synop|the)ses$/i, /(vert|ind|cort)ices$/i, /(matr|append)ices$/i, /(x|ch|ss|sh|s|z|o)es$/i, /men$/i, /news$/i, /.tia$/i, /(^f)ves$/i, /(lr)ves$/i, /(^aeiouy|qu)ies$/i, /(m|l)ice$/i, /(cris|ax|test)es$/i, /(alias|status)es$/i, /ics$/i];
-
-//similar to plural/singularize rules, but not the same
-var singular_indicators = [/(ax|test)is$/i, /(octop|vir|radi|nucle|fung|cact|stimul)us$/i, /(octop|vir)i$/i, /(rl)f$/i, /(alias|status)$/i, /(bu)s$/i, /(al|ad|at|er|et|ed|ad)o$/i, /(ti)um$/i, /(ti)a$/i, /sis$/i, /(?:(^f)fe|(lr)f)$/i, /hive$/i, /(^aeiouy|qu)y$/i, /(x|ch|ss|sh|z)$/i, /(matr|vert|ind|cort)(ix|ex)$/i, /(m|l)ouse$/i, /(m|l)ice$/i, /(antenn|formul|nebul|vertebr|vit)a$/i, /.sis$/i, /^(?!talis|.*hu)(.*)man$/i];
-
-var is_plural = function is_plural(str) {
-  str = (str || '').toLowerCase();
-  //handle 'mayors of chicago'
-  var preposition = str.match(/([a-z]*) (of|in|by|for) [a-z]/);
-  if (preposition && preposition[1]) {
-    str = preposition[1];
-  }
-  // if it's a known irregular case
-  for (var i = 0; i < irregulars.length; i++) {
-    if (irregulars[i][1] === str) {
-      return true;
-    }
-    if (irregulars[i][0] === str) {
-      return false;
-    }
-  }
-  for (var _i = 0; _i < plural_indicators.length; _i++) {
-    if (str.match(plural_indicators[_i])) {
-      return true;
-    }
-  }
-  for (var _i2 = 0; _i2 < singular_indicators.length; _i2++) {
-    if (str.match(singular_indicators[_i2])) {
-      return false;
-    }
-  }
-  // some 'looks pretty plural' rules
-  if (str.match(/s$/) && !str.match(/ss$/) && str.length > 3) {
-    //needs some lovin'
-    return true;
-  }
-  return false;
-};
-
-// console.log(is_plural('octopus') === false)
-// console.log(is_plural('octopi') === true)
-// console.log(is_plural('eyebrow') === false)
-// console.log(is_plural('eyebrows') === true)
-// console.log(is_plural('child') === false)
-// console.log(is_plural('children') === true)
-
-module.exports = is_plural;
-
-},{"../../data/irregular_nouns":10}],79:[function(_dereq_,module,exports){
-//uncountables are words that shouldn't ever inflect, for metaphysical reasons, like 'peace'
-'use strict';
-
-var uncountable_arr = _dereq_('../../data/uncountables.js');
-
-var uncountable = uncountable_arr.reduce(function (h, a) {
-  h[a] = true;
-  return h;
-}, {});
-
-var is_uncountable = function is_uncountable(str) {
-  if (uncountable[str]) {
-    return true;
-  }
-  return false;
-};
-// console.log(is_uncountable("peace") === true)
-// console.log(is_uncountable("dog") === false)
-module.exports = is_uncountable;
-
-},{"../../data/uncountables.js":21}],80:[function(_dereq_,module,exports){
-'use strict';
-
-var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
-
-function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
-
-function _possibleConstructorReturn(self, call) { if (!self) { throw new ReferenceError("this hasn't been initialised - super() hasn't been called"); } return call && (typeof call === "object" || typeof call === "function") ? call : self; }
-
-function _inherits(subClass, superClass) { if (typeof superClass !== "function" && superClass !== null) { throw new TypeError("Super expression must either be null or a function, not " + typeof superClass); } subClass.prototype = Object.create(superClass && superClass.prototype, { constructor: { value: subClass, enumerable: false, writable: true, configurable: true } }); if (superClass) Object.setPrototypeOf ? Object.setPrototypeOf(subClass, superClass) : subClass.__proto__ = superClass; }
-
-var Term = _dereq_('../term.js');
-var _article = _dereq_('./article.js');
-var _is_plural = _dereq_('./is_plural.js');
-var _is_place = _dereq_('./place/is_place.js');
-var _is_person = _dereq_('./person/is_person.js');
-var _pronoun = _dereq_('./pronoun.js');
-var _is_value = _dereq_('./value/is_value.js');
-var _is_date = _dereq_('./date/is_date.js');
-var _is_organization = _dereq_('./organization/is_organization.js');
-var _singularize = _dereq_('./singularize.js');
-var _pluralize = _dereq_('./pluralize.js');
-var _is_uncountable = _dereq_('./is_uncountable.js');
-
-var Noun = function (_Term) {
-  _inherits(Noun, _Term);
-
-  function Noun(str, tag) {
-    _classCallCheck(this, Noun);
-
-    var _this = _possibleConstructorReturn(this, (Noun.__proto__ || Object.getPrototypeOf(Noun)).call(this, str));
-
-    _this.tag = tag;
-    _this.pos['Noun'] = true;
-    if (tag) {
-      _this.pos[tag] = true;
-    }
-    if (_this.is_plural()) {
-      _this.pos['Plural'] = true;
-    }
-    return _this;
-  }
-  //noun methods
-
-
-  _createClass(Noun, [{
-    key: 'article',
-    value: function article() {
-      //if it's a person, it's he/she, not a/an
-      if (this.pos['Person']) {
-        return this.pronoun();
-      }
-      //groups of people are 'they'
-      if (this.pos['Organization']) {
-        return 'they';
-      }
-      return _article(this.text);
-    }
-  }, {
-    key: 'root',
-    value: function root() {
-      return this.singularize();
-    }
-  }, {
-    key: 'pronoun',
-    value: function pronoun() {
-      if (this.is_organization() || this.is_place() || this.is_value()) {
-        return 'it';
-      }
-      return _pronoun(this.normal);
-    }
-  }, {
-    key: 'is_plural',
-    value: function is_plural() {
-      if (this.pos['Date'] || this.pos['Possessive']) {
-        return false;
-      } else if (this.has_abbreviation()) {
-        //contractions & possessives are not plural
-        return false;
-      } else {
-        return _is_plural(this.normal);
-      }
-    }
-  }, {
-    key: 'is_uncountable',
-    value: function is_uncountable() {
-      return _is_uncountable(this.strip_apostrophe());
-    }
-  }, {
-    key: 'pluralize',
-    value: function pluralize() {
-      return _pluralize(this.strip_apostrophe());
-    }
-  }, {
-    key: 'singularize',
-    value: function singularize() {
-      return _singularize(this.strip_apostrophe());
-    }
-    //sub-classes
-
-  }, {
-    key: 'is_person',
-    value: function is_person() {
-      //don't overwrite dates, etc
-      if (this.pos['Date']) {
-        return false;
-      }
-      return _is_person(this.strip_apostrophe());
-    }
-  }, {
-    key: 'is_organization',
-    value: function is_organization() {
-      //don't overwrite urls
-      if (this.pos['Url']) {
-        return false;
-      }
-      return _is_organization(this.strip_apostrophe(), this.text);
-    }
-  }, {
-    key: 'is_date',
-    value: function is_date() {
-      return _is_date(this.strip_apostrophe());
-    }
-  }, {
-    key: 'is_value',
-    value: function is_value() {
-      //don't overwrite dates, etc
-      if (this.pos['Date'] || this.pos['HashTag']) {
-        return false;
-      }
-      return _is_value(this.strip_apostrophe());
-    }
-  }, {
-    key: 'is_place',
-    value: function is_place() {
-      return _is_place(this.strip_apostrophe());
-    }
-  }, {
-    key: 'all_forms',
-    value: function all_forms() {
-      return {
-        'singular': this.singularize(),
-        'plural': this.pluralize(),
-        'normal': this.normal
-      };
-    }
-  }]);
-
-  return Noun;
-}(Term);
-
-Noun.fn = Noun.prototype;
-
-module.exports = Noun;
-
-//let t = new Noun('mouse');
-//console.log(t.all_forms());
-
-},{"../term.js":101,"./article.js":73,"./date/is_date.js":76,"./is_plural.js":78,"./is_uncountable.js":79,"./organization/is_organization.js":81,"./person/is_person.js":84,"./place/is_place.js":87,"./pluralize.js":89,"./pronoun.js":90,"./singularize.js":91,"./value/is_value.js":94}],81:[function(_dereq_,module,exports){
-'use strict';
-
-var abbreviations = _dereq_('../../../data/abbreviations');
-var org_data = _dereq_('../../../data/organizations');
-
-//some boring capitalised acronyms you see frequently
-var blacklist = {
-  url: true,
-  http: true,
-  wtf: true,
-  irl: true,
-  ie: true,
-  eg: true,
-  gps: true,
-  dna: true,
-  sms: true };
-
-//words like 'co' and ltd
-var org_suffix = abbreviations.orgs.reduce(function (h, s) {
-  h[s] = true;
-  return h;
-}, {});
-org_data.suffixes.forEach(function (s) {
-  //a few more
-  org_suffix[s] = true;
-});
-
-//named orgs like google and nestle
-var org_names = org_data.organizations.reduce(function (h, s) {
-  h[s] = true;
-  return h;
-}, {});
-
-var is_organization = function is_organization(str, text) {
-  text = text || '';
-  //blacklist some boring ones
-  if (blacklist[str]) {
-    return false;
-  }
-  //some known organizations, like microsoft
-  if (org_names[str]) {
-    return true;
-  }
-  //no period acronyms
-  if (text.length <= 5 && text.match(/^[A-Z][A-Z]+$/) !== null) {
-    return true;
-  }
-  //period acronyms
-  if (text.length >= 4 && text.match(/^([A-Z]\.)*$/) !== null) {
-    return true;
-  }
-  // eg 'Smith & Co'
-  if (str.match(/ & /)) {
-    return true;
-  }
-  // Girlscouts of Canada
-  if (str.match(/..s of /)) {
-    return true;
-  }
-  // eg pets.com
-  if (str.match(/[a-z]{3}\.(com|net|org|biz)/)) {
-    //not a perfect url regex, but a "org.com"
-    return true;
-  }
-  // "foobar inc."
-  var words = str.split(' ');
-  if (words.length > 1) {
-    var last = words[words.length - 1];
-    if (org_suffix[last]) {
-      return true;
-    }
-  }
-
-  return false;
-};
-
-module.exports = is_organization;
-
-// console.log(is_organization('Captain of Jamaica'));
-
-},{"../../../data/abbreviations":1,"../../../data/organizations":17}],82:[function(_dereq_,module,exports){
-'use strict';
-
-function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
-
-function _possibleConstructorReturn(self, call) { if (!self) { throw new ReferenceError("this hasn't been initialised - super() hasn't been called"); } return call && (typeof call === "object" || typeof call === "function") ? call : self; }
-
-function _inherits(subClass, superClass) { if (typeof superClass !== "function" && superClass !== null) { throw new TypeError("Super expression must either be null or a function, not " + typeof superClass); } subClass.prototype = Object.create(superClass && superClass.prototype, { constructor: { value: subClass, enumerable: false, writable: true, configurable: true } }); if (superClass) Object.setPrototypeOf ? Object.setPrototypeOf(subClass, superClass) : subClass.__proto__ = superClass; }
-
-var Noun = _dereq_('../noun.js');
-
-var Organization = function (_Noun) {
-  _inherits(Organization, _Noun);
-
-  function Organization(str, tag) {
-    _classCallCheck(this, Organization);
-
-    var _this = _possibleConstructorReturn(this, (Organization.__proto__ || Object.getPrototypeOf(Organization)).call(this, str));
-
-    _this.tag = tag;
-    _this.pos['Organization'] = true;
-
-    return _this;
-  }
-
-  return Organization;
-}(Noun);
-
-Organization.fn = Organization.prototype;
-module.exports = Organization;
-
-},{"../noun.js":80}],83:[function(_dereq_,module,exports){
-'use strict';
-
-var firstnames = _dereq_('../../../data/firstnames').all;
-var parse_name = _dereq_('./parse_name.js');
-
-var gender = function gender(normal) {
-  if (normal === 'he') {
-    return 'Male';
-  }
-  if (normal === 'she') {
-    return 'Female';
-  }
-  var o = parse_name(normal);
-  var firstName = o.firstName;
-  if (!firstName) {
-    return null;
-  }
-  if (firstnames[firstName] === 'm') {
-    return 'Male';
-  }
-  if (firstnames[firstName] === 'f') {
-    return 'Female';
-  }
-  //male honourifics
-  if (normal.match(/\b(mr|mister|sr|sir|jr)\b/i)) {
-    return 'Male';
-  }
-  //female honourifics
-  if (normal.match(/^(mrs|miss|ms|misses|mme|mlle)\.? /i)) {
-    return 'Female';
-  }
-  //statistical guesses
-  if (firstName.match(/.(i|ee|[a|e]y|a)$/i)) {
-    //this is almost-always true
-    return 'Female';
-  }
-  if (firstName.match(/[ou]$/i)) {
-    //if it ends in a 'oh or uh', male
-    return 'Male';
-  }
-  if (firstName.match(/(nn|ll|tt)/i)) {
-    //if it has double-consonants, female
-    return 'Female';
-  }
-  // name not recognized, or recognized as of indeterminate gender
-  return null;
-};
-module.exports = gender;
-
-// console.log(gender('john', 'john') === 'Male');
-// console.log(gender('jane smith', 'jane') === 'Female');
-// console.log(gender('jan smith', 'jan') === null);
-
-},{"../../../data/firstnames":7,"./parse_name.js":85}],84:[function(_dereq_,module,exports){
-'use strict';
-
-var firstnames = _dereq_('../../../data/firstnames').all;
-var honourifics = _dereq_('../../../data/honourifics').reduce(function (h, s) {
-  h[s] = true;
-  return h;
-}, {});
-
-//these pronouns are people
-var whitelist = {
-  'he': true,
-  'she': true,
-  'i': true,
-  'you': true
-};
-var is_person = function is_person(str) {
-  if (whitelist[str] || firstnames[str]) {
-    return true;
-  }
-  var words = str.split(' ');
-  if (words.length > 1) {
-    var first = words[0];
-    if (honourifics[first] || firstnames[first]) {
-      return true;
-    }
-  }
-  //check middle initial - "phil k dick"
-  if (words.length > 2) {
-    if (words[0].length > 1 && words[2].length > 1) {
-      if (words[1].match(/^[a-z]\.?$/)) {
-        return true;
-      }
-    }
-  }
-  return false;
-};
-
-module.exports = is_person;
-
-// console.log(is_person('Illi Danza'));
-
-},{"../../../data/firstnames":7,"../../../data/honourifics":9}],85:[function(_dereq_,module,exports){
-'use strict';
-
-var firstnames = _dereq_('../../../data/firstnames').all;
-var honourifics = _dereq_('../../../data/honourifics').reduce(function (h, s) {
-  h[s] = true;
-  return h;
-}, {});
-
-//str is a normalized string
-//str_orig is original text [optional]
-var parse_name = function parse_name(str, str_orig) {
-
-  var words = str.split(' ');
-  var o = {
-    honourific: null,
-    firstName: null,
-    middleName: null,
-    lastName: null
-  };
-
-  var double_firstname = 0; //assuming no
-
-  //first-word honourific
-  if (honourifics[words[0]]) {
-    o.honourific = words[0];
-    words = words.slice(1, words.length);
-  }
-  //last-word honourific
-  if (honourifics[words[words.length - 1]]) {
-    o.honourific = words[words.length - 1];
-    words = words.slice(0, words.length - 1);
-  }
-  //see if the first word is now a known first-name
-  if (firstnames[words[0]]) {
-    o.firstName = words[0];
-    //is it a double name like Ann-Marie?
-    if (firstnames[words[1]] && str_orig && words.length > 1 && (str_orig.indexOf(' ') > str_orig.indexOf('-') || str_orig.indexOf(' ') === -1)) {
-      o.firstName += '-' + words[1];
-      words = words.slice(1, words.length);
-      double_firstname = str_orig.indexOf('-'); // > 0
-    }
-    words = words.slice(1, words.length);
-  } else {
-    //ambiguous one-word name
-    if (words.length === 1) {
-      return o;
-    }
-    //looks like an unknown first-name
-    o.firstName = words[0];
-    words = words.slice(1, words.length);
-  }
-  //assume the remaining is '[middle..] [last]'
-  //is it a double surname?
-  if (str_orig && str_orig.lastIndexOf('-') > double_firstname) {
-    if (words[words.length - 2]) {
-      o.lastName = words[words.length - 2] + '-' + words[words.length - 1].replace(/'s$/, '');
-      words = words.slice(0, words.length - 2);
-    }
-  } else if (words[words.length - 1]) {
-    o.lastName = words[words.length - 1].replace(/'s$/, '');
-    words = words.slice(0, words.length - 1);
-  }
-  o.middleName = words.join(' ');
-  return o;
-};
-
-module.exports = parse_name;
-
-},{"../../../data/firstnames":7,"../../../data/honourifics":9}],86:[function(_dereq_,module,exports){
-// not all cultures use the firstname-lastname practice. this does make some assumptions.
-'use strict';
-
-var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
-
-function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
-
-function _possibleConstructorReturn(self, call) { if (!self) { throw new ReferenceError("this hasn't been initialised - super() hasn't been called"); } return call && (typeof call === "object" || typeof call === "function") ? call : self; }
-
-function _inherits(subClass, superClass) { if (typeof superClass !== "function" && superClass !== null) { throw new TypeError("Super expression must either be null or a function, not " + typeof superClass); } subClass.prototype = Object.create(superClass && superClass.prototype, { constructor: { value: subClass, enumerable: false, writable: true, configurable: true } }); if (superClass) Object.setPrototypeOf ? Object.setPrototypeOf(subClass, superClass) : subClass.__proto__ = superClass; }
-
-var Noun = _dereq_('../noun.js');
-var guess_gender = _dereq_('./gender.js');
-var parse_name = _dereq_('./parse_name.js');
-
-//capitalizes first letter of every word in a string
-var title_case = function title_case(s) {
-  if (!s) {
-    return s;
-  }
-  s = s.replace(/(^\w|-\w| \w)/g, function (v) {
-    return v.toUpperCase();
-  });
-  return s;
-};
-
-//capitalizes last name taking into account Mc-, Mac-, O'-
-var lastname_case = function lastname_case(s) {
-  if (!s) {
-    return s;
-  }
-
-  s = title_case(s);
-  s = s.replace(/(Mc|Mac|O\')(\w)/g, function (v) {
-    return v.replace(/\w$/, function (w) {
-      return w.toUpperCase();
-    });
-  });
-  return s;
-};
-
-var Person = function (_Noun) {
-  _inherits(Person, _Noun);
-
-  function Person(str, tag) {
-    _classCallCheck(this, Person);
-
-    var _this = _possibleConstructorReturn(this, (Person.__proto__ || Object.getPrototypeOf(Person)).call(this, str));
-
-    _this.tag = tag;
-    _this.pos['Person'] = true;
-    _this.honourific = null;
-    _this.firstName = null;
-    _this.middleName = null;
-    _this.lastName = null;
-    _this.parse();
-    if (_this.isPronoun()) {
-      _this.pos['Pronoun'] = true;
-    }
-    if (tag) {
-      _this.pos[tag] = true;
-    }
-    return _this;
-  }
-
-  _createClass(Person, [{
-    key: 'isPronoun',
-    value: function isPronoun() {
-      var whitelist = {
-        'he': true,
-        'she': true,
-        'i': true,
-        'you': true
-      };
-      return whitelist[this.normal];
-    }
-
-    //proper normalised name without the cruft
-
-  }, {
-    key: 'root',
-    value: function root() {
-      if (this.isPronoun()) {
-        return this.normal;
-      }
-      var str = '';
-
-      if (this.firstName) {
-        str = this.firstName.toLowerCase();
-      }
-      if (this.middleName) {
-        str += ' ' + this.middleName.toLowerCase();
-      }
-      if (this.lastName) {
-        str += ' ' + this.lastName.toLowerCase();
-      }
-      return str.trim() || this.normal;
-    }
-
-    //turn a multi-word string into [first, middle, last, honourific]
-
-  }, {
-    key: 'parse',
-    value: function parse() {
-      var o = parse_name(this.normal, this.text.trim());
-      this.honourific = o.honourific;
-      this.firstName = title_case(o.firstName);
-      this.middleName = title_case(o.middleName);
-      this.lastName = lastname_case(o.lastName);
-    }
-  }, {
-    key: 'gender',
-    value: function gender() {
-      //if we already know it, from the lexicon
-      if (this.pos.FemalePerson) {
-        return 'Female';
-      }
-      if (this.pos.MalePerson) {
-        return 'Male';
-      }
-      return guess_gender(this.normal);
-    }
-  }, {
-    key: 'pronoun',
-    value: function pronoun() {
-      var pronouns = {
-        Male: 'he',
-        Female: 'she'
-      };
-      var gender = this.gender();
-      //return 'singular they' if no gender is found
-      return pronouns[gender] || 'they';
-    }
-  }]);
-
-  return Person;
-}(Noun);
-
-Person.fn = Person.prototype;
-module.exports = Person;
-/*
-let p = new Person('Jani-Lee K. o\'brien-macneil');
-console.log(p);
-let z = new Person('Mary-Jane Willson-Johnson');
-console.log(z);*/
-
-},{"../noun.js":80,"./gender.js":83,"./parse_name.js":85}],87:[function(_dereq_,module,exports){
-'use strict';
-
-var places = _dereq_('../../../data/places');
-var abbreviations = _dereq_('../../../data/abbreviations');
-//add Country names
-var isPlace = places.countries.reduce(function (h, s) {
-  h[s] = true;
-  return h;
-}, {});
-//add City names
-places.cities.forEach(function (s) {
-  isPlace[s] = true;
-});
-//add airports
-places.airports.forEach(function (s) {
-  isPlace[s] = true;
-});
-//add place abbreviations names
-abbreviations.places.forEach(function (s) {
-  isPlace[s] = true;
-});
-//these are signals too
-var firstwords = ['east', 'eastern', 'north', 'northeast', 'northern', 'northwest', 'south', 'southeast', 'southern', 'southwest', 'west', 'western'].reduce(function (h, s) {
-  h[s] = true;
-  return h;
-}, {});
-/*
- USPS Commonly Used Street suffixes and abbreviations
- http://pe.usps.gov/text/pub28/28apc_002.htm
- These are USPS recognized Street Designators, but an address pattern is necessary for disambiguation (ex: #237 Jacksonville Circl)
- */
-// const common_street_designators = [
-//   'allee',
-//   'anex',
-//   'annx',
-//   'aven',
-//   'avenu',
-//   'avnue',
-//   'bayoo',
-//   'blfs',
-//   'bluf',
-//   'bottm',
-//   'boul',
-//   'boulv',
-//   'brdge',
-//   'brks',
-//   'brnch',
-//   'bypa',
-//   'bypas',
-//   'byps',
-//   'canyn',
-//   'causwa',
-//   'centr',
-//   'circ',
-//   'circl',
-//   'cirs',
-//   'clfs',
-//   'cmns',
-//   'cnter',
-//   'cntr',
-//   'cnyn',
-//   'cors',
-//   'crcl',
-//   'crcle',
-//   'cres',
-//   'crse',
-//   'crsent',
-//   'crsnt',
-//   'crssng',
-//   'crst',
-//   'cswy',
-//   'ctrs',
-//   'curv',
-//   'driv',
-//   'ests',
-//   'expw',
-//   'expy',
-//   'extn',
-//   'extnsn',
-//   'exts',
-//   'flds',
-//   'flts',
-//   'forg',
-//   'frds',
-//   'freewy',
-//   'frgs',
-//   'frks',
-//   'frry',
-//   'frst',
-//   'frway',
-//   'frwy',
-//   'gardn',
-//   'gatewy',
-//   'gatway',
-//   'gdns',
-//   'glns',
-//   'grden',
-//   'grdn',
-//   'grdns',
-//   'grns',
-//   'grov',
-//   'grvs',
-//   'gtway',
-//   'gtwy',
-//   'harb',
-//   'harbr',
-//   'hbrs',
-//   'highwy',
-//   'hiway',
-//   'hiwy',
-//   'hllw',
-//   'holw',
-//   'holws',
-//   'hrbor',
-//   'hway',
-//   'inlt',
-//   'islnd',
-//   'islnds',
-//   'jction',
-//   'jctn',
-//   'jctns',
-//   'jcts',
-//   'junctn',
-//   'juncton',
-//   'knls',
-//   'knol',
-//   'lcks',
-//   'ldge',
-//   'lgts',
-//   'lndg',
-//   'lndng',
-//   'lodg',
-//   'mdws',
-//   'medows',
-//   'missn',
-//   'mnrs',
-//   'mntain',
-//   'mntn',
-//   'mntns',
-//   'mountin',
-//   'mssn',
-//   'mtin',
-//   'mtwy',
-//   'opas',
-//   'orch',
-//   'orchrd',
-//   'parkwy',
-//   'pkway',
-//   'pkwys',
-//   'plns',
-//   'plza',
-//   'pnes',
-//   'prts',
-//   'psge',
-//   'radiel',
-//   'radl',
-//   'rdge',
-//   'rdgs',
-//   'rivr',
-//   'rnch',
-//   'rnchs',
-//   'rpds',
-//   'shls',
-//   'shoar',
-//   'shoars',
-//   'shrs',
-//   'skwy',
-//   'skyway',
-//   'spgs',
-//   'spng',
-//   'spngs',
-//   'sprng',
-//   'sprngs',
-//   'sqre',
-//   'sqrs',
-//   'statn',
-//   'stra',
-//   'strav',
-//   'straven',
-//   'stravenue',
-//   'stravn',
-//   'streme',
-//   'strm',
-//   'strt',
-//   'strvn',
-//   'strvnue',
-//   'sumit',
-//   'sumitt',
-//   'throughway',
-//   'tpke',
-//   'trafficway',
-//   'trak',
-//   'trce',
-//   'trfy',
-//   'trks',
-//   'trlr',
-//   'trlrs',
-//   'trls',
-//   'trnpk',
-//   'trwy',
-//   'tunel',
-//   'tunl',
-//   'tunls',
-//   'tunnl',
-//   'turnpk',
-//   'upas',
-//   'vdct',
-//   'viadct',
-//   'vill',
-//   'villag',
-//   'villg',
-//   'villiage',
-//   'vist',
-//   'vlgs',
-//   'vlly',
-//   'vlys',
-//   'vsta',
-//   'xing',
-//   'xrds'
-// ];
-/*
- USPS Primary Street Suffix Names
- http://pe.usps.gov/text/pub28/28apc_002.htm
- */
-var street_designators = ['alley', 'annex', 'arcade', 'avenue', 'bayou', 'beach', 'bend', 'bluff', 'bluffs', 'blvd', 'bottom', 'boulevard', 'branch', 'bridge', 'brook', 'brooks', 'bypass', 'camp', 'canyon', 'cape', 'causeway', 'center', 'centers', 'centre', 'circle', 'circles', 'cliff', 'cliffs', 'club', 'common', 'commons', 'corner', 'corners', 'course', 'court', 'courts', 'cove', 'coves', 'creek', 'crescent', 'crest', 'crossing', 'crossroad', 'crossroads', 'curve', 'divide', 'drive', 'drives', 'estate', 'estates', 'express', 'expressway', 'extension', 'extensions', 'fall', 'falls', 'ferry', 'field', 'fields', 'flat', 'flats', 'ford', 'fords', 'forest', 'forests', 'forge', 'forges', 'fork', 'forks', 'fort', 'freeway', 'garden', 'gardens', 'gateway', 'glen', 'glens', 'green', 'greens', 'grove', 'groves', 'harbor', 'harbors', 'haven', 'heights', 'highway', 'hill', 'hills', 'hollow', 'hollows', 'inlet', 'island', 'islands', 'isle', 'isles', 'junction', 'junctions', 'key', 'keys', 'knoll', 'knolls', 'lake', 'lakes', 'land', 'landing', 'lane', 'light', 'lights', 'loaf', 'lock', 'locks', 'lodge', 'loop', 'loops', 'mall', 'manor', 'manors', 'meadow', 'meadows', 'mews', 'mill', 'mills', 'mission', 'motorway', 'mount', 'mountain', 'mountains', 'neck', 'orchard', 'overpass', 'park', 'parks', 'parkway', 'parkways', 'pass', 'passage', 'path', 'paths', 'pike', 'pikes', 'pine', 'pines', 'place', 'plain', 'plains', 'plaza', 'point', 'points', 'port', 'ports', 'prairie', 'rad', 'radial', 'ramp', 'ranch', 'ranches', 'rapid', 'rapids', 'rest', 'ridge', 'ridges', 'river', 'road', 'roads', 'route', 'run', 'row', 'shoal', 'shoals', 'shore', 'shores', 'spring', 'springs', 'spur', 'spurs', 'square', 'squares', 'station', 'stream', 'street', 'streets', 'summit', 'terrace', 'trace', 'traces', 'track', 'tracks', 'trail', 'trailer', 'trails', 'tunnel', 'tunnels', 'turnpike', 'underpass', 'union', 'unions', 'valley', 'valleys', 'vally', 'via', 'viaduct', 'view', 'views', 'village', 'villages', 'ville', 'vista', 'walk', 'walks', 'wall', 'way', 'ways', 'well', 'wells'].reduce(function (h, s) {
-  h[s] = true;
-  return h;
-}, {});
-/*
-/*
- USPS Primary Street Suffix Names
- http://pe.usps.gov/text/pub28/28apc_002.htm
- These are valid, but only given an address pattern (such as street number)
- */
-// const street_designator_abbreviation = [
-//   'ally',
-//   'aly',
-//   'anx',
-//   'arc',
-//   'av',
-//   'ave',
-//   'avn',
-//   'bch',
-//   'bg',
-//   'bgs',
-//   'blf',
-//   'bnd',
-//   'bot',
-//   'br',
-//   'brg',
-//   'brk',
-//   'btm',
-//   'burg',
-//   'burgs',
-//   'byp',
-//   'byu',
-//   'cen',
-//   'cent',
-//   'cir',
-//   'clb',
-//   'clf',
-//   'cmn',
-//   'cmp',
-//   'cor',
-//   'cp',
-//   'cpe',
-//   'crk',
-//   'ct',
-//   'ctr',
-//   'cts',
-//   'cv',
-//   'cvs',
-//   'cyn',
-//   'dale',
-//   'dam',
-//   'div',
-//   'dl',
-//   'dm',
-//   'dr',
-//   'drs',
-//   'drv',
-//   'dv',
-//   'dvd',
-//   'est',
-//   'exp',
-//   'expr',
-//   'ext',
-//   'fld',
-//   'fls',
-//   'flt',
-//   'frd',
-//   'frg',
-//   'frk',
-//   'frt',
-//   'fry',
-//   'ft',
-//   'fwy',
-//   'gdn',
-//   'gln',
-//   'grn',
-//   'grv',
-//   'hbr',
-//   'hl',
-//   'hls',
-//   'ht',
-//   'hts',
-//   'hvn',
-//   'hwy',
-//   'iss',
-//   'jct',
-//   'knl',
-//   'ky',
-//   'kys',
-//   'lc',
-//   'ldg',
-//   'lf',
-//   'lgt',
-//   'lk',
-//   'lks',
-//   'ln',
-//   'mdw',
-//   'ml',
-//   'mls',
-//   'mnr',
-//   'mnt',
-//   'msn',
-//   'mt',
-//   'mtn',
-//   'mtns',
-//   'nck',
-//   'oval',
-//   'ovl',
-//   'pkwy',
-//   'pky',
-//   'pl',
-//   'pln',
-//   'plz',
-//   'pne',
-//   'pr',
-//   'prk',
-//   'prr',
-//   'prt',
-//   'pt',
-//   'pts',
-//   'rd',
-//   'rdg',
-//   'rds',
-//   'riv',
-//   'rpd',
-//   'rst',
-//   'rte',
-//   'rue',
-//   'rvr',
-//   'shl',
-//   'shr',
-//   'smt',
-//   'spg',
-//   'sq',
-//   'sqr',
-//   'sqs',
-//   'squ',
-//   'st',
-//   'sta',
-//   'stn',
-//   'str',
-//   'sts',
-//   'ter',
-//   'terr',
-//   'trk',
-//   'trl',
-//   'un',
-//   'uns',
-//   'vis',
-//   'vl',
-//   'vlg',
-//   'vly',
-//   'vst',
-//   'vw',
-//   'vws',
-//   'wl',
-//   'wls',
-//   'wy',
-//   'xrd',
-// ];
-var lastwords = ['city', 'county', 'province', 'state', 'territory', 'town'];
-var is_place = function is_place(str) {
-  var words = str.split(' ');
-  if (words.length > 1) {
-    //first words, like 'eastern'
-    if (firstwords[words[0]]) {
-      return true;
-    }
-    //last words, like 'road, street, lane, circle'
-    if (street_designators[words[words.length - 1]]) {
-      return true;
-    }
-    //last words, like 'city, town, state'
-    if (lastwords[words[words.length - 1]]) {
-      return true;
-    }
-  }
-  for (var i = 0; i < words.length; i++) {
-    if (isPlace[words[i]]) {
-      return true;
-    }
-  }
-  return false;
-};
-module.exports = is_place;
-
-},{"../../../data/abbreviations":1,"../../../data/places":19}],88:[function(_dereq_,module,exports){
-'use strict';
-
-var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
-
-function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
-
-function _possibleConstructorReturn(self, call) { if (!self) { throw new ReferenceError("this hasn't been initialised - super() hasn't been called"); } return call && (typeof call === "object" || typeof call === "function") ? call : self; }
-
-function _inherits(subClass, superClass) { if (typeof superClass !== "function" && superClass !== null) { throw new TypeError("Super expression must either be null or a function, not " + typeof superClass); } subClass.prototype = Object.create(superClass && superClass.prototype, { constructor: { value: subClass, enumerable: false, writable: true, configurable: true } }); if (superClass) Object.setPrototypeOf ? Object.setPrototypeOf(subClass, superClass) : subClass.__proto__ = superClass; }
-
-var Noun = _dereq_('../noun.js');
-var places = _dereq_('../../../data/places.js');
-var fns = _dereq_('../../../fns.js');
-//make cities/countries easy to lookup
-var countries = fns.toObj(places.countries);
-var cities = fns.toObj(places.cities);
-
-var Place = function (_Noun) {
-  _inherits(Place, _Noun);
-
-  function Place(str, tag) {
-    _classCallCheck(this, Place);
-
-    var _this = _possibleConstructorReturn(this, (Place.__proto__ || Object.getPrototypeOf(Place)).call(this, str));
-
-    _this.tag = tag;
-    _this.pos['Place'] = true;
-    _this.pos[tag] = true;
-    _this.title = null;
-    _this.city = null;
-    _this.region = null; //'2nd-tier' (state/province/county/whatever)
-    _this.country = null;
-    _this.parse();
-    return _this;
-  }
-
-  _createClass(Place, [{
-    key: 'root',
-    value: function root() {
-      return this.title || this.normal;
-    }
-  }, {
-    key: 'parse',
-    value: function parse() {
-      //parse a comma-described place like "toronto, ontario"
-      var terms = this.strip_apostrophe().split(' ');
-      this.title = terms[0];
-      for (var i = 1; i < terms.length; i++) {
-        var t = terms[i];
-        if (cities[t]) {
-          this.city = fns.titlecase(t);
-        } else if (countries[t]) {
-          this.country = fns.titlecase(t);
-        } else if (this.city !== null) {
-          //if we already got the city..
-          this.region = fns.titlecase(t);
-        } else {
-          //it's part of the title
-          this.title += ' ' + t;
-        }
-      }
-    }
-  }]);
-
-  return Place;
-}(Noun);
-Place.fn = Place.prototype;
-module.exports = Place;
-
-// console.log(new Place('Toronto, Ontario, Canada'));
-
-},{"../../../data/places.js":19,"../../../fns.js":23,"../noun.js":80}],89:[function(_dereq_,module,exports){
-'use strict';
-
-var is_uncountable = _dereq_('./is_uncountable.js');
-var irregulars = _dereq_('../../data/irregular_nouns.js');
-var is_plural = _dereq_('./is_plural.js');
-var fns = _dereq_('../../fns.js');
-
-var pluralize_rules = [[/(ax|test)is$/i, '$1es'], [/(octop|vir|radi|nucle|fung|cact|stimul)us$/i, '$1i'], [/(octop|vir)i$/i, '$1i'], [/(kn|l|w)ife$/i, '$1ives'], [/^((?:ca|e|ha|(?:our|them|your)?se|she|wo)l|lea|loa|shea|thie)f$/i, '$1ves'], [/^(dwar|handkerchie|hoo|scar|whar)f$/i, '$1ves'], [/(alias|status)$/i, '$1es'], [/(bu)s$/i, '$1ses'], [/(al|ad|at|er|et|ed|ad)o$/i, '$1oes'], [/([ti])um$/i, '$1a'], [/([ti])a$/i, '$1a'], [/sis$/i, 'ses'], [/(hive)$/i, '$1s'], [/([^aeiouy]|qu)y$/i, '$1ies'], [/(x|ch|ss|sh|s|z)$/i, '$1es'], [/(matr|vert|ind|cort)(ix|ex)$/i, '$1ices'], [/([m|l])ouse$/i, '$1ice'], [/([m|l])ice$/i, '$1ice'], [/^(ox)$/i, '$1en'], [/^(oxen)$/i, '$1'], [/(quiz)$/i, '$1zes'], [/(antenn|formul|nebul|vertebr|vit)a$/i, '$1ae'], [/(sis)$/i, 'ses'], [/^(?!talis|.*hu)(.*)man$/i, '$1men'], [/(.*)/i, '$1s']].map(function (a) {
-  return {
-    reg: a[0],
-    repl: a[1]
-  };
-});
-
-var pluralize = function pluralize(str) {
-  var low = str.toLowerCase();
-  //uncountable
-  if (is_uncountable(low)) {
-    //uncountables shouldn't ever inflect
-    return str;
-  }
-  //is it already plural?
-  if (is_plural(low) === true) {
-    return str;
-  }
-  //irregular
-  var found = irregulars.filter(function (r) {
-    return r[0] === low;
-  });
-  if (found[0]) {
-    if (fns.titlecase(low) === str) {
-      //handle capitalisation properly
-      return fns.titlecase(found[0][1]);
-    }
-    return found[0][1];
-  }
-  //inflect first word of preposition-phrase
-  if (str.match(/([a-z]*) (of|in|by|for) [a-z]/)) {
-    var first = (str.match(/^([a-z]*) (of|in|by|for) [a-z]/) || [])[1];
-    if (first) {
-      var better_first = pluralize(first);
-      return better_first + str.replace(first, '');
-    }
-  }
-  //regular
-  for (var i = 0; i < pluralize_rules.length; i++) {
-    if (str.match(pluralize_rules[i].reg)) {
-      return str.replace(pluralize_rules[i].reg, pluralize_rules[i].repl);
-    }
-  }
-  return null;
-};
-// console.log(pluralize('gas') === "gases")
-// console.log(pluralize('narrative') === "narratives")
-// console.log(pluralize('video') === "videos")
-// console.log(pluralize('photo') === "photos")
-// console.log(pluralize('stomach') === "stomachs")
-// console.log(pluralize('database') === "databases")
-// console.log(pluralize('kiss') === "kisses")
-// console.log(pluralize('towns') === "towns")
-// console.log(pluralize('peace') === "peace")
-// console.log(pluralize('mayor of chicago') === "mayors of chicago")
-module.exports = pluralize;
-
-},{"../../data/irregular_nouns.js":10,"../../fns.js":23,"./is_plural.js":78,"./is_uncountable.js":79}],90:[function(_dereq_,module,exports){
-'use strict';
-
-var is_person = _dereq_('./person/is_person.js');
-var is_plural = _dereq_('./is_plural.js');
-var gender = _dereq_('./person/gender.js');
-
-var pronoun = function pronoun(str) {
-  if (is_person(str)) {
-    var g = gender(str);
-    if (g === 'Male') {
-      return 'he';
-    } else if (g === 'Female') {
-      return 'she';
-    }
-    return 'they'; //singular they
-  }
-  //non-person, like 'microwaves'
-  if (is_plural(str)) {
-    return 'they';
-  }
-  return 'it';
-};
-
-module.exports = pronoun;
-
-// console.log(pronoun('Illi Danza'));
-
-},{"./is_plural.js":78,"./person/gender.js":83,"./person/is_person.js":84}],91:[function(_dereq_,module,exports){
-'use strict';
-
-var is_uncountable = _dereq_('./is_uncountable.js');
-var irregulars = _dereq_('../../data/irregular_nouns.js');
-var is_plural = _dereq_('./is_plural.js');
-var fns = _dereq_('../../fns.js');
-
-var singularize_rules = [[/([^v])ies$/i, '$1y'], [/ises$/i, 'isis'], [/(kn|[^o]l|w)ives$/i, '$1ife'], [/^((?:ca|e|ha|(?:our|them|your)?se|she|wo)l|lea|loa|shea|thie)ves$/i, '$1f'], [/^(dwar|handkerchie|hoo|scar|whar)ves$/i, '$1f'], [/(antenn|formul|nebul|vertebr|vit)ae$/i, '$1a'], [/(octop|vir|radi|nucle|fung|cact|stimul)(i)$/i, '$1us'], [/(buffal|tomat|tornad)(oes)$/i, '$1o'], [/((a)naly|(b)a|(d)iagno|(p)arenthe|(p)rogno|(s)ynop|(t)he)ses$/i, '$1sis'], [/(vert|ind|cort)(ices)$/i, '$1ex'], [/(matr|append)(ices)$/i, '$1ix'], [/(x|ch|ss|sh|s|z|o)es$/i, '$1'], [/men$/i, 'man'], [/(n)ews$/i, '$1ews'], [/([ti])a$/i, '$1um'], [/([^aeiouy]|qu)ies$/i, '$1y'], [/(s)eries$/i, '$1eries'], [/(m)ovies$/i, '$1ovie'], [/([m|l])ice$/i, '$1ouse'], [/(cris|ax|test)es$/i, '$1is'], [/(alias|status)es$/i, '$1'], [/(ss)$/i, '$1'], [/(ics)$/i, '$1'], [/s$/i, '']].map(function (a) {
-  return {
-    reg: a[0],
-    repl: a[1]
-  };
-});
-
-var singularize = function singularize(str) {
-  var low = str.toLowerCase();
-  //uncountable
-  if (is_uncountable(low)) {
-    return str;
-  }
-  //is it already singular?
-  if (is_plural(low) === false) {
-    return str;
-  }
-  //irregular
-  var found = irregulars.filter(function (r) {
-    return r[1] === low;
-  });
-  if (found[0]) {
-    if (fns.titlecase(low) === str) {
-      //handle capitalisation properly
-      return fns.titlecase(found[0][0]);
-    }
-    return found[0][0];
-  }
-  //inflect first word of preposition-phrase
-  if (str.match(/([a-z]*) (of|in|by|for) [a-z]/)) {
-    var first = str.match(/^([a-z]*) (of|in|by|for) [a-z]/);
-    if (first && first[1]) {
-      var better_first = singularize(first[1]);
-      return better_first + str.replace(first[1], '');
-    }
-  }
-  //regular
-  for (var i = 0; i < singularize_rules.length; i++) {
-    if (str.match(singularize_rules[i].reg)) {
-      return str.replace(singularize_rules[i].reg, singularize_rules[i].repl);
-    }
-  }
-  return str;
-};
-
-// console.log(singularize('gases') === "gas")
-// console.log(singularize('kisses') === "kiss")
-// console.log(singularize('kiss') === "kiss")
-// console.log(singularize('children') === "child")
-// console.log(singularize('peace') === "peace")
-// console.log(singularize('child') === "child")
-// console.log(singularize('mayors of chicago') === "mayor of chicago")
-
-module.exports = singularize;
-
-},{"../../data/irregular_nouns.js":10,"../../fns.js":23,"./is_plural.js":78,"./is_uncountable.js":79}],92:[function(_dereq_,module,exports){
-'use strict';
-//parse a url into components, in 'loose' mode
-//taken from   http://locutus.io/php/url/parse_url/
-
-var parse_url = function parse_url(str) {
-  // eslint-disable-line camelcase
-  var key = ['source', 'scheme', 'authority', 'userInfo', 'user', 'pass', 'host', 'port', 'relative', 'path', 'directory', 'file', 'query', 'fragment'];
-  var reg = new RegExp(['(?:(?![^:@]+:[^:@\\/]*@)([^:\\/?#.]+):)?', '(?:\\/\\/\\/?)?', '((?:(([^:@\\/]*):?([^:@\\/]*))?@)?([^:\\/?#]*)(?::(\\d*))?)', '(((\\/(?:[^?#](?![^?#\\/]*\\.[^?#\\/.]+(?:[?#]|$)))*\\/?)?([^?#\\/]*))', '(?:\\?([^#]*))?(?:#(.*))?)'].join(''));
-  var m = reg.exec(str);
-  var uri = {};
-  var i = 14;
-  while (i--) {
-    if (m[i]) {
-      uri[key[i]] = m[i];
-    }
-  }
-  return uri;
-};
-
-module.exports = parse_url;
-// console.log(parse_url('http://fun.domain.com/fun?foo=bar'));
-
-},{}],93:[function(_dereq_,module,exports){
-'use strict';
-
-var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
-
-function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
-
-function _possibleConstructorReturn(self, call) { if (!self) { throw new ReferenceError("this hasn't been initialised - super() hasn't been called"); } return call && (typeof call === "object" || typeof call === "function") ? call : self; }
-
-function _inherits(subClass, superClass) { if (typeof superClass !== "function" && superClass !== null) { throw new TypeError("Super expression must either be null or a function, not " + typeof superClass); } subClass.prototype = Object.create(superClass && superClass.prototype, { constructor: { value: subClass, enumerable: false, writable: true, configurable: true } }); if (superClass) Object.setPrototypeOf ? Object.setPrototypeOf(subClass, superClass) : subClass.__proto__ = superClass; }
-
-var Noun = _dereq_('../noun');
-var parse_url = _dereq_('./parse_url');
-
-var Url = function (_Noun) {
-  _inherits(Url, _Noun);
-
-  function Url(str, tag) {
-    _classCallCheck(this, Url);
-
-    var _this = _possibleConstructorReturn(this, (Url.__proto__ || Object.getPrototypeOf(Url)).call(this, str));
-
-    _this.tag = tag;
-    _this.pos['Url'] = true;
-    _this.parsed = _this.parse();
-    _this.normal = _this.parsed.host || str;
-    _this.normal = _this.normal.replace(/^www\./, '');
-    return _this;
-  }
-
-  _createClass(Url, [{
-    key: 'parse',
-    value: function parse() {
-      return parse_url(this.text);
-    }
-  }]);
-
-  return Url;
-}(Noun);
-
-Url.fn = Url.prototype;
-module.exports = Url;
-// console.log(new Url('http://fun.domain.com/fun?foo=bar'));
-
-},{"../noun":80,"./parse_url":92}],94:[function(_dereq_,module,exports){
-'use strict';
-
-var nums = _dereq_('../../../data/numbers.js');
-var is_date = _dereq_('../date/is_date');
-
-var is_value = function is_value(str) {
-  var words = str.split(' ');
-  //'january 5' is not a value
-  if (is_date(str)) {
-    return false;
-  }
-  for (var i = 0; i < words.length; i++) {
-    var w = words[i];
-    if (nums.ones[w] || nums.teens[w] || nums.tens[w] || nums.multiples[w] || nums.prefixes[w]) {
-      return true;
-    }
-    if (parseFloat(w)) {
-      return true;
-    }
-  }
-  return false;
-};
-
-module.exports = is_value;
-
-},{"../../../data/numbers.js":16,"../date/is_date":76}],95:[function(_dereq_,module,exports){
-'use strict';
-// handle 'nine point eight four'
-
-var nums = _dereq_('../../../../data/numbers.js');
-var fns = _dereq_('../../../../fns');
-var ones = {};
-ones = fns.extend(ones, nums.ones);
-ones = fns.extend(ones, nums.teens);
-ones = fns.extend(ones, nums.ordinal_ones);
-ones = fns.extend(ones, nums.ordinal_teens);
-
-//concatenate into a string with leading '0.'
-var decimals = function decimals(words) {
-  var str = '0.';
-  for (var i = 0; i < words.length; i++) {
-    var w = words[i];
-    if (ones[w]) {
-      str += ones[w];
-    } else {
-      return 0;
-    }
-  }
-  return parseFloat(str);
-};
-
-module.exports = decimals;
-
-},{"../../../../data/numbers.js":16,"../../../../fns":23}],96:[function(_dereq_,module,exports){
-'use strict';
-
-//support global multipliers, like 'half-million' by doing 'million' then multiplying by 0.5
-
-var find_modifiers = function find_modifiers(str) {
-  var mults = [{
-    reg: /^(minus|negative)[\s\-]/i,
-    mult: -1
-  }, {
-    reg: /^(a\s)?half[\s\-](of\s)?/i,
-    mult: 0.5
-  }, {
-    reg: /^(a\s)?quarter[\s\-]/i,
-    mult: 0.25
-  }];
-  for (var i = 0; i < mults.length; i++) {
-    if (str.match(mults[i].reg)) {
-      return {
-        amount: mults[i].mult,
-        str: str.replace(mults[i].reg, '')
-      };
-    }
-  }
-  return {
-    amount: 1,
-    str: str
-  };
-};
-
-module.exports = find_modifiers;
-
-},{}],97:[function(_dereq_,module,exports){
-'use strict';
-// Spoken numbers take the following format
-// [sixty five] (thousand) [sixty five] (hundred) [sixty five]
-// aka: [one/teen/ten] (multiple) [one/teen/ten] (multiple) ...
-
-var nums = _dereq_('../../../../data/numbers.js');
-var fns = _dereq_('../../../../fns.js');
-var find_modifiers = _dereq_('./modifiers.js');
-var parse_decimals = _dereq_('./decimals.js');
-
-var ones = {};
-var teens = {};
-var tens = {};
-var multiples = {};
-ones = fns.extend(ones, nums.ones);
-ones = fns.extend(ones, nums.ordinal_ones);
-
-teens = fns.extend(teens, nums.teens);
-teens = fns.extend(teens, nums.ordinal_teens);
-
-tens = fns.extend(tens, nums.tens);
-tens = fns.extend(tens, nums.ordinal_tens);
-
-multiples = fns.extend(multiples, nums.multiples);
-multiples = fns.extend(multiples, nums.ordinal_multiples);
-
-var normalize = function normalize(s) {
-  //pretty-printed numbers
-  s = s.replace(/, ?/g, '');
-  s = s.replace(/([a-z])-([a-z])/gi, '$1 $2');
-  //parse-out currency
-  s = s.replace(/[$£€]/, '');
-  s = s.replace(/[\$%\(\)~,]/g, '');
-  s = s.trim();
-  return s;
-};
-
-var section_sum = function section_sum(obj) {
-  return Object.keys(obj).reduce(function (sum, k) {
-    sum += obj[k];
-    return sum;
-  }, 0);
-};
-
-//prevent things like 'fifteen ten', and 'five sixty'
-var appropriate = function appropriate(w, has) {
-  if (ones[w]) {
-    if (has.ones || has.teens) {
-      return false;
-    }
-  } else if (teens[w]) {
-    if (has.ones || has.teens || has.tens) {
-      return false;
-    }
-  } else if (tens[w]) {
-    if (has.ones || has.teens || has.tens) {
-      return false;
-    }
-  }
-  return true;
-};
-
-var to_number = function to_number(str) {
-  //try to fail-fast
-  if (!str || typeof str === 'number') {
-    return str;
-  }
-  str = normalize(str);
-  var modifier = find_modifiers(str);
-  str = modifier.str;
-  var biggest_yet = 0;
-  var has = {};
-  var sum = 0;
-  var isNegative = false;
-  var words = str.split(' ');
-  for (var i = 0; i < words.length; i++) {
-    var w = words[i];
-    if (!w || w === 'and') {
-      continue;
-    }
-    if (w === '-' || w === 'negative') {
-      isNegative = true;
-      continue;
-    }
-    if (fns.startsWith(w, '-')) {
-      isNegative = true;
-      w = w.substr(1);
-    }
-    //decimal mode
-    if (w === 'point') {
-      sum += section_sum(has);
-      sum += parse_decimals(words.slice(i + 1, words.length));
-      sum *= modifier.amount;
-      return sum;
-    }
-    //maybe it's just a number typed as a string
-    if (w.match(/^[0-9,\. ]+$/)) {
-      sum += parseFloat(w.replace(/[, ]/g, '')) || 0;
-      continue;
-    }
-    //improper fraction
-    var improperFractionMatch = w.match(/^([0-9,\. ]+)\/([0-9,\. ]+)$/);
-    if (improperFractionMatch) {
-      var num = parseFloat(improperFractionMatch[1].replace(/[, ]/g, ''));
-      var denom = parseFloat(improperFractionMatch[2].replace(/[, ]/g, ''));
-      sum += num / denom || 0;
-      continue;
-    }
-    //prevent mismatched units, like 'seven eleven'
-    if (!appropriate(w, has)) {
-      return null;
-    }
-    //collect 'has' values
-    if (ones[w]) {
-      has['ones'] = ones[w];
-    } else if (teens[w]) {
-      has['teens'] = teens[w];
-    } else if (tens[w]) {
-      has['tens'] = tens[w];
-    } else if (multiples[w]) {
-      //something has gone wrong : 'two hundred five hundred'
-      if (multiples[w] === biggest_yet) {
-        return null;
-      }
-      //if it's the biggest yet, multiply the whole sum - eg 'five hundred thousand'
-      if (multiples[w] > biggest_yet) {
-        biggest_yet = multiples[w];
-        sum += section_sum(has);
-        sum = (sum || 1) * multiples[w];
-      } else {
-        //it's smaller, so only multiply section_sum - eg 'five thousand one hundred'
-        sum += (section_sum(has) || 1) * multiples[w];
-      }
-      //reset our section
-      has = {};
-    }
-  }
-  //dump the remaining has values
-  sum += section_sum(has);
-  //post-process add modifier
-  sum *= modifier.amount;
-  sum *= isNegative ? -1 : 1;
-  return sum;
-};
-
-module.exports = to_number;
-
-// console.log(to_number('half a million'));
-
-},{"../../../../data/numbers.js":16,"../../../../fns.js":23,"./decimals.js":95,"./modifiers.js":96}],98:[function(_dereq_,module,exports){
-'use strict';
-// const nums = require('../../../data/numbers.js');
-// const fns = require('../../../fns.js');
-
-var ones_mapping = ['', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten', 'eleven', 'twelve', 'thirteen', 'fourteen', 'fifteen', 'sixteen', 'seventeen', 'eighteen', 'nineteen'];
-var tens_mapping = [['ninety', 90], ['eighty', 80], ['seventy', 70], ['sixty', 60], ['fifty', 50], ['forty', 40], ['thirty', 30], ['twenty', 20]];
-
-var sequence = [[1000000000, 'million'], [100000000, 'hundred million'], [1000000, 'million'], [100000, 'hundred thousand'], [1000, 'thousand'], [100, 'hundred'], [1, 'one']];
-
-//turn number into an array of magnitudes
-var breakdown_magnitudes = function breakdown_magnitudes(num) {
-  var working = num;
-  var have = [];
-  sequence.forEach(function (a) {
-    if (num > a[0]) {
-      var howmany = Math.floor(working / a[0]);
-      working -= howmany * a[0];
-      if (howmany) {
-        have.push({
-          unit: a[1],
-          count: howmany
-        });
-      }
-    }
-  });
-  return have;
-};
-
-//turn numbers from 100-0 into their text
-var breakdown_hundred = function breakdown_hundred(num) {
-  var str = '';
-  for (var i = 0; i < tens_mapping.length; i++) {
-    if (num >= tens_mapping[i][1]) {
-      num -= tens_mapping[i][1];
-      str += ' ' + tens_mapping[i][0];
-    }
-  }
-  //(hopefully) we should only have 20-0 now
-  if (ones_mapping[num]) {
-    str += ' ' + ones_mapping[num];
-  }
-  return str.trim();
-};
-
-var to_text = function to_text(num) {
-  var isNegative = false;
-  if (num < 0) {
-    isNegative = true;
-    num = Math.abs(num);
-  }
-  //break-down into units, counts
-  var units = breakdown_magnitudes(num);
-  //build-up the string from its components
-  var str = '';
-  for (var i = 0; i < units.length; i++) {
-    var unit_name = units[i].unit;
-    if (unit_name === 'one') {
-      unit_name = '';
-      //put an 'and' in here
-      if (str.length > 1) {
-        str += ' and';
-      }
-    }
-    str += ' ' + breakdown_hundred(units[i].count) + ' ' + unit_name;
-  }
-  str = str || 'zero';
-  str = str.replace(/ +/g, ' ');
-  str = str.trim();
-  if (isNegative) {
-    str = 'negative ' + str;
-  }
-  return str;
-};
-
-module.exports = to_text;
-
-// console.log(to_text(-5));
-
-},{}],99:[function(_dereq_,module,exports){
-'use strict';
-
-var money = _dereq_('../../../data/currencies').reduce(function (h, s) {
-  h[s] = 'currency';
-  return h;
-}, {});
-
-var units = {
-  'Temperature': {
-    '°c': 'Celsius',
-    '°f': 'Fahrenheit',
-    'k': 'Kelvin',
-    '°re': 'Reaumur',
-    '°n': 'Newton',
-    '°ra': 'Rankine'
-  },
-  'Volume': {
-    'm³': 'cubic meter',
-    'm3': 'cubic meter',
-    'dm³': 'cubic decimeter',
-    'dm3': 'cubic decimeter',
-    'cm³': 'cubic centimeter',
-    'cm3': 'cubic centimeter',
-    'l': 'liter',
-    'dl': 'deciliter',
-    'cl': 'centiliter',
-    'ml': 'milliliter',
-    'in³': 'cubic inch',
-    'in3': 'cubic inch',
-    'ft³': 'cubic foot',
-    'ft3': 'cubic foot',
-    'yd³': 'cubic yard',
-    'yd3': 'cubic yard',
-    'gal': 'gallon',
-    'bbl': 'petroleum barrel',
-    'pt': 'pint',
-    'qt': 'quart',
-    'tbl': 'tablespoon',
-    'tsp': 'teaspoon',
-    'tbsp': 'tablespoon',
-    'cp': 'cup',
-    'fl oz': 'fluid ounce'
-  },
-  'Distance': {
-    'km': 'kilometer',
-    'm': 'meter',
-    'dm': 'decimeter',
-    'cm': 'centimeter',
-    'mm': 'millimeter',
-    'mi': 'mile',
-    'in': 'inch',
-    'ft': 'foot',
-    'feet': 'foot',
-    'yd': 'yard'
-  },
-  'Weight': {
-    't': 'tonne',
-    'kg': 'kilogram',
-    'hg': 'hectogram',
-    'g': 'gram',
-    'dg': 'decigram',
-    'cg': 'centigram',
-    'mg': 'milligram',
-    'µg': 'microgram',
-    'carat': 'carat',
-    'grain': 'grain',
-    'oz': 'ounce',
-    'lb': 'pound',
-    'ton': 'tonne',
-    'st': 'stone'
-  },
-  'Area': {
-    'km²': 'square kilometer',
-    'km2': 'square kilometer',
-    'm²': 'square meter',
-    'm2': 'square meter',
-    'dm²': 'square decimeter',
-    'dm2': 'square decimeter',
-    'cm²': 'square centimeter',
-    'cm2': 'square centimeter',
-    'mm²': 'square millimeter',
-    'mm2': 'square millimeter',
-    'ha': 'hectare',
-    'ca': 'centiare',
-    'mile²': 'square mile',
-    'mile2': 'square mile',
-    'in²': 'square inch',
-    'in2': 'square inch',
-    'yd²': 'square yard',
-    'yd2': 'square yard',
-    'ft²': 'square foot',
-    'ft2': 'square foot',
-    'acre': 'acre'
-  },
-  'Frequency': {
-    'hz': 'hertz'
-  },
-  'Speed': {
-    'km/h': 'kilometer per hour',
-    'kmph': 'kilometer per hour',
-    'mps': 'meter per second',
-    'm/s': 'meter per second',
-    'mph': 'mile per hour',
-    'mi/h': 'mile per hour',
-    'knot': 'knot'
-  },
-  'Data': {
-    'b': 'byte',
-    'kb': 'kilobyte',
-    'mb': 'megabyte',
-    'gb': 'gigabyte',
-    'tb': 'terabyte',
-    'pt': 'petabyte',
-    'eb': 'exabyte',
-    'zb': 'zettabyte',
-    'yb': 'yottabyte'
-  },
-  'Energy': {
-    'j': 'joule',
-    'pa': 'pascal',
-    'bar': 'bar',
-    'w': 'watt',
-    'n': 'newton',
-    'wb': 'weber',
-    't': 'tesla',
-    'h': 'henry',
-    'c': 'coulomb',
-    'v': 'volt',
-    'f': 'farad',
-    's': 'siemens',
-    'o': 'ohm',
-    'lx': 'lux',
-    'lm': 'lumen'
-  },
-  'Time': {
-    'year': 'year',
-    'week': 'week',
-    'day': 'day',
-    'h': 'hour',
-    'min': 'minute',
-    's': 'second',
-    'ms': 'millisecond',
-    'µs': 'microsecond',
-    'nanosecond': 'nanosecond',
-    'picosecond': 'picosecond',
-    'femtosecond': 'femtosecond',
-    'attosecond': 'attosecond'
-  },
-  'Money': money
-};
-
-module.exports = Object.keys(units).reduce(function (h, k) {
-  Object.keys(units[k]).forEach(function (u) {
-    h[u] = {
-      name: units[k][u],
-      category: k
-    };
-    h[units[k][u]] = {
-      name: units[k][u],
-      category: k
-    };
-  });
-  return h;
-}, {});
-
-},{"../../../data/currencies":4}],100:[function(_dereq_,module,exports){
-'use strict';
-
-var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
-
-function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
-
-function _possibleConstructorReturn(self, call) { if (!self) { throw new ReferenceError("this hasn't been initialised - super() hasn't been called"); } return call && (typeof call === "object" || typeof call === "function") ? call : self; }
-
-function _inherits(subClass, superClass) { if (typeof superClass !== "function" && superClass !== null) { throw new TypeError("Super expression must either be null or a function, not " + typeof superClass); } subClass.prototype = Object.create(superClass && superClass.prototype, { constructor: { value: subClass, enumerable: false, writable: true, configurable: true } }); if (superClass) Object.setPrototypeOf ? Object.setPrototypeOf(subClass, superClass) : subClass.__proto__ = superClass; }
-
-var Noun = _dereq_('../noun');
-var to_number = _dereq_('./parse/to_number');
-var to_text = _dereq_('./to_text');
-var units = _dereq_('./units');
-var nums = _dereq_('../../../data/numbers');
-var fns = _dereq_('../../../fns');
-//get an array of ordinal (first, second...) numbers
-var ordinals = {};
-ordinals = fns.extend(ordinals, nums.ordinal_ones);
-ordinals = fns.extend(ordinals, nums.ordinal_teens);
-ordinals = fns.extend(ordinals, nums.ordinal_tens);
-ordinals = fns.extend(ordinals, nums.ordinal_multiples);
-ordinals = Object.keys(ordinals);
-
-var Value = function (_Noun) {
-  _inherits(Value, _Noun);
-
-  function Value(str, tag) {
-    _classCallCheck(this, Value);
-
-    var _this = _possibleConstructorReturn(this, (Value.__proto__ || Object.getPrototypeOf(Value)).call(this, str));
-
-    _this.tag = tag;
-    _this.pos['Value'] = true;
-    _this.number = null;
-    _this.unit = null;
-    _this.unit_name = null;
-    _this.measurement = null;
-    _this.of_what = '';
-    // this.text = str;
-    // this.normal = str;
-    if (_this.is_ordinal()) {
-      _this.pos['Ordinal'] = true;
-    }
-    _this.parse();
-    return _this;
-  }
-
-  //test for nearly-numbers, like phonenumbers, or whatever
-
-
-  _createClass(Value, [{
-    key: 'is_number',
-    value: function is_number(s) {
-      //phone numbers, etc
-      if (s.match(/[:@]/)) {
-        return false;
-      }
-      //if there's a number, then something, then a number
-      if (s.match(/[0-9][^(0-9|\/),\.][0-9]/)) {
-        if (s.match(/((?:[0-9]|\.)+) ((?:[0-9]|\.)+)\/((?:[0-9]|\.)+)/)) {
-          // I'm sure there is a better regexpxs
-          return true;
-        }
-        return false;
-      }
-      return true;
-    }
-  }, {
-    key: 'is_number_word',
-    value: function is_number_word(w) {
-      var number_words = {
-        minus: true,
-        negative: true,
-        point: true,
-        half: true,
-        quarter: true
-      };
-
-      if (w.match(/[0-9]/) || number_words[w]) {
-        return true;
-      } else if (nums.ones[w] || nums.teens[w] || nums.tens[w] || nums.multiples[w]) {
-        return true;
-      } else if (nums.ordinal_ones[w] || nums.ordinal_teens[w] || nums.ordinal_tens[w] || nums.ordinal_multiples[w]) {
-        return true;
-      }
-
-      return false;
-    }
-  }, {
-    key: 'is_ordinal',
-    value: function is_ordinal() {
-      //1st
-      if (this.normal.match(/^[0-9]+(rd|st|nd|th)$/)) {
-        return true;
-      }
-      //first, second...
-      for (var i = 0; i < ordinals.length; i++) {
-        if (fns.endsWith(this.normal, ordinals[i])) {
-          return true;
-        }
-      }
-      return false;
-    }
-
-    //turn an integer like 22 into '22nd'
-
-  }, {
-    key: 'to_ordinal',
-    value: function to_ordinal() {
-      var num = this.number;
-      //fail fast
-      if (!num && num !== 0) {
-        return '';
-      }
-      //teens are all 'th'
-      if (num >= 10 && num <= 20) {
-        return '' + num + 'th';
-      }
-      //treat it as a string..
-      num = '' + num;
-      //fail safely
-      if (!num.match(/[0-9]$/)) {
-        return num;
-      }
-      if (fns.endsWith(num, '1')) {
-        return num + 'st';
-      }
-      if (fns.endsWith(num, '2')) {
-        return num + 'nd';
-      }
-      if (fns.endsWith(num, '3')) {
-        return num + 'rd';
-      }
-      return num + 'th';
-    }
-
-    //overwrite term.normal?
-    // normal() {
-    //   let str = '' + (this.number || '');
-    //   if (this.is_ordinal()) {
-    //     str = this.to_ordinal(str);
-    //   }
-    //   if (this.unit) {
-    //     str += ' ' + this.unit;
-    //   }
-    //   return str;
-    // }
-
-  }, {
-    key: 'root',
-    value: function root() {
-      var str = this.number;
-      if (this.unit) {
-        str += ' ' + this.unit;
-      }
-      return str;
-    }
-  }, {
-    key: 'is_unit',
-    value: function is_unit() {
-      //if it's a known unit
-      if (units[this.unit]) {
-        return true;
-      }
-      //currencies are derived-through POS
-      if (this.pos['Currency']) {
-        return true;
-      }
-
-      var s = this.unit.toLowerCase();
-      if (nums.prefixes[s]) {
-        return true;
-      }
-
-      //try singular version
-      s = this.unit.replace(/s$/, '');
-      if (units[s]) {
-        this.unit = this.unit.replace(/s$/, '');
-        return true;
-      }
-
-      s = this.unit.replace(/es$/, '');
-      if (units[s]) {
-        this.unit = this.unit.replace(/es$/, '');
-        return true;
-      }
-      return false;
-    }
-  }, {
-    key: 'parse',
-    value: function parse() {
-      if (!this.is_number(this.text)) {
-        return;
-      }
-
-      var words = this.text.toLowerCase().split(/[ ]/);
-      //split at '-' only for numbers like twenty-two, sixty-seven, etc.
-      //so that 'twelve six-gram pieces' returns 12 for number, not null
-      //however, still returns null for 'three sevel-eleven stores'
-      for (var i = 0; i < words.length; i++) {
-        var w = words[i];
-        if (w.indexOf('-') === w.lastIndexOf('-') && w.indexOf('-') > -1) {
-          var halves = w.split(/[-]/);
-          if (this.is_number_word(halves[0]) && this.is_number_word(halves[1])) {
-            words[i] = halves[0];
-            words.splice(i + 1, 0, halves[1]);
-          }
-        }
-      }
-
-      var numbers = '';
-      var raw_units = '';
-
-      //seperate number-words from unit-words
-      for (var _i = 0; _i < words.length; _i++) {
-        var _w = words[_i];
-        if (this.is_number_word(_w)) {
-          numbers += ' ' + _w;
-        } else {
-          raw_units += ' ' + _w;
-        }
-      }
-      this.unit = raw_units.trim();
-
-      //if raw_units is something like "grams of sugar", try it first,
-      //then "grams of", and then "grams".
-      while (this.unit !== '') {
-        if (this.is_unit() && units[this.unit]) {
-          this.measurement = units[this.unit].category;
-          this.unit_name = units[this.unit].name;
-          break;
-        } else {
-          this.unit = this.unit.substr(0, this.unit.lastIndexOf(' ')).trim();
-        }
-      }
-
-      //support '$400' => 400 dollars
-      var firstChar = this.text.substr(0, 1);
-      var symbolic_currency = {
-        '€': 'euro',
-        '$': 'dollar',
-        '¥': 'yen',
-        '£': 'pound',
-        '¢': 'cent',
-        '฿': 'bitcoin'
-      };
-      if (symbolic_currency[firstChar]) {
-        this.measurement = 'Money';
-        this.unit_name = 'currency';
-        this.unit = symbolic_currency[firstChar];
-      }
-
-      numbers = numbers.trim();
-      this.number = to_number(numbers);
-
-      //of_what
-      var of_pos = this.text.indexOf(' of ');
-      if (of_pos > 0) {
-        var before = this.text.substring(0, of_pos).trim();
-        var after = this.text.substring(of_pos + 4).trim();
-
-        var space_pos = before.lastIndexOf(' ');
-        var _w2 = before.substring(space_pos).trim();
-
-        //if the word before 'of' is a unit, return whatever is after 'of'
-        //else return this word + of + whatever is after 'of'
-        if (_w2 && (this.is_unit(_w2) || this.is_number_word(_w2))) {
-          this.of_what = after;
-        } else {
-          this.of_what = _w2 + ' of ' + after;
-        }
-      } else if (this.unit_name) {
-        //if value contains a unit but no 'of', return unit
-        this.of_what = this.unit;
-      } else {
-        //if value is a number followed by words, skip numbers
-        //and return words; if there is no numbers, return full
-        var temp_words = this.text.split(' ');
-        for (var _i2 = 0; _i2 < temp_words.length; _i2++) {
-          if (this.is_number_word(temp_words[_i2])) {
-            temp_words[_i2] = '';
-            continue;
-          }
-          this.of_what = temp_words.join(' ').trim();
-        }
-      }
-    }
-  }, {
-    key: 'textual',
-    value: function textual() {
-      return to_text(this.number || this.normal || this.text);
-    }
-  }]);
-
-  return Value;
-}(Noun);
-
-Value.fn = Value.prototype;
-module.exports = Value;
-
-},{"../../../data/numbers":16,"../../../fns":23,"../noun":80,"./parse/to_number":97,"./to_text":98,"./units":99}],101:[function(_dereq_,module,exports){
-'use strict';
-
-var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
-
-function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
-
-var _is_acronym = _dereq_('./is_acronym');
-var match_term = _dereq_('../match/match_term');
-var syntax_parse = _dereq_('../match/syntax_parse');
-var implied = _dereq_('./implied');
-
-var Term = function () {
-  function Term(str, tag, whitespace) {
-    _classCallCheck(this, Term);
-
-    //don't pass non-strings through here any further..
-    if (typeof str === 'number') {
-      str = '' + str;
-    } else if (typeof str !== 'string') {
-      str = '';
-    }
-    str = str.toString();
-    //trailing & preceding whitespace
-    this.whitespace = whitespace || {};
-    this.whitespace.preceding = this.whitespace.preceding || '';
-    this.whitespace.trailing = this.whitespace.trailing || '';
-    //set .text
-    this.text = str;
-    //the normalised working-version of the word
-    this.normal = '';
-    //if it's a contraction or slang, the implication, or 'hidden word'
-    this.expansion = '';
-    //set .normal
-    this.rebuild();
-    //the reasoning behind it's part-of-speech
-    this.reasoning = [];
-    //these are orphaned POS that have no methods
-    this.pos = {};
-    this.tag = tag || '?';
-    if (tag) {
-      this.pos[tag] = true;
-    }
-  }
-
-  //when the text changes, rebuild derivative fields
-
-
-  _createClass(Term, [{
-    key: 'rebuild',
-    value: function rebuild() {
-      this.text = this.text || '';
-      this.text = this.text.trim();
-
-      this.normal = '';
-      this.normalize();
-      this.expansion = implied(this.normal);
-    }
-  }, {
-    key: 'changeTo',
-    value: function changeTo(str) {
-      this.text = str;
-      this.rebuild();
-    }
-    //a regex-like string search
-
-  }, {
-    key: 'match',
-    value: function match(match_str, options) {
-      var reg = syntax_parse([match_str]);
-      return match_term(this, reg[0], options);
-    }
-    //the 'root' singular/infinitive/whatever.
-    // method is overloaded by each pos type
-
-  }, {
-    key: 'root',
-    value: function root() {
-      return this.strip_apostrophe();
-    }
-    //strip apostrophe s
-
-  }, {
-    key: 'strip_apostrophe',
-    value: function strip_apostrophe() {
-      if (this.normal.match(/[a-z]'[a-z][a-z]?$/)) {
-        var split = this.normal.split(/'/);
-        if (split[1] === 's') {
-          return split[0];
-        }
-      }
-      return this.normal;
-    }
-  }, {
-    key: 'has_comma',
-    value: function has_comma() {
-      if (this.text.match(/,$/)) {
-        return true;
-      }
-      return false;
-    }
-  }, {
-    key: 'has_abbreviation',
-    value: function has_abbreviation() {
-      // "spencer's"
-      if (this.text.match(/[a-z]'[a-z][a-z]?$/)) {
-        return true;
-      }
-      // "flanders' house"
-      if (this.text.match(/[a-z]s'$/)) {
-        return true;
-      }
-      return false;
-    }
-  }, {
-    key: 'is_capital',
-    value: function is_capital() {
-      if (this.text.match(/[A-Z][a-z]/)) {
-        return true;
-      }
-      return false;
-    }
-    //utility method to avoid lumping words with non-word stuff
-
-  }, {
-    key: 'is_word',
-    value: function is_word() {
-      if (this.text.match(/^\[.*?\]\??$/)) {
-        return false;
-      }
-      if (!this.text.match(/[a-z|0-9]/i)) {
-        return false;
-      }
-      if (this.text.match(/[\|#\<\>]/i)) {
-        return false;
-      }
-      return true;
-    }
-    //FBI or F.B.I.
-
-  }, {
-    key: 'is_acronym',
-    value: function is_acronym() {
-      return _is_acronym(this.text);
-    }
-    //working word
-
-  }, {
-    key: 'normalize',
-    value: function normalize() {
-      var str = this.text || '';
-      str = str.toLowerCase();
-      //strip grammatical punctuation
-      str = str.replace(/[,\.!:;\?\(\)^$]/g, '');
-      //hashtags, atmentions
-      str = str.replace(/^[#@]/, '');
-      //convert hyphenations to a multiple-word term
-      str = str.replace(/([a-z])\-([a-z])/g, '$1 $2');
-      // coerce single curly quotes
-      str = str.replace(/[\u2018\u2019\u201A\u201B\u2032\u2035]+/g, '\'');
-      // coerce double curly quotes
-      str = str.replace(/[\u201C\u201D\u201E\u201F\u2033\u2036]+/g, '');
-      //remove quotations + scare-quotes
-      str = str.replace(/^'/g, '');
-      str = str.replace(/'$/g, '');
-      str = str.replace(/"/g, '');
-      if (!str.match(/[a-z0-9]/i)) {
-        return '';
-      }
-      this.normal = str;
-      return this.normal;
-    }
-  }, {
-    key: 'all_forms',
-    value: function all_forms() {
-      return {};
-    }
-  }]);
-
-  return Term;
-}();
-
-Term.fn = Term.prototype;
-
-module.exports = Term;
-
-},{"../match/match_term":27,"../match/syntax_parse":29,"./implied":71,"./is_acronym":72}],102:[function(_dereq_,module,exports){
-//turn a verb into its other grammatical forms.
-'use strict';
-
-var _typeof = typeof Symbol === "function" && typeof Symbol.iterator === "symbol" ? function (obj) { return typeof obj; } : function (obj) { return obj && typeof Symbol === "function" && obj.constructor === Symbol && obj !== Symbol.prototype ? "symbol" : typeof obj; };
-
-var verb_to_actor = _dereq_('./to_actor');
-var to_infinitive = _dereq_('./to_infinitive');
-var from_infinitive = _dereq_('./from_infinitive');
-var irregular_verbs = _dereq_('../../../data/irregular_verbs');
-var predict = _dereq_('./predict_form.js');
-var generic = _dereq_('./generic.js');
-var strip_prefix = _dereq_('./strip_prefix.js');
-var fns = _dereq_('../../../fns.js');
-
-//make sure object has all forms
-var fufill = function fufill(obj, prefix) {
-  //we're toast if there's no infinitive
-  if (!obj.infinitive) {
-    return obj;
-  }
-  //apply generic methods to missing forms
-  if (!obj.gerund) {
-    obj.gerund = generic.gerund(obj);
-  }
-  if (!obj.present) {
-    obj.present = generic.present(obj);
-  }
-  if (!obj.past) {
-    obj.past = generic.past(obj);
-  }
-  if (obj.actor === undefined) {
-    obj.actor = verb_to_actor(obj.infinitive);
-  }
-
-  //add the prefix to all forms, if it exists
-  if (prefix) {
-    Object.keys(obj).forEach(function (k) {
-      obj[k] = prefix + obj[k];
-    });
-  }
-  //future is 'will'+infinitive
-  if (!obj.future) {
-    obj.future = generic.future(obj);
-  }
-  //perfect is 'have'+past-tense
-  if (!obj.perfect) {
-    obj.perfect = generic.perfect(obj);
-  }
-  //pluperfect is 'had'+past-tense
-  if (!obj.pluperfect) {
-    obj.pluperfect = generic.pluperfect(obj);
-  }
-  //future perfect is 'will have'+past-tense
-  if (!obj.future_perfect) {
-    obj.future_perfect = generic.future_perfect(obj);
-  }
-  return obj;
-};
-
-var conjugate = function conjugate(w) {
-  if (w === undefined) {
-    return {};
-  }
-
-  //for phrasal verbs ('look out'), conjugate look, then append 'out'
-  var phrasal_reg = new RegExp('^(.*?) (in|out|on|off|behind|way|with|of|away|across|ahead|back|over|under|together|apart|up|upon|aback|down|about|before|after|around|to|forth|round|through|along|onto)$', 'i');
-  if (w.match(phrasal_reg)) {
-    var _ret = function () {
-      var split = w.match(phrasal_reg, '');
-      var phrasal_verb = split[1];
-      var particle = split[2];
-      var result = conjugate(phrasal_verb); //recursive
-      Object.keys(result).forEach(function (k) {
-        if (result[k]) {
-          result[k] += ' ' + particle;
-        }
-      });
-      return {
-        v: result
-      };
-    }();
-
-    if ((typeof _ret === 'undefined' ? 'undefined' : _typeof(_ret)) === "object") return _ret.v;
-  }
-
-  //for pluperfect ('had tried') remove 'had' and call it past-tense
-  w = w.replace(/^had /i, '');
-  //for perfect ('have tried') remove 'have' and call it past-tense
-  w = w.replace(/^have /i, '');
-  //for future perfect ('will have tried') remove 'will have' and call it past-tense
-  w = w.replace(/^will have /i, '');
-  //chop it if it's future-tense
-  w = w.replace(/^will /i, '');
-
-  //un-prefix the verb, and add it in later
-  var prefix = strip_prefix(w);
-  w = w.replace(prefix, '');
-
-  //guess the tense, so we know which transormation to make
-  var predicted = predict(w) || 'infinitive';
-  //check against suffix rules
-  var infinitive = to_infinitive(w, predicted) || '';
-  //check irregulars
-  var obj = irregular_verbs[w] || irregular_verbs[infinitive] || {};
-  obj = fns.extend({}, obj);
-  //apply regex-transformations
-  var conjugations = from_infinitive(infinitive);
-  Object.keys(conjugations).forEach(function (k) {
-    if (!obj[k]) {
-      obj[k] = conjugations[k];
-    }
-  });
-  return fufill(obj, prefix);
-};
-module.exports = conjugate;
-
-// console.log(conjugate('played'));
-
-},{"../../../data/irregular_verbs":11,"../../../fns.js":23,"./from_infinitive":103,"./generic.js":104,"./predict_form.js":105,"./strip_prefix.js":106,"./to_actor":108,"./to_infinitive":109}],103:[function(_dereq_,module,exports){
-'use strict';
-
-var _typeof = typeof Symbol === "function" && typeof Symbol.iterator === "symbol" ? function (obj) { return typeof obj; } : function (obj) { return obj && typeof Symbol === "function" && obj.constructor === Symbol && obj !== Symbol.prototype ? "symbol" : typeof obj; };
-
-var rules = [{
-  reg: /(eave)$/i,
-  repl: {
-    pr: '$1s',
-    pa: '$1d',
-    gr: 'eaving',
-    ar: '$1r'
-  }
-}, {
-  reg: /(ink)$/i,
-  repl: {
-    pr: '$1s',
-    pa: 'unk',
-    gr: '$1ing',
-    ar: '$1er'
-  }
-}, {
-  reg: /(end)$/i,
-  repl: {
-    pr: '$1s',
-    pa: 'ent',
-    gr: '$1ing',
-    ar: '$1er'
-  }
-}, {
-  reg: /(ide)$/i,
-  repl: {
-    pr: '$1s',
-    pa: 'ode',
-    gr: 'iding',
-    ar: 'ider'
-  }
-}, {
-  reg: /(ake)$/i,
-  repl: {
-    pr: '$1s',
-    pa: 'ook',
-    gr: 'aking',
-    ar: '$1r'
-  }
-}, {
-  reg: /(eed)$/i,
-  repl: {
-    pr: '$1s',
-    pa: '$1ed',
-    gr: '$1ing',
-    ar: '$1er'
-  }
-}, {
-  reg: /(e)(ep)$/i,
-  repl: {
-    pr: '$1$2s',
-    pa: '$1pt',
-    gr: '$1$2ing',
-    ar: '$1$2er'
-  }
-}, {
-  reg: /(a[tg]|i[zn]|ur|nc|gl|is)e$/i,
-  repl: {
-    pr: '$1es',
-    pa: '$1ed',
-    gr: '$1ing',
-    prt: '$1en'
-  }
-}, {
-  reg: /([i|f|rr])y$/i,
-  repl: {
-    pr: '$1ies',
-    pa: '$1ied',
-    gr: '$1ying'
-  }
-}, {
-  reg: /([td]er)$/i,
-  repl: {
-    pr: '$1s',
-    pa: '$1ed',
-    gr: '$1ing'
-  }
-}, {
-  reg: /([bd]l)e$/i,
-  repl: {
-    pr: '$1es',
-    pa: '$1ed',
-    gr: '$1ing'
-  }
-}, {
-  reg: /(ish|tch|ess)$/i,
-  repl: {
-    pr: '$1es',
-    pa: '$1ed',
-    gr: '$1ing'
-  }
-}, {
-  reg: /(ion|end|e[nc]t)$/i,
-  repl: {
-    pr: '$1s',
-    pa: '$1ed',
-    gr: '$1ing'
-  }
-}, {
-  reg: /(om)e$/i,
-  repl: {
-    pr: '$1es',
-    pa: 'ame',
-    gr: '$1ing'
-  }
-}, {
-  reg: /([aeiu])([pt])$/i,
-  repl: {
-    pr: '$1$2s',
-    pa: '$1$2',
-    gr: '$1$2$2ing'
-  }
-}, {
-  reg: /(er)$/i,
-  repl: {
-    pr: '$1s',
-    pa: '$1ed',
-    gr: '$1ing'
-  }
-}, {
-  reg: /(en)$/i,
-  repl: {
-    pr: '$1s',
-    pa: '$1ed',
-    gr: '$1ing'
-  }
-}, {
-  reg: /(..)(ow)$/i,
-  repl: {
-    pr: '$1$2s',
-    pa: '$1ew',
-    gr: '$1$2ing',
-    prt: '$1$2n'
-  }
-}, {
-  reg: /(..)([cs]h)$/i,
-  repl: {
-    pr: '$1$2es',
-    pa: '$1$2ed',
-    gr: '$1$2ing'
-  }
-}, {
-  reg: /([^aeiou][ou])(g|d)$/i,
-  repl: {
-    pr: '$1$2s',
-    pa: '$1$2$2ed',
-    gr: '$1$2$2ing'
-  }
-}, {
-  reg: /([^aeiou][aeiou])(b|t|p|m)$/i,
-  repl: {
-    pr: '$1$2s',
-    pa: '$1$2$2ed',
-    gr: '$1$2$2ing'
-  }
-}];
-
-var keys = {
-  pr: 'present',
-  pa: 'past',
-  gr: 'gerund',
-  prt: 'participle',
-  ar: 'actor'
-};
-
-var from_infinitive = function from_infinitive(str) {
-  var obj = {
-    infinitive: str
-  };
-  if (!str || typeof str !== 'string') {
-    // console.log(str);
-    return obj;
-  }
-
-  var _loop = function _loop(i) {
-    if (str.match(rules[i].reg)) {
-      // console.log(rules[i]);
-      Object.keys(rules[i].repl).forEach(function (k) {
-        obj[keys[k]] = str.replace(rules[i].reg, rules[i].repl[k]);
-      });
-      return {
-        v: obj
-      };
-    }
-  };
-
-  for (var i = 0; i < rules.length; i++) {
-    var _ret = _loop(i);
-
-    if ((typeof _ret === 'undefined' ? 'undefined' : _typeof(_ret)) === "object") return _ret.v;
-  }
-  return obj;
-};
-// console.log(from_infinitive('watch'));
-
-module.exports = from_infinitive;
-
-},{}],104:[function(_dereq_,module,exports){
-'use strict';
-//non-specifc, 'hail-mary' transforms from infinitive, into other forms
-
-var fns = _dereq_('../../../fns');
-var generic = {
-
-  gerund: function gerund(o) {
-    var inf = o.infinitive;
-    if (fns.endsWith(inf, 'e')) {
-      return inf.replace(/e$/, 'ing');
-    }
-    return inf + 'ing';
-  },
-
-  present: function present(o) {
-    var inf = o.infinitive;
-    if (fns.endsWith(inf, 's')) {
-      return inf + 'es';
-    }
-    if (fns.endsWith(inf, /[bcdfghjklmnpqrstvwxz]y$/)) {
-      return inf.slice(0, -1) + 'ies';
-    }
-    return inf + 's';
-  },
-
-  past: function past(o) {
-    var inf = o.infinitive;
-    if (fns.endsWith(inf, 'e')) {
-      return inf + 'd';
-    }
-    if (fns.endsWith(inf, 'ed')) {
-      return inf;
-    }
-    if (fns.endsWith(inf, /[bcdfghjklmnpqrstvwxz]y$/)) {
-      return inf.slice(0, -1) + 'ied';
-    }
-    return inf + 'ed';
-  },
-
-  future: function future(o) {
-    return 'will ' + o.infinitive;
-  },
-
-  perfect: function perfect(o) {
-    return 'have ' + (o.participle || o.past);
-  },
-
-  pluperfect: function pluperfect(o) {
-    return 'had ' + o.past;
-  },
-
-  future_perfect: function future_perfect(o) {
-    return 'will have ' + o.past;
-  }
-
-};
-
-module.exports = generic;
-
-},{"../../../fns":23}],105:[function(_dereq_,module,exports){
-'use strict';
-//this method is used to predict which current conjugation a verb is
-
-//this method is the slowest in the whole library,
-
-var fns = _dereq_('../../../fns.js');
-var suffix_rules = _dereq_('./suffix_rules');
-var irregular_verbs = _dereq_('../../../data/irregular_verbs');
-var known_verbs = Object.keys(irregular_verbs).reduce(function (h, k) {
-  Object.keys(irregular_verbs[k]).forEach(function (k2) {
-    h[irregular_verbs[k][k2]] = k2;
-  });
-  return h;
-}, {});
-
-var predict = function predict(w) {
-
-  //check if known infinitive
-  if (irregular_verbs[w]) {
-    return 'infinitive';
-  }
-  //check if known infinitive
-  if (known_verbs[w]) {
-    return known_verbs[w];
-  }
-
-  if (w.match(/will ha(ve|d) [a-z]{2}/)) {
-    return 'future_perfect';
-  }
-  if (w.match(/will [a-z]{2}/)) {
-    return 'future';
-  }
-  if (w.match(/had [a-z]{2}/)) {
-    return 'pluperfect';
-  }
-  if (w.match(/have [a-z]{2}/)) {
-    return 'perfect';
-  }
-  if (w.match(/..erer$/)) {
-    return 'actor';
-  }
-  if (w.match(/[^aeiou]ing$/)) {
-    return 'gerund';
-  }
-
-  var arr = Object.keys(suffix_rules);
-  for (var i = 0; i < arr.length; i++) {
-    if (fns.endsWith(w, arr[i]) && arr[i].length < w.length) {
-      return suffix_rules[arr[i]];
-    }
-  }
-  return 'infinitive';
-};
-
-module.exports = predict;
-
-},{"../../../data/irregular_verbs":11,"../../../fns.js":23,"./suffix_rules":107}],106:[function(_dereq_,module,exports){
-'use strict';
-// 'over-kill' should use conjugation rules of 'kill', etc..
-
-var strip_prefix = function strip_prefix(str) {
-  var prefix = '';
-  var match = str.match(/^(over|under|re|anti|full|cross)([- ])?([^aeiou][a-z]*)/i);
-  if (match) {
-    prefix = match[1] + (match[2] || '');
-  }
-  return prefix;
-};
-
-module.exports = strip_prefix;
-
-},{}],107:[function(_dereq_,module,exports){
-'use strict';
-//suffix signals for verb tense, generated from test data
-
-var compact = {
-  'gerund': ['ing'],
-  'infinitive': ['ate', 'ize', 'tion', 'rify', 'then', 'ress', 'ify', 'age', 'nce', 'ect', 'ise', 'ine', 'ish', 'ace', 'ash', 'ure', 'tch', 'end', 'ack', 'and', 'ute', 'ade', 'ock', 'ite', 'ase', 'ose', 'use', 'ive', 'int', 'nge', 'lay', 'est', 'ain', 'ant', 'eed', 'er', 'le'],
-  'participle': ['own', 'unk', 'ung', 'en'],
-  'past': ['ed', 'lt', 'nt', 'pt', 'ew', 'ld'],
-  'present': ['rks', 'cks', 'nks', 'ngs', 'mps', 'tes', 'zes', 'ers', 'les', 'acks', 'ends', 'ands', 'ocks', 'lays', 'eads', 'lls', 'els', 'ils', 'ows', 'nds', 'ays', 'ams', 'ars', 'ops', 'ffs', 'als', 'urs', 'lds', 'ews', 'ips', 'es', 'ts', 'ns', 's']
-};
-var suffix_rules = {};
-var keys = Object.keys(compact);
-var l = keys.length;
-
-for (var i = 0; i < l; i++) {
-  var l2 = compact[keys[i]].length;
-  for (var o = 0; o < l2; o++) {
-    suffix_rules[compact[keys[i]][o]] = keys[i];
-  }
-}
-module.exports = suffix_rules;
-
-},{}],108:[function(_dereq_,module,exports){
-//somone who does this present-tense verb
-//turn 'walk' into 'walker'
-'use strict';
-
-var actor = function actor(str) {
-  str = str || '';
-  var irregulars = {
-    'tie': 'tier',
-    'dream': 'dreamer',
-    'sail': 'sailer',
-    'run': 'runner',
-    'rub': 'rubber',
-    'begin': 'beginner',
-    'win': 'winner',
-    'claim': 'claimant',
-    'deal': 'dealer',
-    'spin': 'spinner'
-  };
-  var dont = {
-    'aid': 1,
-    'fail': 1,
-    'appear': 1,
-    'happen': 1,
-    'seem': 1,
-    'try': 1,
-    'say': 1,
-    'marry': 1,
-    'be': 1,
-    'forbid': 1,
-    'understand': 1,
-    'bet': 1
-  };
-  var transforms = [{
-    'reg': /e$/i,
-    'repl': 'er'
-  }, {
-    'reg': /([aeiou])([mlgp])$/i,
-    'repl': '$1$2$2er'
-  }, {
-    'reg': /([rlf])y$/i,
-    'repl': '$1ier'
-  }, {
-    'reg': /^(.?.[aeiou])t$/i,
-    'repl': '$1tter'
-  }];
-
-  if (dont.hasOwnProperty(str)) {
-    return null;
-  }
-  if (irregulars.hasOwnProperty(str)) {
-    return irregulars[str];
-  }
-  for (var i = 0; i < transforms.length; i++) {
-    if (str.match(transforms[i].reg)) {
-      return str.replace(transforms[i].reg, transforms[i].repl);
-    }
-  }
-  return str + 'er';
-};
-
-// console.log(verb_to_actor('set'))
-// console.log(verb_to_actor('sweep'))
-// console.log(verb_to_actor('watch'))
-module.exports = actor;
-
-},{}],109:[function(_dereq_,module,exports){
-//turns a verb in any form, into it's infinitive version
-// eg "walked" -> "walk"
-'use strict';
-
-var irregular_verbs = _dereq_('../../../data/irregular_verbs');
-var known_verbs = Object.keys(irregular_verbs).reduce(function (h, k) {
-  Object.keys(irregular_verbs[k]).forEach(function (k2) {
-    h[irregular_verbs[k][k2]] = k;
-  });
-  return h;
-}, {});
-
-var rules = {
-  participle: [{
-    reg: /own$/i,
-    to: 'ow'
-  }, {
-    reg: /(.)un([g|k])$/i,
-    to: '$1in$2'
-  }],
-  actor: [{
-    reg: /(er)er$/i,
-    to: '$1'
-  }],
-  present: [{
-    reg: /(ies)$/i,
-    to: 'y'
-  }, {
-    reg: /(tch|sh)es$/i,
-    to: '$1'
-  }, {
-    reg: /(ss)es$/i,
-    to: '$1'
-  }, {
-    reg: /([tzlshicgrvdnkmu])es$/i,
-    to: '$1e'
-  }, {
-    reg: /(n[dtk]|c[kt]|[eo]n|i[nl]|er|a[ytrl])s$/i,
-    to: '$1'
-  }, {
-    reg: /(ow)s$/i,
-    to: '$1'
-  }, {
-    reg: /(op)s$/i,
-    to: '$1'
-  }, {
-    reg: /([eirs])ts$/i,
-    to: '$1t'
-  }, {
-    reg: /(ll)s$/i,
-    to: '$1'
-  }, {
-    reg: /(el)s$/i,
-    to: '$1'
-  }, {
-    reg: /(ip)es$/i,
-    to: '$1e'
-  }, {
-    reg: /ss$/i,
-    to: 'ss'
-  }, {
-    reg: /s$/i,
-    to: ''
-  }],
-  gerund: [{
-    reg: /pping$/i,
-    to: 'p'
-  }, {
-    reg: /lling$/i,
-    to: 'll'
-  }, {
-    reg: /tting$/i,
-    to: 't'
-  }, {
-    reg: /ssing$/i,
-    to: 'ss'
-  }, {
-    reg: /gging$/i,
-    to: 'g'
-  }, {
-    reg: /([^aeiou])ying$/i,
-    to: '$1y'
-  }, {
-    reg: /([^ae]i.)ing$/i,
-    to: '$1e'
-  }, {
-    reg: /(ea.)ing$/i,
-    to: '$1'
-  }, {
-    reg: /(u[rtcb]|[bdtpkg]l|n[cg]|a[gdkvtc]|[ua]s|[dr]g|yz|o[rlsp]|cre)ing$/i,
-    to: '$1e'
-  }, {
-    reg: /(ch|sh)ing$/i,
-    to: '$1'
-  }, {
-    reg: /(..)ing$/i,
-    to: '$1'
-  }],
-  past: [{
-    reg: /(ued)$/i,
-    to: 'ue'
-  }, {
-    reg: /(e|i)lled$/i,
-    to: '$1ll'
-  }, {
-    reg: /(sh|ch)ed$/i,
-    to: '$1'
-  }, {
-    reg: /(tl|gl)ed$/i,
-    to: '$1e'
-  }, {
-    reg: /(um?pt?)ed$/i,
-    to: '$1'
-  }, {
-    reg: /(ss)ed$/i,
-    to: '$1'
-  }, {
-    reg: /pped$/i,
-    to: 'p'
-  }, {
-    reg: /tted$/i,
-    to: 't'
-  }, {
-    reg: /gged$/i,
-    to: 'g'
-  }, {
-    reg: /(h|ion|n[dt]|ai.|[cs]t|pp|all|ss|tt|int|ail|ld|en|oo.|er|k|pp|w|ou.|rt|ght|rm)ed$/i,
-    to: '$1'
-  }, {
-    reg: /(.ut)ed$/i,
-    to: '$1e'
-  }, {
-    reg: /(us)ed$/i,
-    to: '$1e'
-  }, {
-    reg: /(..[^aeiouy])ed$/i,
-    to: '$1e'
-  }, {
-    reg: /ied$/i,
-    to: 'y'
-  }, {
-    reg: /(.o)ed$/i,
-    to: '$1o'
-  }, {
-    reg: /(.i)ed$/i,
-    to: '$1'
-  }, {
-    reg: /(a[^aeiou])ed$/i,
-    to: '$1'
-  }, {
-    reg: /([rl])ew$/i,
-    to: '$1ow'
-  }, {
-    reg: /([pl])t$/i,
-    to: '$1t'
-  }]
-};
-
-var to_infinitive = function to_infinitive(str, from_tense) {
-  if (known_verbs.hasOwnProperty(str)) {
-    return known_verbs[str];
-  }
-  if (from_tense === 'infinitive') {
-    return str;
-  }
-  var regs = rules[from_tense] || [];
-  for (var i = 0; i < regs.length; i++) {
-    if (str.match(regs[i].reg)) {
-      return str.replace(regs[i].reg, regs[i].to);
-    }
-  }
-  return str;
-};
-
-// console.log(to_infinitive('played', 'past'));
-
-module.exports = to_infinitive;
-
-},{"../../../data/irregular_verbs":11}],110:[function(_dereq_,module,exports){
-'use strict';
-//turn a infinitiveVerb, like "walk" into an adjective like "walkable"
-
-var rules = [[/y$/, 'i'], //relay - reliable
-[/([aeiou][n])$/, '$1n']];
-
-//convert - 'convertible'
-//http://grammarist.com/usage/able-ible/
-//http://blog.oxforddictionaries.com/2012/10/ibles-and-ables/
-var ible_suffixes = {
-  collect: true,
-  exhaust: true,
-  convert: true,
-  digest: true,
-  discern: true,
-  dismiss: true,
-  reverse: true,
-  access: true,
-  collapse: true,
-  express: true
-};
-
-var irregulars = {
-  eat: 'edible',
-  hear: 'audible',
-  see: 'visible',
-  defend: 'defensible',
-  write: 'legible',
-  move: 'movable',
-  divide: 'divisible',
-  perceive: 'perceptible'
-};
-
-//takes an infitive verb, and returns an adjective form
-var to_adjective = function to_adjective(str) {
-  if (irregulars[str]) {
-    return irregulars[str];
-  }
-  for (var i = 0; i < rules.length; i++) {
-    if (str.match(rules[i][0])) {
-      str = str.replace(rules[i][0], rules[i][1]);
-    }
-  }
-  var adj = str + 'able';
-  if (ible_suffixes[str]) {
-    adj = str + 'ible';
-  }
-  return adj;
-};
-
-module.exports = to_adjective;
-
-},{}],111:[function(_dereq_,module,exports){
-'use strict';
-
-var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
-
-function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
-
-function _possibleConstructorReturn(self, call) { if (!self) { throw new ReferenceError("this hasn't been initialised - super() hasn't been called"); } return call && (typeof call === "object" || typeof call === "function") ? call : self; }
-
-function _inherits(subClass, superClass) { if (typeof superClass !== "function" && superClass !== null) { throw new TypeError("Super expression must either be null or a function, not " + typeof superClass); } subClass.prototype = Object.create(superClass && superClass.prototype, { constructor: { value: subClass, enumerable: false, writable: true, configurable: true } }); if (superClass) Object.setPrototypeOf ? Object.setPrototypeOf(subClass, superClass) : subClass.__proto__ = superClass; }
-
-var Term = _dereq_('../term.js');
-var _conjugate = _dereq_('./conjugate/conjugate.js');
-var _negate = _dereq_('./verb_negate.js');
-var _to_adjective = _dereq_('./to_adjective.js');
-var predict_form = _dereq_('./conjugate/predict_form.js');
-
-var verbTags = {
-  infinitive: 'Infinitive',
-  present: 'PresentTense',
-  past: 'PastTense',
-  gerund: 'Gerund',
-  actor: 'Actor',
-  future: 'FutureTense',
-  pluperfect: 'PluperfectTense',
-  perfect: 'PerfectTense'
-};
-
-var Verb = function (_Term) {
-  _inherits(Verb, _Term);
-
-  function Verb(str, tag) {
-    _classCallCheck(this, Verb);
-
-    var _this = _possibleConstructorReturn(this, (Verb.__proto__ || Object.getPrototypeOf(Verb)).call(this, str));
-
-    _this.tag = tag;
-    _this.pos['Verb'] = true;
-    //if we've been told which
-    if (tag) {
-      _this.pos[tag] = true;
-    }
-    return _this;
-  }
-
-  //'root' for a verb means infinitive
-
-
-  _createClass(Verb, [{
-    key: 'root',
-    value: function root() {
-      return this.conjugate().infinitive;
-    }
-
-    //retrieve a specific form
-
-  }, {
-    key: 'conjugation',
-    value: function conjugation() {
-      //check cached conjugations
-      var conjugations = this.conjugate();
-      var keys = Object.keys(conjugations);
-      for (var i = 0; i < keys.length; i++) {
-        if (conjugations[keys[i]] === this.normal) {
-          return verbTags[keys[i]];
-        }
-      }
-      //try to guess
-      return verbTags[predict_form(this.normal)];
-    }
-  }, {
-    key: 'tense',
-    value: function tense() {
-      //map conjugation onto past/present/future
-      var tenses = {
-        infinitive: 'present',
-        gerund: 'present',
-        actor: 'present',
-        present: 'present',
-        past: 'past',
-        future: 'future',
-        perfect: 'past',
-        pluperfect: 'past',
-        future_perfect: 'future'
-      };
-      var c = this.conjugation();
-      return tenses[c] || 'present';
-    }
-  }, {
-    key: 'conjugate',
-    value: function conjugate() {
-      return _conjugate(this.normal);
-    }
-  }, {
-    key: 'to_past',
-    value: function to_past() {
-      var tense = 'past';
-      var conjugations = this.conjugate(this.normal);
-      this.tag = verbTags[tense];
-      this.changeTo(conjugations[tense]);
-      return conjugations[tense];
-    }
-  }, {
-    key: 'to_present',
-    value: function to_present() {
-      var tense = 'present';
-      var conjugations = this.conjugate(this.normal);
-      this.tag = verbTags[tense];
-      this.changeTo(conjugations[tense]);
-      return conjugations[tense];
-    }
-  }, {
-    key: 'to_future',
-    value: function to_future() {
-      var tense = 'future';
-      var conjugations = this.conjugate(this.normal);
-      this.tag = verbTags[tense];
-      this.changeTo(conjugations[tense]);
-      return conjugations[tense];
-    }
-  }, {
-    key: 'to_adjective',
-    value: function to_adjective() {
-      return _to_adjective(this.conjugate().infinitive);
-    }
-
-    //is this verb negative already?
-
-  }, {
-    key: 'isNegative',
-    value: function isNegative() {
-      var str = this.normal;
-      //yep, pretty simple
-      if (str.match(/(n't|\bnot\b)/)) {
-        return true;
-      }
-      return false;
-    }
-
-    //turn 'walked' to "didn't walk"
-
-  }, {
-    key: 'negate',
-    value: function negate() {
-      this.changeTo(_negate(this));
-      return this;
-    }
-  }, {
-    key: 'all_forms',
-    value: function all_forms() {
-      var forms = this.conjugate();
-      forms['negated'] = _negate(this);
-      forms['normal'] = this.normal;
-      return forms;
-    }
-  }]);
-
-  return Verb;
-}(Term);
-
-Verb.fn = Verb.prototype;
-
-module.exports = Verb;
-
-//let v = new Verb('run');
-//console.log(v.all_forms());
-
-},{"../term.js":101,"./conjugate/conjugate.js":102,"./conjugate/predict_form.js":105,"./to_adjective.js":110,"./verb_negate.js":112}],112:[function(_dereq_,module,exports){
-'use strict';
-//recieves a verb object, and returns a negated string
-//sort out don't/didn't/doesn't/won't
-
-var fns = _dereq_('../../fns');
-
-// logic:
-// [past tense] - "sold" -> "didn't sell"
-// [present] - "sells" -> "doesn't sell"
-// [future] - "will sell" -> "won't sell"
-
-var negate = function negate(v) {
-
-  var known_negation = {
-    'is': 'isn\'t',
-    'are': 'aren\'t',
-    'was': 'wasn\'t',
-    'will': 'won\'t',
-    'had': 'hadn\'t',
-    //modals
-    'did': 'didn\'t',
-    'would': 'wouldn\'t',
-    'could': 'couldn\'t',
-    'should': 'shouldn\'t',
-    'can': 'can\'t',
-    'must': 'mustn\'t',
-    'have': 'haven\'t',
-    'has': 'hasn\'t',
-    'does': 'doesn\'t',
-    'do': 'don\'t'
-  };
-  //hard-coded explicit forms
-  if (known_negation[v.normal]) {
-    return known_negation[v.normal];
-  }
-  //try to un-negate?  create corrollary
-  var known_affirmation = fns.reverseObj(known_negation);
-  if (known_affirmation[v.normal]) {
-    return known_affirmation[v.normal];
-  }
-
-  //multiple-word verbs, like 'have walked'
-  var words = v.normal.split(' ');
-  if (words.length > 1 && words[1] === 'not') {
-    return words[0];
-  }
-  if (words.length > 1 && known_negation[words[0]]) {
-    return known_negation[words[0]] + ' ' + words.slice(1, words.length).join(' ');
-  }
-  var form = v.conjugation();
-  //walked -> didn't walk
-  if (form === 'PastTense') {
-    return 'didn\'t ' + v.conjugate()['infinitive'];
-  }
-  //walks -> doesn't walk
-  if (form === 'PresentTense') {
-    return 'doesn\'t ' + v.conjugate()['infinitive'];
-  }
-  //walking -> not walking
-  if (form === 'Gerund') {
-    return 'not ' + v.text;
-  }
-  //walker -> non-walker ?
-  if (form === 'Actor') {
-    return 'non-' + v.text;
-  }
-  //walk -> don't walk ?
-  if (form === 'Infinitive') {
-    return 'don\'t ' + v.text;
-  }
-
-  return v.text;
-};
-
-module.exports = negate;
-
-},{"../../fns":23}],113:[function(_dereq_,module,exports){
-//(Rule-based sentence boundary segmentation) - chop given text into its proper sentences.
-// Ignore periods/questions/exclamations used in acronyms/abbreviations/numbers, etc.
-// @spencermountain 2015 MIT
-'use strict';
-
-var abbreviations = _dereq_('../data/abbreviations').abbreviations;
-var fns = _dereq_('../fns');
-
-var naiive_split = function naiive_split(text) {
-  //first, split by newline
-  var splits = text.split(/(\n+)/);
-  //split by period, question-mark, and exclamation-mark
-  splits = splits.map(function (str) {
-    return str.split(/(\S.+?[.!?])(?=\s+|$)/g);
-  });
-  return fns.flatten(splits);
-};
-
-var sentence_parser = function sentence_parser(text) {
-  var sentences = [];
-  //first do a greedy-split..
-  var chunks = [];
-  //ensure it 'smells like' a sentence
-  if (!text || typeof text !== 'string' || !text.match(/\w/)) {
-    return sentences;
-  }
-  // This was the splitter regex updated to fix quoted punctuation marks.
-  // let splits = text.split(/(\S.+?[.\?!])(?=\s+|$|")/g);
-  // todo: look for side effects in this regex replacement:
-  var splits = naiive_split(text);
-  //filter-out the grap ones
-  for (var i = 0; i < splits.length; i++) {
-    var s = splits[i];
-    if (!s || s === '') {
-      continue;
-    }
-    //this is meaningful whitespace
-    if (!s.match(/\S/)) {
-      //add it to the last one
-      if (chunks[chunks.length - 1]) {
-        chunks[chunks.length - 1] += s;
-        continue;
-      } else if (splits[i + 1]) {
-        //add it to the next one
-        splits[i + 1] = s + splits[i + 1];
-        continue;
-      }
-      //else, only whitespace, no terms, no sentence
-    }
-    chunks.push(s);
-  }
-
-  //detection of non-sentence chunks
-  var abbrev_reg = new RegExp('\\b(' + abbreviations.join('|') + ')[.!?] ?$', 'i');
-  var acronym_reg = new RegExp('[ |\.][A-Z]\.? +?$', 'i');
-  var elipses_reg = new RegExp('\\.\\.\\.* +?$');
-  //loop through these chunks, and join the non-sentence chunks back together..
-  for (var _i = 0; _i < chunks.length; _i++) {
-    //should this chunk be combined with the next one?
-    if (chunks[_i + 1] && (chunks[_i].match(abbrev_reg) || chunks[_i].match(acronym_reg) || chunks[_i].match(elipses_reg))) {
-      chunks[_i + 1] = chunks[_i] + (chunks[_i + 1] || ''); //.replace(/ +/g, ' ');
-    } else if (chunks[_i] && chunks[_i].length > 0) {
-      //this chunk is a proper sentence..
-      sentences.push(chunks[_i]);
-      chunks[_i] = '';
-    }
-  }
-  //if we never got a sentence, return the given text
-  if (sentences.length === 0) {
-    return [text];
-  }
-
-  return sentences;
-};
-
-module.exports = sentence_parser;
-// console.log(sentence_parser('hi John. He is good'));
-
-},{"../data/abbreviations":1,"../fns":23}],114:[function(_dereq_,module,exports){
-'use strict';
-
-var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
-
-function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
-
-var sentence_parser = _dereq_('./sentence_parser.js');
-// const Sentence = require('../sentence/sentence.js');
-var Question = _dereq_('../sentence/question/question.js');
-var Statement = _dereq_('../sentence/statement/statement.js');
-var fns = _dereq_('../fns.js');
-
-//a text object is a series of sentences, along with the generic methods for transforming them
-
-var Text = function () {
-  function Text(str, options) {
-    _classCallCheck(this, Text);
-
-    options = options || {};
-    var the = this;
-    if (typeof str === 'string') {
-      this.raw_text = str;
-    } else if (typeof str === 'number') {
-      this.raw_text = '' + str;
-    } else {
-      this.raw_text = '';
-    }
-    //build-up sentence/statement methods
-    this.sentences = sentence_parser(this.raw_text).map(function (s) {
-      var last_char = s.slice(-1);
-      if (last_char === '?') {
-        //TODO:be smartr
-        return new Question(s, options);
-      }
-      return new Statement(s, options);
-    });
-
-    this.contractions = {
-      // he'd -> he would
-      expand: function expand() {
-        the.sentences = the.sentences.map(function (s) {
-          return s.contractions.expand();
-        });
-        return the;
-      },
-      // he would -> he'd
-      contract: function contract() {
-        the.sentences = the.sentences.map(function (s) {
-          return s.contractions.contract();
-        });
-        return the;
-      }
-    };
-  }
-
-  //map over sentence methods
-
-
-  _createClass(Text, [{
-    key: 'text',
-    value: function text() {
-      var arr = this.sentences.map(function (s) {
-        return s.text();
-      });
-      return fns.flatten(arr).join('');
-    }
-  }, {
-    key: 'normal',
-    value: function normal() {
-      var arr = this.sentences.map(function (s) {
-        return s.normal();
-      });
-      return fns.flatten(arr).join(' ');
-    }
-
-    //further 'lemmatisation/inflection'
-
-  }, {
-    key: 'root',
-    value: function root() {
-      var arr = this.sentences.map(function (s) {
-        return s.root();
-      });
-      return fns.flatten(arr).join(' ');
-    }
-  }, {
-    key: 'terms',
-    value: function terms() {
-      var arr = this.sentences.map(function (s) {
-        return s.terms;
-      });
-      return fns.flatten(arr);
-    }
-  }, {
-    key: 'tags',
-    value: function tags() {
-      return this.sentences.map(function (s) {
-        return s.tags();
-      });
-    }
-
-    //a regex-like lookup for a sentence.
-    // returns an array of terms
-
-  }, {
-    key: 'match',
-    value: function match(str, options) {
-      var arr = [];
-      for (var i = 0; i < this.sentences.length; i++) {
-        arr = arr.concat(this.sentences[i].match(str, options));
-      }
-      return arr;
-    }
-  }, {
-    key: 'replace',
-    value: function replace(str, replacement, options) {
-      for (var i = 0; i < this.sentences.length; i++) {
-        this.sentences[i].replace(str, replacement, options);
-      }
-      return this;
-    }
-
-    //transformations
-
-  }, {
-    key: 'to_past',
-    value: function to_past() {
-      this.sentences = this.sentences.map(function (s) {
-        return s.to_past();
-      });
-      return this;
-    }
-  }, {
-    key: 'to_present',
-    value: function to_present() {
-      this.sentences = this.sentences.map(function (s) {
-        return s.to_present();
-      });
-      return this;
-    }
-  }, {
-    key: 'to_future',
-    value: function to_future() {
-      this.sentences = this.sentences.map(function (s) {
-        return s.to_future();
-      });
-      return this;
-    }
-  }, {
-    key: 'negate',
-    value: function negate() {
-      this.sentences = this.sentences.map(function (s) {
-        return s.negate();
-      });
-      return this;
-    }
-
-    //returns an array with elements from this.sentences[i].func()
-
-  }, {
-    key: 'generate_arr',
-    value: function generate_arr(func) {
-      var arr = [];
-      for (var i = 0; i < this.sentences.length; i++) {
-        arr = arr.concat(this.sentences[i][func]());
-      }
-      return arr;
-    }
-
-    //parts of speech
-
-  }, {
-    key: 'nouns',
-    value: function nouns() {
-      return this.generate_arr('nouns');
-    }
-  }, {
-    key: 'adjectives',
-    value: function adjectives() {
-      return this.generate_arr('adjectives');
-    }
-  }, {
-    key: 'verbs',
-    value: function verbs() {
-      return this.generate_arr('verbs');
-    }
-  }, {
-    key: 'adverbs',
-    value: function adverbs() {
-      return this.generate_arr('adverbs');
-    }
-
-    //mining
-
-  }, {
-    key: 'people',
-    value: function people() {
-      return this.generate_arr('people');
-    }
-  }, {
-    key: 'places',
-    value: function places() {
-      return this.generate_arr('places');
-    }
-  }, {
-    key: 'organizations',
-    value: function organizations() {
-      return this.generate_arr('organizations');
-    }
-  }, {
-    key: 'dates',
-    value: function dates() {
-      return this.generate_arr('dates');
-    }
-  }, {
-    key: 'values',
-    value: function values() {
-      return this.generate_arr('values');
-    }
-
-    //more generic named-entity recognition
-
-  }, {
-    key: 'topics',
-    value: function topics() {
-      //consolodate topics across sentences
-      var obj = {};
-      for (var i = 0; i < this.sentences.length; i++) {
-        var topics = this.sentences[i].topics();
-        for (var o = 0; o < topics.length; o++) {
-          if (obj[topics[o].text]) {
-            obj[topics[o].text].count += topics[o].count;
-          } else {
-            obj[topics[o].text] = topics[o];
-          }
-        }
-      }
-      //sort by frequency
-      var arr = Object.keys(obj).map(function (k) {
-        return obj[k];
-      });
-      return arr.sort(function (a, b) {
-        if (a.count > b.count) {
-          return -1;
-        } else {
-          return 1;
-        }
-      });
-    }
-    //'semantic' word-count, skips over implicit terms and things
-
-  }, {
-    key: 'word_count',
-    value: function word_count() {
-      var count = 0;
-      for (var i = 0; i < this.sentences.length; i++) {
-        count += this.sentences[i].word_count();
-      }
-      return count;
-    }
-  }]);
-
-  return Text;
-}();
-
-Text.fn = Text.prototype;
-
-module.exports = Text;
-
-},{"../fns.js":23,"../sentence/question/question.js":57,"../sentence/statement/statement.js":63,"./sentence_parser.js":113}]},{},[24])(24)
-});
-}).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{}],100:[function(require,module,exports){
+},{}],104:[function(require,module,exports){
 /*! nouislider - 9.1.0 - 2016-12-10 16:00:32 */
 
 (function (factory) {
@@ -54063,7 +45187,6 @@ function closure ( target, options, originalOptions ){
 
 	// Unbind move events on document, call callbacks.
 	function eventEnd ( event, data ) {
-// console.log(event.target);
 // var document = event.target.ownerDocument;
 		// The handle is no longer active, so remove the class.
 		if ( scope_ActiveHandle ) {
@@ -54096,7 +45219,6 @@ function closure ( target, options, originalOptions ){
 
 	// Bind move events on document.
 	function eventStart ( event, data ) {
-// console.log(event.target);
 // var document = event.target.ownerDocument;
 		if ( data.handleNumbers.length === 1 ) {
 
@@ -54117,7 +45239,6 @@ function closure ( target, options, originalOptions ){
 
 		// A drag should never propagate up to the 'tap' event.
 		event.stopPropagation();
-
 		// Attach the move and end events.
 		var moveEvent = attachEvent(actions.move, document.documentElement, eventMove, {
 			startCalcPoint: event.calcPoint,
@@ -54684,6 +45805,7 @@ function closure ( target, options, originalOptions ){
 	// Run the standard initializer
 	function initialize ( target, originalOptions ) {
 		document = target.ownerDocument;
+
 		if ( !target.nodeName ) {
 			throw new Error('noUiSlider.create requires a single element.');
 		}
@@ -54703,13 +45825,13 @@ function closure ( target, options, originalOptions ){
 	};
 
 }));
-},{}],101:[function(require,module,exports){
+},{}],105:[function(require,module,exports){
 (function (global){
 !function(b,a){typeof exports==='object'&&typeof module!=='undefined'?module.exports=b():typeof define==='function'&&define.amd?define([],b):(typeof window!=='undefined'?a=window:typeof global!=='undefined'?a=global:typeof self!=='undefined'?a=self:a=this,a.franc=b())}(function(){return function a(b,c,e){function f(d,k){if(!c[d]){if(!b[d]){var i=typeof require=='function'&&require;if(!k&&i)return i(d,!0);if(g)return g(d,!0);var j=new Error("Cannot find module '"+d+"'");throw j.code='MODULE_NOT_FOUND',j}var h=c[d]={exports:{}};b[d][0].call(h.exports,function(c){var a=b[d][1][c];return f(a?a:c)},h,h.exports,a,b,c,e)}return c[d].exports}var g=typeof require=='function'&&require;for(var d=0;d<e.length;d++)f(e[d]);return f}({1:[function(b,a,c){a.exports={Latin:{spa:' de|os |de | la|la | y | a |es |ón |ión|rec|ere|der| co|e l|el |en |ien|cho|ent|ech|ció|aci|o a|a p| el|a l|al |as |e d| en|na |ona|s d|da |nte| to|ad |ene|con| pr| su|tod| se|ho |los| pe|per|ers| lo|o d| ti|cia|n d|cio| es|ida|res|a t|tie|ion|rso|te |do | in|son| re| li|to |dad|tad|e s|est|pro|que|men| po|a e|oda|nci| qu| un|ue |ne |n e|s y|lib|su | na|s e|nac|ia |e e|tra| pa|or |ado|a d|nes|ra |se |ual|a c|er |por|com|nal|rta|a s|ber| o |one|s p|dos|rá |sta|les|des|ibe|ser|era|ar |ert|ter| di|ale|l d|nto|hos|del|ica|a a|s n|n c|oci|imi|io |o e|re |y l|e c|ant|cci| as|las|par|ame| cu|ici|ara|enc|s t|ndi| so|o s|mie|tos|una|bre|dic|cla|s l|e a|l p|pre|ntr|o t|ial|y a|nid|n p|a y|man|omo|so |n l| al|ali|s a|no | ig|s s|e p|nta|uma|ten|gua|ade|y e|soc|mo | fu|igu|o p|n t|hum|d d|ran|ria|y d|ada|tiv|l e|cas| ca|vid|l t|s c|ido|das|dis|s i| hu|s o|nad|fun| ma|rac|nda|eli|sar|und| ac|uni|mbr|a u|die|e i|qui|a i| ha|lar| tr|odo|ca |tic|o y|cti|lid|ori|ndo|ari| me|ta |ind|esa|cua|un |ier|tal|esp|seg|ele|ons|ito|ont|iva|s h|d y|nos|ist|rse| le|cie|ide|edi|ecc|ios|l m|r e|med|tor|sti|n a|rim|uie|ple|tri|ibr|sus|lo |ect|pen|y c|an |e h|n s|ern|tar|l y|egu|gur|ura|int|ond|mat|l r|r a|isf|ote',eng:' th|the| an|he |nd |and|ion| of|of |tio| to|to |on | in|al |ati|igh|ght|rig| ri|or |ent|as |ed |is |ll |in | be|e r|ne |one|ver|all|s t|eve|t t| fr|s a| ha| re|ty |ery| or|d t| pr|ht | co| ev|e h|e a|ng |ts |his|ing|be |yon| sh|ce |ree|fre|ryo|n t|her|men|nat|sha|pro|nal|y a|has|es |for| hi|hal|f t|n a|n o|nt | pe|s o| fo|d i|nce|er |ons|res|e s|ect|ity|ly |l b|ry |e e|ers|e i|an |e o| de|cti|dom|edo|eed|hts|ter|ona|re | no| wh| a | un|d f| as|ny |l a|e p|ere| en| na| wi|nit|nte|d a|any|ted| di|ns |sta|th |per|ith|e t|st |e c|y t|om |soc| ar|ch |t o|d o|nti|s e|equ|ve |oci|man| fu|ote|oth|ess| al| ac|wit|ial| ma|uni| se|rea| so| on|lit|int|r t|y o|enc|thi|ual|t a| eq|tat|qua|ive| st|ali|e w|l o|are|f h|con|te |led| is|und|cia|e f|le | la|y i|uma|by | by|hum|f a|ic | hu|ave|ge |r a| wo|o a|ms |com| me|eas|s d|tec| li|n e|en |rat|tit|ple|whe|ate|o t|s r|t f|rot| ch|cie|dis|age|ary|o o|anc|eli|no | fa| su|son|inc|at |nda|hou|wor|t i|nde|rom|oms| ot|g t|eme|tle|iti|gni|s w|itl|duc|d w|whi|act|hic|aw |law| he|ich|min|imi|ort|o s|se |e b|ntr|tra|edu|oun|tan|e d|nst|l p|d n|ld |nta|s i|ble|n p| pu|n s| at|ily|rth|tho|ful|ssi|der|o e|cat|uca|unt|ien| ed|o p|h a|era|ind|pen|sec|n w|omm|r s',por:'os |de | de| a | e |o d|to |ão | di|ent|da |ito|em | co|eit|as |dir|es |ire|rei| se|ção|ade|a p|dad|e d|s d|men|nte|do |s e| pr| pe|dos| to| da|a a|o e| o |o a|ess|con|tod|que| qu|te |e a| do|al |res|ida|m d| in| ou|er |sso| na| re| po|a s| li|uma|cia|ar |pro|e e|a d| te|açã|a t| es| su|ou |ue |s p|tos|a e|des|ra |com|no |ame|ia |e p|tem|nto| pa|is |est|tra|ões|na |s o|oda|das|ser|soa|s n|pes|o p|s a|o s|e o| em| as| à |o o|ais|ber|ado|oa |o t|e s|man|sua|ua | no| os|a c|ter|çõe|erd|lib|rda|s s|nci|ibe|e n|ica|odo|so |nal|ntr|s t|hum|ura| ao|ona|ual| so|or |ma |sta|o c|a n|pre|ara|era|ons|e t|r a|par|o à| hu|ind|por|cio|ria|m a|s c| um|a l|gua|ran| en|ndi|o i|e c|raç|ion|nid|aci|ano|soc|e r|oci| ac|und|sen|nos|nsi|rec|ime|ali|int|um |per|nac| al|m o|r p| fu|ndo|ont|açõ| ig|igu|fun|nta| ma|uni|cçã|ere| ex|a i| me|ese|rio|l d|a o|s h|pel|ada|pri|ide|am |m p|pod|s f|ém |a f|io |ode|ca |ita|lid|tiv|e f|vid|r e|esp|nda|omo|e l|naç|o r|ant|a q|tad|lic|iva| fa|ver|s l|ial|cla|ngu|ing| ca|mo |der| vi|eli|ist|ta |se |ati|ios|ido|r o|eci|dis| un|e i|r d|ecç|o q|s i|qua|ênc|a m|seu|sti|nin|uer|rar|cas|aos|ens|gué|ias|sid|uém|tur|dam|sse|ao |ela|l e|for|tec|ote| pl|ena| tr|m c|tro| ni|ico|rot',ind:'an |ang| da|ng | pe|ak | ke| me|ata| se|dan|kan| di| be|hak|ber|per|ran|nga|yan|eng| ya| ha|asa|gan|men|ara|nya|n p|n d|n k|a d|tan| at|at |ora|ala|san| ba|ap |erh|n b|rha|ya | ma|g b|a s|pen|eba|as |aan|uk |ntu| or|eti|tas|aka|tia|ban|set| un|n s|ter|n y| te|k m|tuk|bas|iap|lam|beb|am | de|k a|keb|n m|i d|unt|ama|dal|ah |ika|dak|ebe|p o|sa |pun|mem|n h|end|den|ra |ela|ri |nda| sa|di |ma |a m|n t|k d|n a|ngg|tau|man|gar|eri|asi| ti|un |al |ada|um |a p|lak|ari|au | ne|neg|a b|ngs|ta |ole|leh|ert|ers|ida|k h|ana|gsa|dar|uka|tid|bat|sia|era|eh |dap|ila|dil|h d|atu|sam|ia |i m| in|lan|aha|uan|tu |ai |t d|a a|g d|har|sem|na |apa|ser|ena|kat|uat|erb|erl|mas|rta|ega|ung|nan|emp|n u|kum|l d|g s| hu|ka |ent|pat|mba|aga|nta|adi| su|eni|uku|n i|huk|ind|ar |rga|i s|aku|ndi|sua|ni |rus|han|si |car|nny| la|in |u d|ik |ua |lah|rik|usi|emb|ann|mer|ian|gga|lai|min|a u|lua|ema|emu|arg|dun|dip|a t|mat|aya|rbu|aru|erk|rka|ini|eka|a k|rak|kes|yat|iba|nas|rma|ern|ese|s p|nus| pu|anu|ina| ta|mel|mua|kel|k s|us |ndu|nak|da |sya|das|pem|lin|ut |yar|ami|upu|seo|aik|eor|iny|aup|tak|ipe|ing|tin| an|dik|uar|ili|g t|rse|sar|ant|g p|a n|aks|ain| ja|t p| um|g m|dir|ksa|umu|kep|mum|i k|eca|rat|m p|h p|aba|ses|m m',fra:' de|es |de |ion|nt |et |tio| et|ent| la|la |e d|on |ne |oit|e l|le | le|s d|e p|t d|ati|roi| dr|dro|it | à | co|té |ns |te |e s|men|re | to|con| l’|tou|que| qu|les| so|des|son| pe|ons| un|s l|s e| pr|ue | pa|e c|t l|ts |onn| au|e a|eme|e e| li|ont|ant|out|ute|t à|res|ers| sa|ce | a |tre|per|a d|cti|er |lib|ité| en|ux | re|en |rso|à l| ou| in|lle|un |nat|ou |nne|n d|une| d’| se|par|nte|us |ur |s s|ans|dan|a p|r l|pro|its|és |t p|ire|e t|s p|sa | dé|ond|é d|a l|nce|ert|aux|omm|nal|me | na| fo|iqu| ce|rté|ect|ale|ber|t a|s a| da|mme|ibe|san|e r| po|com|al |s c|qui|our|t e| ne|e n|ous|r d|ali|ter| di|fon|e o|au | ch|air|ui |ell| es|lit|s n|iss|éra|tes|soc|aut|oci|êtr|ien|int|du |est|été|tra|pou| pl|rat|ar |ran|rai|s o|ona|ain|cla|éga|anc|rs |eur|pri|n c|e m|s t|à u| do|ure|bre|ut | êt|age| ét|nsi|sur|ein|sen|ser|ndi|ens|ess|ntr|ir | ma|cia|n p|st |a c| du|l e| su|bli|ge |rés| ré|e q|ass|nda|peu|ée |l’a| te|a s|tat|il |tés|ais|u d|ine|ind|é e|qu’| ac|s i|n t|t c|n a|l’h|t q|soi|t s|cun|rit| ég|oir|’en|nta|hom| on|n e| mo|ie |ign|rel|nna|t i|l n| tr|ill|ple|s é|l’e|rec|a r|ote|sse|uni|idé|ive|s u|t ê|ins|act| fa|n s| vi|gal| as|lig|ssa|pré|leu|e f|lic|dis|ver| nu|ten|ssi|rot|tec|s m|abl',deu:'en |er |der| un|nd |und|ein|ung|cht| de|ich|sch|ng | ge|ie |che|ech| di|die|rec|gen|ine|eit| re|ch | da|n d|ver|hen| zu|t d| au|ht | ha|lic|it |ten|rei| be|in | ve| in| ei|nde|auf|den|ede|zu |n s|uf |fre|ne |ter|es | je|jed|n u| an|sei|and| fr|run|at | se|e u|das|hei|s r|hte|hat|nsc|nge|r h|as |ens| al|ere|lle|t a| we|n g|rde|nte|ese|men| od|ode|ner|g d|all|t u|ers|te |nen| so|d d|n a|ben|lei| gr| vo|wer|e a|ege|ion| st|ige|le |cha| me|haf|aft|n j|ren| er|erk|ent|bei| si|eih|ihe|kei|erd|tig|n i|on |lun|r d|len|gem|ies|gru|tli|unt|chu|ern|ges|end|e s|ft |st |ist|tio|ati| gl|sta|gun|mit|sen|n n| na|n z|ite| wi|r g|eic|e e|ei |lie|r s|n w|gle|mei|de |uch|em |chl|nat|rch|t w|des|n e|hre|ale|spr|d f|ach|sse|r e| sc|urc|r m|nie|e f|fen|e g|e d| ni|dur|dar|int| du|geh|ied|t s| mi|alt|her|hab|f g|sic|ste|taa|aat|he |ang|ruc|hli|tz |eme|abe|h a|n v|nun|geg|arf|rf |ehe|pru| is|erf|e m|ans|ndl|e b|tun|n o|d g|n r|r v|wie|ber|r a|arb|bes|t i|h d|r w|r b| ih|d s|igk|gke|nsp|dig|ema|ell|eru|n f|ins|rbe|ffe|esc|igu|ger|str|ken|e v|gew|han|ind|rt | ar|ieß|n h|rn |man|r i|hut|utz|d a|ls |ebe|von|lte|r o|rli|etz|tra|aus|det|hul|e i|one|nne|isc|son|sel|et |ohn|t g|sam| fa|rst|rkl|ser|iem|g v|t z|err',jav:'ng |an |ang| ka|ing|kan| sa|ak |lan| la|hak| ha| pa| ma|ngg|ara|sa |abe|ne | in|n k|ant| ng|tan|nin| an|nga|ata|en |ran| ba|man|ban|ane|hi |n u|ong|ra |nth|ake|ke |thi| da|won|uwo|ung|ngs| uw|asa|gsa|ben|sab|ana|aka|beb|a k|g p|nan|nda|adi|at |awa|san|ni |dan|g k|pan|eba| be|e k|g s|ani|bas| pr|dha|aya|gan|ya |wa |di |mar|n s| wa|ta |a s|g u| na|e h|arb|a n|a b|a l|n n| ut|yan|n p|asi|g d|han|ah |g n| tu| um|as |wen|dak|rbe|dar| di|ggo|sar|mat|k h|a a|iya| un|und|eni|kab|be |art|ka |uma|ora|n b|ala|n m|ngk|rta|i h| or|gar|yat|kar|al |a m|n i|na |g b|ega|pra|ina|kak|g a|a p|tum|nya|kal|ger|gge| ta|kat|i k|ena|oni|kas| pe|dad|aga|g m|duw|k k|uta|uwe| si| ne|adh|pa |n a|go |and|i l| ke|nun|nal|ngu|uju|apa|a d|t m|i p|min|iba|er | li|anu|sak|per|ama|gay|war|pad|ggu|ha |ind|taw|ras|n l|ali|eng|awi|a u| bi|we |bad|ndu|uwa|awe|bak|ase|eh | me|neg|pri| ku|ron|ih |g t|bis|iji|i t|e p| pi|aba|isa|mba|ini|a w|g l|ika|n t|ebu|ndh|ar |sin|lak|ur |mra|men|ku | we|e s|a i|liy| ik|ayo|rib|ngl|ami|arg|nas|yom|wae|ut |kon|ae |rap|aku| te|dil|tin|rga|jud|umu| as|rak|bed|k b|il |kap|h k|jin|k a| nd|e d|i s| lu|i w|eka|mum|um |uha|ate| mi|k p|gon|eda| ti|but|n d|r k|ona|uto|tow|wat|gka|si |umr|k l|oma',vie:'ng |̣c |́c | qu| th|à |nh | ng|̣i | nh|và| va|̀n |uyê| ph| ca|quy|ền|yề|̀i | ch|̀nh| tr| cu|ngư|i n|gươ|ườ|́t |ời| gi|ác| co|̣t |ó |c t|ự |n t|cá|ông| kh|ượ|ợc| tư| đư|iệ|đươ|ìn|́i | ha|có|i đ|gia| đê|pha| mo|ọi|mọ|như|n n|củ| ba|̣n |̉a |ủa|n c|̀u |̃ng|ân |ều|ất| bi|tự|hôn| vi|g t| la|n đ|đề|nhâ| ti|t c| đô|ên |bả|hiê|u c| tô|do |hân| do|ch |́ q|̀ t| na|́n |ay | hi|àn|̣ d|ới|há| đi|hay|g n| mô|ốc|uố|n v|ội|hữ|thư|́p |quô| ho|̣p |nà|ào|̀ng|̉n |ị |́ch|ôn |̀o |khô|c h|i c|c đ| hô|i v|tro| đa|́ng|mộ|i t|ột|g v|ia |̣ng|ản|ướ|ữn|̉ng|h t|hư |ện|n b|ộc|ả |là|c c|g c| đo|̉ c|n h|hà|hộ| bâ|ã |̀y | vơ|̣ t|̉i |iế| cô|t t|g đ|ức|iên| vê|viê|vớ|h v|ớc|ực|ật|tha|̉m |ron|ong|áp|g b|hươ| sư|a c|sự|̉o |ảo|h c|ể |o v|uậ|a m|ế |iá|̀ c|cho|qua|hạ|ục| mi|̀ n|phâ|c q|côn|o c|á |i h|ại| hơ|̃ h| cư|n l|bị| lu|bấ|cả|ín|h đ| xa|độ|g h|c n|c p|thu|ải|ệ | hư|́ c|o n| nư|ốn|́o |áo|xã|oà|y t|hả|tộ|̣ c| tâ|thô| du|m v|mì|ho |hứ|ệc|́ t|hợ|án|n p|cũ|ũn|iể|ối|tiê|ề |hấ|ợp|hoa|y đ|chi|o h|ở |ày|̉ t|đó|c l|về|̀ đ|i b|kha|c b| đâ|luâ|ai |̉ n|đố|ết|hự|tri|p q|nươ|dụ|hí|g q|yên|họ|́nh| ta| bă|c g|n g|thê|o t|c v|am |c m|an ',ita:' di|to | de|ion| in|la |e d|di |ne | e |zio|re |le |ni |ell|one|lla|rit|a d|o d|del|itt|iri|dir| co|ti |ess|ent| al|azi|tto|te |i d|i i|ere|tà | pr|ndi|e l|ale|o a|ind|e e|e i|gni|nte|con|i e|li |a s| un|men|ogn| ne|uo | og|idu|e a|ivi|duo|vid| es|tti| ha|div| li|a p|no |all|pro|za |ato|per|sse|ser| so|i s| la| su|e p| pe|ibe|na |a l| il|ber|e n|il |ali|lib|ha |che|in |o s|e s| qu|o e|ia |e c| ri|nza|ta |nto|he |oni|o i| o |sta|o c|nel| a |o p|naz|e o|so | po|o h|gli|i u|ond|i c|ers|ame|i p|lle|un |era|ri |ver|ro |el |una|a c| ch|ert|ua |i a|ssi|rtà|a e|ei |dis|ant| l |tat|a a|ona|ual| le|ità|are|ter| ad|nit| da|pri|dei|à e|cia| st| si|nal|est|tut|ist|com|uni| ed|ono| na|sua|al |si |anz| pa| re|raz|gua|ita|res|der|soc|man|o o|ad |i o|ese|que|enz|ed | se|io |ett|on | tu|dic|à d|sia|i r|rso|oci|rio|ari|qua|ial|pre|ich|rat|ien|tra|ani|uma|se |ll |eri|a n|o n| um|do |ara|a t|zza|er |tri|att|ico|pos|sci|i l|son|nda|par|e u|fon| fo|nti|uzi|str|utt|ati|sen|int|nes|iar| i |hia|n c|sti|chi|ann|ra | eg|egu|isp|bil|ont|a r| no|rop| me|opr|ost| ma|ues|ica|sso|tal|cie|sun|lit|ore|ina|ite|tan| ra|non|gio|d a|e r|dev|i m|l i|ezz|izi| cu|nno|rà |a i|tta|ria|lia|cos|ssu|dal|l p| as|ass|opo|ve |eve',tur:' ve| ha|ve |ler|lar|ir |in |hak| he|her|bir|er |an |arı|eri|ya | bi|ak |r h|eti|ın |iye|yet| ka|ası|ını| ol|tle|eya|kkı|ara|akk|etl|sın|esi|na |de |ek | ta|nda|ini| bu|ile|rın|rin|vey|ne |kla|e h|ine|ır |ere|ama|dır|n h| sa|ına|sin|e k|le | ge|mas|ınd|nın|ı v| va|lan|lma|erk|rke|nma|tin|rle| te|nin|akl|a v|da | de|let|ill|e m|ard|en |riy|aya|nı | hü| şa|e b|k v|kın|k h| me|mil|san| il|si |rdı|e d|dan|hür|var|ana|e a|kes|et |mes|şah|dir| mi|ret|rri| se|ola|ürr|irl|bu |mak| ma|mek|n e|kı |n v|n i|lik|lle| ed| hi|n b|a h| ba|nsa| iş|eli|kar| iç|ı h|ala|li |ulu|rak|evl|e i|ni |re |r ş|eme|etm|e t|ik |e s|a b|iş |n k|hai|nde|aiz| eş|izd|un |olm|hiç|zdi|ar |unm|ma | gö|ilm|lme|im |n t|tir|dil|mal|e g|i v| ko|lun|e e|mel|ket|ık |n s|ele|la |el |r v|ede|şit|ili|eşi|yla|a i| an|anı| et|rı |ahs| ya|sı |edi|siy|t v|i b|se |içi|çin|bul|ame| da|miş|may|tim|a k|tme|r b|ins|yan|nla|mle| di|eye|ger|ye |uğu|erd|din|ser| mü|mem|vle| ke|nam|ind|len|eke|es | ki|n m|it | in| ku|rşı|a s|arş| ay|eml|lek|oru|rme|kor|rde|i m| so|tür|al |lam|eni|nun| uy|ken|hsı|i i|a d|ri |dev|ün |a m|r a|mey|cak|ıyl|maz|e v|ece|ade|iç |şma|mse|te |tün|ims|kim|e y|şı |end|k g|ndi|alı| ce|lem|öğr|ütü|k i|r t| öğ|büt|anl| bü',pol:' pr|nie| i |ie |pra| po|ani|raw|ia |nia|wie|go | do|ch |ego|iek|owi| ni|ści|ci |a p|do |awo| cz|ośc|ych| ma|ek |rze| na|prz| w |wo |ej | za|noś|czł|zło|eni|wa | je|łow|i p|wol|oln| lu|rod| ka| wo|lno|wsz|y c|ma |ny |każ|ażd|o d|stw|owa|dy |żdy| wy|rzy|sta|ecz| sw|dzi|i w|e p|czn|twa|na |zys|ów |szy|ub |lub|a w|est|kie|k m|wan| sp|ają| ws|e w|pow|pos|nyc|rac|spo|ać |a i|cze|sze|neg|yst|jak| ja|o p|pod|acj|ne |ńst|aro|mi | z |i i|nar| ko|obo|awa| ro|i n|jąc|zec|zne|zan|dow| ró|iej|zy |zen|nic|ony|aw |i z|czy|no |nej|o s|rów|odn|cy |ówn|odz|o w|o z|jeg|edn|o o|aki|mie|ien|kol| in|zie|bez|ami|eńs|owo|dno| ob| or| st|a s|ni |orz|o u|ym |stę|tęp|łec|jed|i k| os|w c|lwi|ez |olw|ołe|poł|cji|y w|o n|wia| be|któ|a j|zna|zyn|owe|wob|ka |wyc|owy|ji | od|aln|inn|jes|icz|h p|i s|się|a o|ją |ost|kra|st |sza|swo|war|cza|roz|y s|raz|nik|ara|ora|lud|i o|a z|zes| kr|ran|ows|ech|w p|dów|ą p|pop|a n|tki|stk|gan|zon|raj|e o|iec|i l| si|że |eka| kt| de|em |tór|ię |wni|lni|ejs|ini|odo|dni|ełn|kow|peł|a d|ron|dek|pie|udz|bod|nan|h i|dst|ieg|taw|z p|z w|zeń|god|iu |ano|lar| to|y z|a k|ale|kla|trz|zaw|ich|e i|ier|iko|dzy|chn|w z|by |ków|adz|ekl|ywa|ju |och|kor|sob|ocz|oso|u p|du |tyc|tan|ędz| mi|e s| ta|ki ',gax:'aa |an |uu | ka|ni |aan|umm|ii |mma|maa| wa|ti |nam| fi|ta |tti| na|saa|fi | mi|rga|i k|a n| qa|dha|iyy|oot|in |mir|irg|raa|qab|a i|a k|kan|akk|isa|chu|amu|a f|huu|aba|kka| ta|kam|a a| is|amn|ami|att|ach|mni|yaa| bi|yuu|yyu|ee |wal|miy|waa|ga |ata|aat|tii|oo |a e|moo| ni| ee|ba | ak|ota|a h|i q| ga| dh|daa|haa|a m|ama|yoo|a b|i a|ka |kaa| hi|sum|aas|arg|man| hu| uu|u n| yo| ar| ke| ha|ees| ba|uf |i i|taa|uuf|iin|ada|a w|i f|ani|rra|na |isu| ad|i w|a u|nya|irr|da |hun|hin|ess| ho| ma|i m|und|i b|bar|ana|een|mu |is |bu |f m| ir| sa|u a|add|aad| la|i d|n h|eeg|i h|sa |hoj|abu| ya|kee|al |udh|ook|goo|ala|ira|nda|itt|gac|as |n k|mum|see|rgo|uum|ra |n t|n i|ara|muu|ums|mat|nii|sii|ssa|a d|a q| da|haw|a g|yya|asu|eef|u h|tum|biy| mo|a t|ati|eny|gam|abs|awa|roo|uma|n b|n m|u y|a s|sat|baa|gar|n a|mmo|nis| qo|nna| ku|eer| to|kko|bil|ili|lis|bir|otu|tee|ya |msa|aaf|suu|n d|jii|n w|okk|rka|gaa|ald|un |rum| ye|ame| fu|mee|yer|ero|amm|era|kun|i y|oti|tok|ant|ali|nni| am|lda|lii|n u|lee|ura|lab|aal|tan|laa|i g|ila|ddu|aru|u m|oji|gum|han|ega| se|ffa|dar|faa|ark|n y|hii|qix|gal|ndi| qi|asa|art|ef |uud| bu|jir| ji|arb|n g|chi|tam|u b|dda|bat|di |kar|lam|a l| go|bsi|sad|oka|a j|egu|u t|bee|u f|uun',swh:'a k|wa |na | ya| ku|ya | na| wa|a m| ha|i y|a h|a n|ana|ki |aki|kwa| kw|hak| ka| ma|la |a w|tu |li |a u|ni |i k|a a|ila| ki|ali|a y|ati|za |ili|ifa| mt|ke | an|kil|kat|mtu|ake|ote|te |ka |ika|ma |we |a s|yo |fa |i n|ata|e k|ama|zi |amb|u a|ia |u w| yo|azi|kut|ina|i z|asi| za|o y|uhu|yak|au |ish|mba|e a|u k|hur|ha |tik|wat| au|uru| bi|sha|mu |ara|u n| as|hi | hi|ru |aif|tai|cha|ayo|a b|hal| uh| ch|yot|i h| zi|awa|chi|atu|e n|ngi|u y|mat|shi|ani|eri| am|uli|ele|sa |ja |e y|a t|oja|o k|nch|i a|a j| nc|ima| sh|ami| ta|end|any|moj|i w|ari|ham|uta|ii |iki|ra |ada|wan|wak|nay|ye |uwa| la|ti |eza|o h|iri|iwa|kuw|iwe| wo|fan| sa|she|bu |kan|ao |jam|wen|lim|i m|her|uto|ria| ja| ni|kam|di | hu|zo |a l|da |kaz|ahi|amu|wot|o w|si |dha|bin|ing|adh|a z|bil|e w|nya|kup|har|ri |ang|aka|sta|aji|ne |kus|e m|zim|ini|ind|lin|kul|agu|kuf|ita|bar|o n|uu |iyo|u h|nad|maa|mwe|ine|gin|nye|nde|dam|ta | nd|ndi|rik|asa| ba|rif|uni|nga|hii|lez|bo |azo|uzi|mbo|sil|ush|tah|wam|ibu|uba|imu| ye|esh| ut|taa|aar|wez|i s|e b| si|ala|dhi|eng|aza|tak|hir|saw|izo|kos|tok|oka|yan|a c|wal|del|i b|pat| um|ndo|zwa|mam|a i|guz|ais|eli|mai|laz|ian|aba|man|ten|zin|ba |nda|oa |u m|uku|ufu| mw|liw|aha|ndw|kuh|ua |upa| el|umi|sia',sun:'an |na |eun| ka|ng | sa|ana|ang| di|ak | ha|nga|hak|un |ung|keu|anu| ba| an|nu |a b| bo| je|a h|ata|asa|jeu|ina| ng|ara|nan|awa|gan|ah |sa |a k| na|n k|kan|aha|a p|a s|ga |ban| ma|a n|ing|oga|bog|sar| pa| ku|man|a a|ha |san|ae |bae|din|g s|aga|sah|ra |tan|n s| pe|ala| si|kat|ma |per| ti|aya|sin| at| pi| te|n a|aan|lah|pan|gar|n n|u d|ta |eu |ari|kum|ngs|a m|n b|n d|ran|a d|gsa|wa |taw|k h|ama|ku |ike|n p|eba|bas| ja|al |a t|ika|at |beb|kab|pik|asi|atu|nda|una|a j|nag|e b|n h|en |g k|oh |aba|ila|rta|aku|boh|ngg|abe|art|ar |n j|di |ima|um |ola|geu|usa|aca|sak|adi|k a|udu|teu|car|tin| me| ay|h k| po|eh |u s|aka|rim|ti |sac|k n|ngt|jen|awe|ent|u a|uma|teh|law|ur |h s|dan|bar|uku|gaw|aru|ate|iba|dil|pol|aja|ieu|ere|jal|nar| hu|n t|nya|pa |are|upa|mas|ake|ut |wan| ge|kal|nus| so|ngk|ya |yan|huk| du|tun| mi|mpa|isa|lan|ura|u m|uan|ern|ena|nte|rup|tay|n m| ke|ka |han|und|us |h b|kud|ula|tut| tu| ie|hna|kaw|u k|lak|gam|mna|umn|g d| nu|yun|ri |ayu|wat| wa|eri|g n|a u|i m|u p| ta|du |dit|umu|k k|ren|mba|rik|gta| be|ali|h p|h a|eus|u n|alm|il | da|sas|ami|min|lma|ngu|nas|yat|rak|amp|mer|k j|sab|mum| ra|rua|ame|ua |ter|sal|ksa|men|kas|nge|k d|ona| bi|bis|sio|ion|nal|taa| de|uh |gal|dip|we |bad',ron:' de|și | și|re | în|are|te |de |ea |ul |rep|le |ept|dre|e d| dr|ie |în |e a|ate|ptu| sa|tul| pr|or |e p| pe|la |e s|ori| la| co|lor| or|ii |rea|ce |au |tat|ați| a | ca|ent| fi|ale|ă a|a s| ar|ers|per|ice| li|uri|a d|al | re|e c|ric|nă |i s|e o|ei |tur| să|lib|con|men|ibe|ber|rso|să |tăț|sau| ac|ilo|pri|ăți|i a|i l|car|l l|ter| in|ție|că |soa|oan|ții|lă |tea|ri |a p| al|ril|e ș|ană|in |nal|pre|i î|uni|ui |se |e f|ere|i d|e î|ita| un|ert|ile|tă |a o| se|i ș|pen|ia |ele|fie|i c|a l|ace|nte|ntr|eni| că|ală| ni|ire|ă d|pro|est|a c| cu| nu|n c|lui|eri|ona| as|sal|ând|naț|ecu|i p|rin|inț| su|ră |e n| om|ici|nu |i n|oat|ări|l d| to|tor| di| na|iun| po|oci|tre|ni |ste|soc|ega|i o|gal| so| tr|ă p|a a|n m|sta|va |ă î|fi |res|rec|ulu|nic|din|sa |cla|nd | mo| ce| au|ara|lit|int|i e|ces|uie|at |rar|rel|iei|ons|e e|leg|nit|ă f| îm|a î|act|e l|ru |u d|nta|a f|ial|ra |ă c| eg|ță | fa|i f|rtă|tru|tar|ți |ă ș|ion|ntu|dep|ame|i i|reb|ect|ali|l c|eme|nde|n a|ite|ebu|bui|ât |ili|toa|dec| o |pli|văț|nt |e r|u c|ța |t î|l ș|cu |rta|cia|ane|țio|ca |ită|poa|cți|împ|bil|r ș| st|omu|ăță|țiu|rie|uma|mân| ma|ani|nța|cur|era|u a|tra|oar| ex|t s|iil|ta |rit|rot|mod|tri|riv|od |lic|rii|eze|man|înv|ne |nvă|a ș|cti',hau:'da | da|in |a k|ya |an |a d|a a| ya| ko| wa| a |sa |na | ha|a s|ta |kin|wan|wa | ta| ba|a y|a h|n d|n a|iya|ko |a t|ma |ar | na|yan|ba | sa|asa| za| ma|a w|hak|ata| ka|ama|akk|i d|a m| mu|su |owa|a z|iki|a b|nci| ƙa| ci| sh|ai |kow|anc|nsa|a ƙ|a c| su|shi|ka | ku| ga|ci |ne |ani|e d|uma|‘ya|cik|kum|uwa|ana| du| ‘y|ɗan|ali|i k| yi|ada|ƙas|aka|kki|utu|n y|a n|hi | ra|mut| do| ad|tar| ɗa|nda| ab|man|a g|nan|ars|and|cin|ane|i a|yi |n k|min|sam|ke |a i|ins|yin|ki |nin|aɗa|ann|ni |tum|za |e m|ami|dam|kan|yar|en |um |n h|oka|duk|mi | ja|ewa|abi|kam|i y|dai|mat|nna|waɗ|n s|ash|ga |kok|oki|re |am |ida|sar|awa|mas|abu|uni|n j|una|ra |i b| ƙu|dun|a ‘|cew|a r|aba|ƙun|ce |e s|a ɗ|san|she|ara|li |kko|ari|n w|m n|buw|aik|u d|kar| ai|niy| ne|hal|rin|bub|zam|omi| la|rsa|ubu|han|are|aya|a l|i m|zai|ban|o n|add|n m|i s| fa|bin|r d|ake|n ‘|uns|sas|tsa|dom| ce|ans| hu|me |kiy|ƙar| am|ɗin| an|ika|jam|i w|wat|n t|yya|ame|n ƙ|abb|bay|har|din|hen|dok|yak|n b|nce|ray|gan|fa |on | ki|aid| ts|rsu| al|aye| id|n r|u k|ili|nsu|bba|aur|kka|ayu|ant|aci|dan|ukk|ayi|tun|aga|fan|unc| lo|o d|lok|sha|un |lin|kac|aɗi|fi |gam|i i|yuw|sun|aif|aja| ir|yay|imi|war| iy|riy|ace|nta|uka|o a|bat|mar|bi |sak|n i| ak|tab|afi|sab',bos:' pr| i |je |rav| na|pra|na |da |ma |ima| sv|a s|nje|a p| da| po|anj|a i|vo |va |ko |ja | u |ako|o i|no | za|e s|ju |avo| im|ti |sva|ava|i p|o n|li |ili|i s|van|ost| ko|vak|ih |ne |a u| sl|nja|koj| dr| ne|jed| bi|i d|ije|stv|u s|lob|im |slo| il|bod|obo| ra|sti|pri| je| su|vje|om |a d|se |e i| ob|a n|i i| se|dru|enj| os|voj|cij|e p|a b|su |o d|uje|u p|raz|i n|a o| od|lo |u o|ova|u i|edn|i u| nj|ovo|jen|lju|ni |oje|nos|a k|ran|dje|iti|o p|aci|žav|a j|i o|e o|pre|pro|bra|nih|ji | ka|e d|jeg|og |sta| tr|tre|bud|u n|drž|u z|rža|bit|svo|ija|elj|reb|e b|mij|jem|avn|pos| bu|ka |aju| iz|ba |ve |rod|de |aro|e u|iva|a z|em |šti|ilo|eni|lje|ći |red|bil|jel|jer| ni|odn|m i|du |tva|nar|gov| sa|oji| do|tu |vim|u d| st|o k|e n|a t|za |nim| dj| sm|ući|ičn|dna|i m|oda|vno|eba|ist|nac|e k|čno|nak|ave|tiv|eđu|nov|olj|sno|ani|aln|an |nom|i b|stu|nst|eno|oj |osn|a r|ovj|nap|smi|nog|čov|oja|nju|ara|nu |dno|ans|ovi|jan|edi|m s| kr|h p|tup| op| čo|iko|jek|tvo| vj| mi|tel|vu |obr|živ|tit|o o|una|odu| mo| ov|kri|ego|din|rug|nik|rad|pod|nji|sam|sto|lja|dst|rim|ite|riv| te|m n|vol|i v|e t|vni|akv|itu|g p| ta|ašt|zaš|svi|ao |te |o s|ak |mje|a č|odr|udu|kla|i t|avi|tno|nič| vr|nic|dni|u u|ina| de|oba|od |jih|st ',hrv:' pr| i |je |rav|pra|ma | na|ima| sv|na |ti |a p|nje| po|a s|anj|a i|vo |ko |da |vat|va |no | za|i s|o i|ja |avo| u | im|sva|i p| bi|e s|ju |tko|o n|li |ili|van|ava| sl|ih |ne |ost| dr|ije| ne|jed|slo| ra|u s|lob|obo| os|bod| da| ko|ova|nja|koj|i d|atk|iti| il|stv|pri|om |im | je| ob| su| ka|i i|i n|e i|vje|i u|se |dru|bit|voj|ati|i o|ćen|a o|o p|a b|a n|ući| se|enj|sti|a u|edn|dje|lo |ćav| mo|raz|u p| od|ran|ni |rod|a k|su |aro|drć|svo|ako|u i|rća|a j|mij|ji |nih|eni|e n|e o| nj|pre|pos|ćiv|oje|eno|e p|nar|oda|nim|ovo|aju|ra |ći |og |nov|iva|a d|nos|bra|bil|i b|avn|a z|jen|e d|ve |ora|tva|jel|sta|mor|u o|cij|pro|ovi|za |jer|ka |sno|ilo|jem|red|em |lju|osn|oji| iz|aci| do|lje|i m| ni|odn|nom|jeg| dj|vno|vim|elj|u z|o d|rad|o o|m i|du |uje| sa|nit|e b| st|oj |tit|a ć|dno|e u|o s|u d|eću|ani|dna|nak|nst|stu| sm|e k|u u|an |gov|nju|juć|aln|m s|tu |a r|ćov|jan|u n|o k|ist|ću |te |tvo|ans|šti|nu |ara|nap|m p|nić|olj|bud| bu|edi|ovj|i v|pod|sam|obr|tel| mi|ina|zaš|e m|ašt| vj|ona|nji|jek| ta|duć|ija| ćo|tup|h p|oja|smi|ada| op|oso|una|sob|odu|dni|rug|udu|ao |di |avi|tno|jim|itu|itk|će |odr|ave|meć|nog|din|svi| ći|kak|kla|rim|akv|elo|štv|ite|vol|jet|opć|pot|tan|ak |nic|nac|uće| sk| me|ven',nld:'en |de |an | de|van| va| en| he|ing|cht|der|ng |n d|n v|et |een| ge|ech|n e|ver|rec|nde| ee| re| be|ede|er |e v|gen|den|het|ten| te| in| op|n i| ve|lij| zi|ere|eli|zij|ijk|te |oor|ht |ens|n o|and|t o|ijn|ied|ke | on|eid|op | vo|jn |id |ond|in |sch| vr|aar|n z|aan| ie|rde|rij|men|ren|ord|hei|hte| we|eft|n g|ft |n w|or |n h|eef|vri|wor| me|hee|al |t r|of |le | of|ati|g v|e b|eni| aa|lle| wo|n a|e o|nd |r h|voo| al|ege|n t|erk| da| na|t h|sta|jke|at |nat|nge|e e|end| st|om |e g|tie|n b|ste|die|e r|erw|wel|e s|r d| om|ij |dig|t e|ige|ter|ie |gel|re |jhe|t d| za|e m|ers|ijh|nig|zal|nie|d v|ns |d e|e w|e n|est|ele|bes| do|g e|che|vol|ge |eze|e d|ig |gin|dat|hap|cha|eke| di|ona|e a|lke|nst|ard| gr|tel|min| to|waa|len|elk|lin|eme|jk |n s|del|str|han|eve|gro|ich|ven|doo| wa|t v|it |ove|rin|aat|n n|wet|uit|ijd|ze | zo|ion| ov|dez|gem|met|tio|bbe|ach| ni|hed|st |all|ies|per|heb|ebb|e i|toe|es |taa|n m|nte|ien|el |nin|ale|ben|daa|sti| ma|mee|kin|pen|e h|wer|ont|iet|tig|g o|s e| er|igd|ete|ang|lan|nsc|ema|man|t g|is |beg|her|esc|bij|d o|ron|tin|nal|eer|p v|edi|erm|ite|t w|t a| hu|rwi|wij|ijs|r e|weg|js |rmi|naa|t b|app|rwe| bi|t z|ker|ame|eri|ken| an|ar | la|tre|ger|rdi|tan|eit|gde|g i|d z|oep',srp:' pr| i |rav|pra| na|na |ma | po|je | sv|da |a p|ima|ja |a i|vo |nje|va |ko |anj|ti |i p| u |ako|a s| da|avo|i s|ju |ost| za|sva|o i|vak| im|e s|o n|ava| sl|nja| ko|no |ne |li |om | ne|ili| dr|u s|slo|koj|a n|obo|ih |lob|bod|im |sti|stv|a o| bi| il| ra|pri|a u|og | je|jed|e p|enj|ni |van|u p|nos|a d|iti|a k|edn|i u|pro|o d|ova| su|ran|cij|i i|sta|se | os|e i|dru| ob|i o|rod|aju|ove| de|i n| ka|aci|e o| ni| od|ovo|i d|ve | se|eni|voj|ija|su |u i|žav|avn|uje| st|red|m i|dna|a b|odi|ara|drž|ji |nov|lju|e b|rža|tva|što|u o|oja| ov|a j|odn|u u|jan|poš|jen| nj|nim|ka |ošt|du |raz|a z| iz|sno|o p|vu |u n|u d|šti|osn|e d|pre|u z|de |ave|nih|bit|aro|oji|bez|tu |gov|lje|ičn| sa|lja|svo|lo |za |vno|e n|eđu| tr|nar| me|vim|čno|oda|ani|đen|nac|nak|an |to |tre|ašt| kr|stu|nog|o k|m s|tit|aln|nom|oj |pos|e u|reb| vr|olj|dno|iko|ku |me |nik| do|ika|e k|jeg|nst|tav|em |i m|sme|o s|dni|bra|nju|šen|ovi|tan|te |avi|vol| li|zaš|ilo|rug|var|kao|ao |riv|tup|st |živ|ans|eno|čov|štv|kla|vre|bud|ena| ve|ver|odu|međ|oju|ušt| bu|kom|kri|pod|ruš|m n|i b|ba |a t|ugi|edi| mo|la |u v|kak| sm|ego|akv|o j|rad|dst|jav|del|tvo| op|nu |por|vlj|avl|m p|od |jem|oje| čo|a r|sam|i v|ere|pot|o o|šte|rem|vek|svi| on|rot|e r',ckb:' he| û |ên | bi| ma|in |na | di|maf|an |ku | de| ku| ji|xwe|her| xw|iya|ya |kes|kir|rin|iri| ne|ji |bi |yên|afê|e b|de |tin|e h|iyê|ke |es |ye | we|er |di |we |ê d|i b| be|erk|ina| na| an|î û|yê |eye|î y|kî |rke|nê |diy|ete|eke|ber|hem|hey| li| ci|wek|li |n d|fê | bê| te|ne |yî | se|net|rî |tew|yek|sti|af | ki|re |yan|n b|kar|hev|e k|aza|n û|wî | ew|i h|n k|û b|î b| mi| az|dan| wî|ekî|î a|a m|zad|e d|mir|bin|est|ara|iro|nav|ser|a w|adi|rov|n h|anê|tê |ewe|be |ewl|ev |mû | ya|tî |ta |emû| yê|ast|wle| tê|n m| bo|wey|s m|bo | tu|n j|ras| da| me|din|î d|ê h|n n|n w|ing|st | ke| ge|în |ar | pê|iye|îna|bat|r k|ema|cih|ê b|wed|û m|dî |û a|vak|ê t|ekh|par| ye|vî |civ|n e|ana|î h|ê k|khe|geh|nge|ûna|fên|ane|av |î m|bik|eyê|eyî|e û| re|man|erb|a x|vê |ê m|iva|e n|hî |bûn|kê | pa|erî|jî |end| ta|ela|nên|n x|a k|ika|f û|f h|î n|ari|mî |a s|e j|eza|tên|nek| ni|ra |ehî|tiy|n a|bes|rbe|û h|rwe|zan| a |erw|ov |inê|ama|ek |nîn|bê |ovî|ike|a n| ra|riy|i d|anî|û d|e e|etê|ê x|yet|aye|ê j|tem|e t|erd|i n|eta|ibe|a g|u d|xeb|atê|i m|tu | wi|dew|mal|let|nda|ewa| ên|awa|e m|a d|mam|han|u h|a b|pêş|ere| ba|lat|ist| za|bib|uke|tuk|are|asî|rti|arî|i a|hîn| hî|edi|nûn|anû|qan| qa| hi| şe|ine|n l|mên|ûn |e a',yor:'ti | ní|ó̩ | è̩|ní | lá|̩n |o̩n|é̩ |wo̩|àn | e̩|kan|an |tí | tí|tó̩| kò|ò̩ |̩tó| àw| àt|è̩ |è̩t|e̩n|bí |àti|lát|áti| gb|lè̩|s̩e| ló| ó |àwo|gbo|̩nì|n l| a | tó|í è|ra | s̩|n t|ò̩k|sí |tó |̩ka|kò̩|ìyà|o̩ | sí|ílè|orí|ni |yàn|dè |̩‐è|ì k|̩ à|èdè| or|ún |ríl|è̩‐|í à|jé̩|‐èd|àbí|̩ò̩|ò̩ò|tàb|nì |í ó|n à| tà|̩ l|jo̩| ti|̩e |̩ t| wo|nìy|í ì|ó n| jé| sì|ló |kò |n è|wó̩| bá|n n|sì | fú|̩ s|í a|rè̩|fún| pé| òm|̩ni|gbà| kí| èn|ènì|in |òmì|ìí |ba |nir|pé |ira|mìn|ìni|n o|ràn|ìgb| ìg|bá |e̩ | rè|̩ n|kí |n e|un |gba|̩ p|í ò|nú | o̩|nín|gbé|yé | ka|ínú|a k|fi | fi|mo̩|bé̩|o̩d|dò̩|̩dò|ó s|i l|̩ o|̩ ì|wà |í i|i ì|hun|bò |i ò|dá |bo̩|o̩m|̩mo|̩wó|bo |áà |̩ k|ó j|ló̩|àgb|ohu| oh| bí| ò̩|bà |ara|yìí|ogb|írà|n s|ú ì| ìb|pò̩|í k| lè|bog|i t|à t|óò |yóò|kó̩|gé̩|à l|ó̩n|rú |lè | yó|̩ ò|̩ e|a w|̩ y|ò̩r|̩ f| wà|ò l|í t|ó b|i n|ó̩w|̩gb|yí |í w|ìké|̩ a|láà|wùj|àbò|i è|ùjo|fin|é̩n|n k|í e|i j|ú à| ìk|òfi| òf| ar|i s|mìí|ìír| mì| ir|rin|náà| ná|jú |̩ b| yì|ó t|̩é̩| i |̩ m|fé̩|kàn|rí |ú è|à n|wù |s̩é|é à| mú| èt|áyé|í g|̩kó|̩dá|è̩d|àwù|è̩k| ìd|irú|í o|i o|i à|láì|í n|ípa| kú|níp| ìm|a l|ké̩|bé |i g|de |ábé|ìn |báy|̩è̩|ígb|wò̩|níg|mú |láb| àà|n f|è̩s|̩ w|ùn |i a|ayé|èyí| èy|mó̩|á è| ni|n b| wó|je̩| ìj|gbá|ò̩n|ó̩g',uzn:'lar|ish|an |ga |ar | va| bi|da |va |ir | hu|iga|sh |uqu|shi|bir|quq|huq|gan| bo| ha|ini|ng |a e|r b| ta|lis|ni |ing|lik|ida|oʻl|ili|ari|nin|on |ins| in|adi|nso|son|iy | oʻ|lan| ma|dir|hi |kin|har|i b|ash| yo|boʻ| mu|dan|uqi|ila|ega|qla|r i|qig|oʻz| eg|kla|a b|qil|erk|ki | er|oli|nli|at | ol|gad|lga|rki|oki|i h|a o| qa|yok|lig|osh|igi|ib |las|n b|atl|n m| ba|ara| qi|ri | sh|iya|ala|lat|in |ham|bil|a t|a y|bos|r h|siy|n o|yat|inl|ik |a q|cha|a h| et|eti|nis|a s|til|ani|h h|i v|mas|tla|osi|asi| qo|ʻli|ati|i m|rni|im |uql|arn|ris|qar|a i|gi | da|n h|ha |sha|i t|mla|rch| xa|i o|li |hun|bar|lin|ʻz |arc|rla| bu|a m|a a| as|mum| be| tu|aro|r v|ikl|lib|taʼ|h v|tga|tib|un |lla|mda| ke|shg| to|n q|sid|n e|mat|amd|shu|hga| te|tas|ali|umk|oya|hla|ola|aml|iro|ill|tis|iri|rga|mki|irl| ya|xal|dam| de|gin|eng|rda|tar|ush|rak|ayo| eʼ| so|ten|alq| sa|ur | is|imo|r t| ki|mil| mi|era|zar|hqa|aza|k b| si|nda|hda|kat|ak |oʻr|n v|a k|or |rat|ada|ʻlg|miy|tni|i q|shq|oda|shl|bu |dav|nid|y t|ch |asl|sos|ilg|aso|n t|atn|sin|am |ti |as |ana|rin|siz|yot|lim|uni|nga|lak|n i|a u|qon|i a|h k|vla|avl|ami|dek| ja|ema|a d|na | em|ekl|gʻi|si |i e|ino| ka|uch|bor|ker| ch|lma|liy|a v|ʼti|lli|aka|muh|rig|ech|i y|uri|ror',ibo:'a n|e n|ke | na|na | ọ | bụ| n |nwe|ere|ọ b|re |nye| nk|ya |la | nw| ik| ma|ye |e ọ|ike|a o|nke|a m|ụ n| ya|a ọ|ma |bụl|ụla| on| a |e i|kik|iki|ka |ony|ta |bụ |kwa| nd|a i|i n|di |a a|wa |wer|do | mm|dụ |e a|ha | ga|any| ob|ndi| ok|he |e m|e o|a e|ọ n|ite|rụ |hi |mma|ga‐|wu |ara| dị|aka|che|oke|we |o n| ih|n o|adụ|mad|obo|bod|a g|odo| ka| ez|te |hị |be |ụta|dị | an|zi | oh|a‐e|akw|gba|i m|me | ak|u n|nya|ihe|ala|ohe|ghi|ri | ọz|her|ra |weg| nt| iw| mb|ba |pụt| si|ro |oro|iwu|chi|a‐a|rị |ụ i|ụ ọ| eb|iri|ebe|ụrụ|zọ | in|a y|ezi|e ị|kpa|le |ile|ịrị|n e|kpe|mba| ha|bi |sit|e e|inw|nil|asị| en|mak|a u| ni|apụ|chị|i i|ghị|i ọ|i o|si | e |ide|o i|e y|ụ m|a s|u o|kwu|ozu|yer|ru |enw|ụ o|ọzọ|gid|hụ |n a|ahụ|nkw|sor|egh|edo|a ụ|tar|n i|toz|ị o|pa |i a| me|ime|uru|kwe| mk|tu |ama|eny|uso|de | im|ọ d|osi|hed|a d| kw|mkp|wet| ọr| ọn|obi|ọrụ| ịk| to|gas| ch|ịch|nha|ọnọ|nọd| nc| al|n ụ|ị m| us|nọ |u ọ|nch| o |eta|n u| ot|otu|sir|sịr| nh|a k|ali|o m| ag| gb|e s|ọta|nwa|ị n|lit|ega|ji |ọdụ|e k|ban|e g|ị k|esi|agb|eme|hu |ikp|zu |pe |nta|na‐|chọ|u a|a b|uch|n ọ|onw|ram|kwụ|ekọ|i e| nọ| ug|ọch|u m|gwu|a h|zụz|ugw|meg|ị e|nat|e h|dịg|o y|kpu|pụr|cha|zụ |hịc|ich| ng|ach| og|wap|wan|ịgh|uwa| di| nn|i ị',ceb:'sa | sa|ng |ang| ka|an | pa|ga | ma|nga|pag| ng|a p|on |kat|a k|ug |od | ug|g m| an|ana|n s|ay |ung|ata|ngo|a m|atu|ala|san|ag |tun|g s|g k|god|d s|a s|ong|mga| mg|g p|n u|yon|a a|pan|ing|usa|tan|tag|una|aga|mat|ali|g u|han|nan| us|man|y k|ina|non|kin| na|syo|lan|a b|asa|nay|n n|a i|awa| ta|taw|gaw|nsa|a n|nas| o |ban|agp|isa|dun|was|iya| gi|asy|adu|ini|bis| ad|ili|o s| bi|g a|nah|nag|a t| ki|lin|lay|ahi|sam|al |wal| di|nal|asu| ba|ano|agt| wa|ama|yan|a u| iy|kan|him|n k|gan|ags|n a|kag| un|ya |kas|gpa|g t| su|aha|wha|agk|awh|gka|a g|kal|l n|gla|gsa|sud|gal|imo|ud |d u|ran|uka|ig |aka|aba|ika|g d|ara|ipo|ngl|g n|uns|n o|kau|i s|y s|og |uta|d n|li | si|gik|g i|mta|ot |iin| la| og|o a|ayo|ok |awo|aki|kab|aho|n m|hat|o p|gpi|a w|apa|lip|ip | hu| ga|a h|uba|na | ti|bal|gon|la |ati|wo |ad |hin|sal|gba|buh| bu| ub|uha|agb|hon|ma |nin|uga|t n|ihi| pi|may| pu|mak|ni | ni|d a|pin|abu|agh|ahu|uma|as |dil|say| in|at |ins|lak|hun|ila|mo |s s|sak|amt|o u|pod|ngp|tin|a d|but|ura|lam|aod|t s|bah|ami|aug|mal|sos|os |k s| il|tra| at|gta|bat|aan|ulo|iha|ha |n p| al|g b|lih|kar|lao|agi|amb|mah|ho |sya|ona|aya|ngb|in |inu|a l| hi|mag|iko|it |agl|mbo|oon|tar|o n|til|ghi|rab|y p| re|yal|aw |nab|osy|dan',tgl:'ng |ang| pa|an |sa | sa|at | ka| ng| ma|ala|g p|apa| na|ata|pag|pan| an| at|ay |ara|ga |a p|tan|g m|mga| mg|n n|pat| ba|n a|aya|na |ama|g k|awa|kar|a k|lan|rap|gka|nga|n s|g n|aha|g b|a a| ta|agk|gan|tao|asa|aka|yan|ao |a m|may|man|kal|ing|a s|nan|aga| la|ban|ali|g a|ana|y m|kat|san|kan|g i|ong|pam|mag|a n|o a|baw|isa|wat| y |lay|g s|y k|in |ila|t t| ay|aan|o y|kas|ina|t n|ag |t p|wal|una|yon| o | it|nag|lal|tay|pin|ili|ans|ito|nsa|lah|kak|any|a i|nta|nya|to |hay|gal|mam|aba|ran|ant|agt|on |t s|agp| wa| ga|gaw|han|kap|o m|lip|ya |as |g t|hat|y n|ngk|ung|no |g l|gpa|wa |lag|gta|t m|kai|yaa|sal|ari|lin|a l|pap|ahi| is| di|ita| pi|pun|agi|ipi|mak|a b|y s|bat|yag|ags|o n|aki|tat|pah|la |gay|hin| si|di |i n|sas|iti|a t|t k|mal|ais|s n|t a|al |ipu|ika|lit|gin| ip|ano|gsa|alo|nin|uma|hal|ira|ap |ani|od |i a|gga|y p|par|tas|ig |sap|ihi|nah|ini| bu|ngi|syo|o s|nap|o p|a g| ha|uka|a h|aru|a o|mah|iba|asy|li |usa|g e|uha|ipa|mba|lam|kin|kil|duk|n o|iga| da|dai|aig|igd|gdi|pil|dig|pak| tu|d n|sam|nas|nak|ba |ad |lim|sin|buh|ri |lab|it |tag|g g|lun|ain|and|nda|pas|kab|aho|lig|nar|ula| ed|edu| ib|git|ma |mas|agb|ami|agg|gi |sar|i m|siy|g w|api|pul|iya|amb|nil|agl|sta|uli|ino|abu|aun|ayu| al|iyo',hun:' sz| a |en | va|és | és|min|ek | mi| jo|jog|ind|an |nek|sze|ság| az|gy |sza|nde|ala|az |den|a v|val|ele| el|oga|mél|egy| eg|n a|ga |zab| me|zem|emé|aba|int|van|bad|tel|tet| te|ak |tás|ény|t a| ne|gye|ély|tt |n s|ben|ség|zet|lam|meg|nak|ni | se|ete|sen|agy|let|lyn|s a|yne|ra |z e|et | al|mel|kin|k j|eté|ok |tek| ki|vag|re |n m|oz |hoz|ez |s s|ett|gok|ogy| kö|mbe|es |em |nem|ely| le|ell|emb|hog|k a|atá|köz|nt | ho|yen|hez|el |z a|len|dsá|ásá|tés|ads|k m| ál| em|a s|nte|a m|szt|a t|áll|ás |y a|ogo|sem|a h|enk|nye|ese|nki|ágo|t s|lap|ame|ber|ló |k é|nyi|ban|mén|s e|i m|t m| vé|lla|ly |ébe|lat|ág |ami|on |mze|n v|emz|fel|a n|lő |a a|eki|eri|yes| cs|lle|tat|elő|nd |i é|ég |ésé|lis|yil|vet|át |kül|ért| ke|éte|rés|l a|het|szo|art|alá| ny|tar|koz| am|a j|ész|enl|elé|ól |s k|tár|s é|éle|s t|lem|sít|ges|ott| fe|n k|tko|zás|t é|kel|ja | ha|aló|zés|nlő|ése|ot |ri |lek|más|tő |vel|i j|se |ehe|tes|eve|ssá|tot|t k|olg|eze|i v|áza|leh|n e|ül |tte|os |ti |atk|zto|e a|tos|ány|ána|zte|fej|del|árs|k k|kor|ége|szá|t n| bi|zat|véd|nev|elm|éde|zer|téb|biz|rra|ife|izt|ere|at |ll |k e|ny |sel| né|ába|lt |ai |sül|ház|kif|t e| ar|leg|d a|is |i e|arr|t t|áso|it |ető|al | má|t v| bá|bár|a é|esü|lye|m l| es|nyo',azj:' və|və |ər |lar| hə|in |ir | ol| hü| bi|hüq|üqu|quq|na |lər|də |hər| şə|bir|an |lik| tə|r b|mal|lma|ası|ini|r h|əxs|şəx|ən |arı|qla|a m|dir|aq |uqu|ali| ma|una|ilə|ın |yət| ya|ara|ikd|əri|ar |əsi|əti|r ş|rin|yyə|n h| az|dən|nin|ərə|tin|iyy|mək|zad| mü|sin| mə|ni |nda|ət |ndə|aza|rın|ün |ını|ə a|i v|nın|olu|qun| qa| et|ilm|lıq|ə y|ək |lmə|lə |kdi|ind|ına|olm|lun|mas|xs |sın|ə b| in|n m|q v|nə |əmi|n t|ya |da | bə|tmə|dlı|adl|bər| on|əya|ə h|sı |nun|maq|dan|inə|etm|un |ə v|rlə|n b|si |raq| va|ə m|n a|ınd|rı |anı| öz|əra|nma|n i|ama|a b|irl|ala|li |ins|bil|ik | al| di|ığı|ə d|lət|il |ələ|ə i|ıq |nı |nla|dil|müd|n v|ə e|unm|alı| sə|xsi|ə o|uq |uql|nsa|ətl| də|ili|üda|asi| he|ola|san|əni|məs| da|lan| bu|tər|həm|dır|kil|iş |u v| ki|min|eyn|mi |yin| ha|sos|heç|bu |eç | ed|kim|lığ|alq|xal| as|sia|osi|r v|q h|rə |yan|i s| əs|daf|afi| iş|ı h|fiə| ta|ə q|ıql|a q|yar|sas|lı |ill|mil|əsa|liy|tlə|siy|a h|məz|tün|ə t| is|ist|iyi| so|n ə|al |ifa|ina|lıd|ı o|ıdı|əmə|ır |ədə|ial| mi|əyi|miy|çün|n e|iya|edi| cə| bü|büt|ütü|xil|üçü|mən|adə|t v|a v|axi|dax|r a|onu| üç|seç| nə| se|man|ril|sil|əz |iə |öz |ılı|aya|qan|i t|şər|təm|ulm|rəf|məh| xa|ğın| dö| ni|sti|ild|amə|qu |nam|n o|n d|var|ad |zam|tam|təh',ces:' pr| a |ní | ne|prá|ráv|ost| sv| po|na |ch |ho | na|nos|o n| ro|ání|ti |vo |neb|ávo|má |bo |ebo| má|kaž| ka|ou |ažd| za| je|dý |svo|ždý| př|a s| st|sti|á p| v |obo|vob| sp|bod| zá|ých|pro|rod|ván|ení|né |ý m|ého| by| ná|spo|ně |o p|mi |í a|ter|roz|ová|to | ja| li|áro|nár|by |jak|a p|a z|ny | vš|kte|i a|lid|ím |o v|í p|u p|mu |at | vy|odn| so| ma|a v| kt|í n|zák|li |oli|ví |kla|tní|pod|stá|en |do |t s|mí |je |em |áva| do|byl| se|být|í s|rov| k |čin| ve|ýt |í b|it |dní|vše|pol|o s| bý|tví|nýc|stn|nou|ejn|sou|ran|ci |vol|se |nes|a n|pří|eho|ným|tát|va |ním|mez|ají|i s|stv|ké |ích|ečn|žen|e s|vé |ova|své|ým |kol|du |u s|jeh|kon|ave|ech|eré|nu | ze|i v|o d|í v|hra|ids|m p|ému|ole|y s| i |maj|o z| to|aby|sta| ab|m a|pra| ta|chn| ni|že |ovn|ako|néh|len|dsk|rac|lad|chr| že|vat| os|sob|aké|i p|smí|esm|st |i n|m n|a m|lně|lní|při|bez|dy |áln|ens|zem|t v|čen|leč|kdo|ými| ji|oci|i k| s |í m|jí | či|áv |ste|och| oc|vou|ákl| vz|rav|odu|nez|inn|ský|nit|ivo|a j|u k|iál| me|ezi|ské|ven|stu|u a|tej|oln|slu|zen|í z|y b|oko|zac|níc|jin|ky |a o|řís|obe|u v|tak|věd|oje| vý|ikd|h n| od|čno|oso|ciá|h p| de|a t|ům |soc|jíc|odů|něn|adn|tup|dů |děl|jno|kéh|por|ože|hov|aci|nem|é v|rok|i j|u o|od |ího|vin|odi',plt:'ny |na |ana| ny|y f|a n|sy |aha|ra |a a| fa|n n|y n|a m|an | fi|tra|any| ma|han|nan|ara|y a| am|ka |in |y m|ami|olo| ts|lon|min| mi| sy| na|a t| ol|fan| ha|a i|man|iza| iz|ina|ona|y h|aka|o a|ian|a h|reh|etr|a s|het|on |a f|ire|fah|tsy|mba| ar| hi|zan|ay |ndr|y o|ira|y t| an|ehe|o h|afa|y i|ren|ran| zo|ena|amb|dia|ala|amp|zo |ika| di|tan|y s|y z| az|ia |m p|rin|jo |n j| jo| dr|zy |ry |a d|ao |and|dre|haf|nen|mpi|rah| ka|eo |n d| ir|ho |am |rai|fa |elo|ene|oan|omb| ta| pi| ho|ava|azo|dra|itr|iny|ant|tsi|zon|asa|tsa| to|ari|ha |a k|van|n i|fia|ray| fo|mbe|ony|sa |isy|azy|o f|lal|ly |ova|lom| vo|nat|fir|sam|oto|zay|mis|ham|bel| ra|a r|ban|kan|iha|nin|a e|ary|ito| he| re| no|ita|voa|nam|fit|iar| ko|tok|isa|fot|no |otr|mah|aly|har|y v|y r| sa|o n|ain|kam|aza|n o|oka|ial|ila|ano|atr|oa | la|y l|eri|y d|ata|hev|sia|pia|its|reo| ao|pan|anj|aro|tov|nja|o s|fam|pir| as|ty |nto|oko|y k|sir|air|tin|hia|ais|mit|ba | it| eo|o t|mpa|kon|a z|a v|ity|ton|rak|era|ani|ive|mik|ati|tot|vy |hit|hoa|aho|ank|ame|ver|vah|tao|o m|ino|dy |dri|oni|ori| mo|hah|nao|koa|ato|end|n t| za|eha|nga|jak|bar|lah|mia|lna|aln|va | mb|lan| pa|aov|ama|eve|za |dro|ria|to |nar|izy|ifa|adi|via|aja| va|ind|n k|idi|fiv|rov|vel',mad:'an |eng|ban|ng | sa| ka|dha| ba|ren|ak |ang| se| ha|hak| dh|na | pa|se |adh|a s|aba|n s|ara|ngg|are|ha |aga|sa | or|ore|asa|sar|ana| ma|aan|a k|ale|gi | ag|gad|a b|n o|n k|eba|ala|ra |gan| ke|dhu|ota|aja|bas|n b|ka |man|tab|dhi|beb|sab|ama|ako|abb|at |ggu|nga| ta|pan|wi |huw|uwi|eka|ata|a d|san| ot|agi|lak|hal|ba |bba|i h|ong|em |kab|g a|lem|a o| pe| na|ane|par|ngs|nge|gar|a a|tan|gsa|a p|ran|i s|k h|n p|uy |guy|ken|n a|al |ada| ga|apa|pon|e d| e |nek| an|g s|ta |kaa|on |kal|a m|ssa|ona|abe|kat| la|a e|e e|sal|ate|jan|ri |nan|lab|asi|sad|i p|e a|lan|aka|a h|ari| bi|ena|si |daj| ng|ton|e k|har|oss|gen|i k|g k|car|ase|ano|era|kon| be|nya|n d|nag|bad|ar |epo| da|mas| kl| al|n t|mat|nos|n n|ela|g e|a n|k k|uwa|adi|pad|ggi|uan|i d|ne | so|hi |sae|oan|wan|as |le |gap|ter|yat|om |kla|k a|e b|ina|ah |k s|koa|i a|ega|neg|n h|m p|aha| as| ja|abi|ma |kas|bi | mo|aon| di|one| ep|per|aya|e s|nto|te |bat|epa|nda|n e| ca|int|pam|di |ann| ra|aen|k d|amp|a t|nta|and|e p|rga|pen|yar|mpo|ste|dra|ok |oko|ila|g p|k b|i b|set|to |isa|nao|nna|n m|ett| a |bis|hid|bin|i m|nas| ho|kar|t s| po|dil| to|aju|ika|kom|arg|ant|raj|a l|das|tto|ost|mos|lae|ga |rek|idh|tad|hig|en |rny|arn|ndh|eta|adu| dr|jat|jua|gam',nya:'ndi|ali|a k|a m| ku| nd|wa |na |nth| mu| al|yen|thu|se |ra |nse|hu |di |a n|la | pa|mun| wa|nga|unt| la|a u|u a|e a|ons|za | ma| lo|iye|ace|ce |a l|idw|ang| ka|kha|liy|ens|li |ala|ira|ene|pa |i n|we |e m|ana|dwa|era|hal|ulu|lo |ko |dzi| ci|yo |o w|iko|ga |a p|chi| mo|lu |o l|o m|oyo|ufu| um|moy|zik| an|ner|and|umo|ena| uf|dan|iri|ful|a a|ka |to |hit|nch| nc|a c|ito|fun|dwe| da|kuk|wac| dz|e l|a z|ape|kap|u w|e k|ere|ti |lir| za|pen|tha|aye|kut|mu |ro |ofu|ing|lid| zo|amu|o c|i m|mal|kwa|mwa|o a|eza|i p|o n|so |i d|lin|nso| mw|iro|zo | a |ati| li|i l|a d|ri |edw|kul|una|uti|lan|a b|iki|i c|alo|i k| ca|lam|o k|dza|ung|o z|mul|ulo|uni|gan|ant|nzi| na|nkh|e n|san|oli|wir|tsa|u k|ome|ca |gwi|unz|lon|dip|ipo|yan|gwe|pon|akh|uli|aku|mer|ngw|cit| po| ko|kir|mba|ukh|tsi|bun|iya|ope|kup|bvo|han| bu|pan|ame|vom|ama| ya|siy| am|rez|u n|zid|men|osa|ao |pez|i a| kw| on|u o|lac|ezo|aka|nda|hun|u d|ank|diz|ina|its|adz| kh|ne |nik|e p|o o|ku |phu|eka| un|eze|mol|ma | ad|pat|oma|ets|wez|kwe|kho|ya |izo|sa |o p|kus|oci|khu|okh|ans|awi|izi|zi |ndu|iza|no |say| si|i u|aik|jir|ats|ogw|du |mak|ukw|nji|mai|ja |sam|ika|aph|sid|isa|amb|ula|osi|haw|u m| zi|oye|lok|win|lal|ani| ba|si | yo|e o|opa|ha |map|emb',qug:'una|ta | ka|na |ka |ash|cha|a k|ari|ish|kun|kta|ana|pak|hka|shk|apa|mi |ach|hay|akt|shp|man|ak | ch| ha|rin|ata|tak|lla|ita|ami|ama|aku|har| pa|pas|ayñ|yñi|ina| ma| ru|uku|sh |hpa|run|all|kuy|aka|an | tu|tuk|yta|chi|chu|a c|ñit|in |nak|a h|nka|ris|tap|kan| ki|ayt|pi | sh|pa |i k|a p|nap|kam|kaw|pay|nam|ayp|aws|iri|wsa|a s|ank|nta|uy |a t|hin|a m|ay | li|ant|lia|kay|nat|a r|shi|iak|lak|uya| wa|yuy|say|kis|y r|ypa|hun|a a| yu|n t|tam| ti|yay|n k| ya|a w|hpi|lli| al|api|yku|un |ipa|a i|iku|ayk|shu| sa|ush|pir|ich|kat|hu |huk| il|ill|kas|a y|rik|yac|a l| ku|kac|hik|tan|wan|ypi|ink|ika| ni|ila|ima|i c|yll|ayl| wi|mac|nis| ta|i y|kus|tin|n s|i p|yan|llu|la |iks|tik|kpi| pi|awa|may|lan|li | ri|kll|yas|kin|kak|aya|ksi|k h|aym|war|ura| ay|lat|ukt|i t|iya|ull|mas|sha|kir|uch|h k|nch|akp|uma|pip|han|kik|iki|riy|aki| ii|i s|n p|h m|kar|nal|y h|tac| su|nac|mak|n m|nki|k a|mam|iwa|k t|k k|i m|yma| ña|wil|asi|nmi|kap|pal|sam|pam|k i|k l|i i|pan|sum|i w| hu|his| mu|iia|mun|k m|u t|pik|was|ik |ma |hat|k r|akl|huc| im|mal|uyk|imi|n y|anc|y k|a n|iñi| iñ|wak|unk|yka| mi|iña|a u|has|ywa| ak|llp|ian|ha |tar|rmi|i a|arm|las|ati|pur|sak|ayw|hap|yar|uti|si |iyt|uri|kim| ar|san|h p|akk|iy |wat|wpa|y i|u k',kin:'ra | ku| mu|se |a k|ntu|nga|tu |umu|ye |li | um|mun|unt|a n|ira| n |ere|wa |we | gu|mu |ko |a b|e n|o k|e a|a u|a a|u b|e k|ose|uli|aba|ro | ab|gom|e b|ba |ugu| ag|omb|ang| ib|eng|mba|o a|gu | ub|ama| by| bu|za |ihu|ga |e u|o b| ba|kwi|hug|ash|ren|yo |ndi|e i| ka| ak| cy|iye| bi|ora|re |gih|igi|ban|ubu| nt| kw|di |gan|a g|a m|aka|nta|aga| am|a i|ku |iro|i m|ta |ka |ago|byo|ali|and|ibi|na |uba|ili| bw|sha|cya|u m|yan|o n| ig|ese|no |obo|ana|ish|kan|sho| we|era|ya |aci|wes|ura|i a|uko|e m|n a|o i|kub|uru|hob|ber|ran|bor| im|ure|u w|wo |cir|gac|ani|bur|u a|o m|ush| no|e y| y |rwa|eke|nge|ara|wiy|uga|zo |ne |ho |bwa|yos|anz|aha|ind|mwe|teg|ege|are|ze |n i|rag|ane|u n|ge |mo |u k|bul| uk|bwo|bye|iza|age|ngo|u g|gir|ger|zir|kug|ite|bah| al| ki|uha|go |mul|ugo|n u|tan|guh|y i| ry|gar|bih|iki|atu|ha |mbe|bat|o g|akw|iby|imi|kim|ate|abo|e c|aho|o u|eye|tur|kir| ni|je |bo |ata|u u| ng|shy|a s|gek| ru|iko| bo|bos|i i| gi|nir|i n|gus|eza|nzi|i b|kur| ya|o r|ung|rez|ugi|ngi|nya| se|mat|eko|o y| in|uki| as|any|bis|ako|gaz|imw|rer|bak|ige|mug|ing|byi|kor|eme|nu | at|bit| ik|hin|ire|kar|shi|yem|yam| yi|gen|tse|ets|ihe|hak|ubi|key|rek|icy| na|bag|yer| ic|eze|awe|but|irw| ur|fit|ruk|ubw|rya|uka|afi',zul:'nge|oku|lo | ng|a n|ung|nga|le |lun| no|elo|wa |la |e n|ele|ntu|gel|tu |we |ngo| um|e u|thi|uth|ke |hi |lek|ni |ezi| ku|ma |nom|o n|pha|gok|nke|onk|a u|nel|ulu|oma|o e|o l|kwe|unt|ang|lul|kul| uk|a k|eni|uku|hla| ne| wo|mun| lo|kel|ama|ath|umu|ho |ela|lwa|won|zwe|ban|elw|ule|a i| un|ana|une|lok|ing|elu|wen|aka|tho|aba| kw|gan|ko |ala|enz|o y|khe|akh|thu|u u|na |enk|kho|a e|zin|gen|i n|kun|alu|mal|lel|e k|nku|e a|eko| na|kat|lan|he |hak| ez|o a|kwa|o o|ayo|okw|kut|kub|lwe| em|yo |nzi|ane|obu| ok|eth|het|ise|so |ile|nok| ba|ben|eki|nye|ike|i k|isi| is|aph|esi|nhl|mph| ab|fan|e i|isa| ye|nen|ini|ga |zi |fut| fu|uba|ukh|ka |ant|uhl|hol|ba |and|do |kuk|abe|za |nda| ya|e w|kil|the| im|eke|a a|olo|sa |olu|ith|kuh|o u|ye |nis| in|ekh|e e| ak|i w|any|khu|eng|eli|yok|ne |no |ume|ndl|iph|amb|emp| ko|i i| le|isw|zo |a o|emi|uny|mel|eka|mth|uph|ndo|vik| yo|hlo|alo|kuf|yen|enh|o w|nay|lin|hul|ezw|ind|eze|ebe|kan|kuz|phe|kug|nez|ake|nya|wez|wam|seb|ufa|bo |din|ahl|azw|fun|yez|und|a l|li |bus|ale|ula|kuq|ola|izi|ink|i e|da |nan|ase|phi|ano|nem|hel|a y|hut|kis|kup|swa|han|ili|mbi|kuv|o k|kek|omp|pho|kol|i u|oko|izw|lon|e l| el|uke|kus|kom|ulo|zis|hun|nje|lak|u n|huk|sek|ham| ol|ani|o i|ubu|mba| am',swe:' oc|och|ch |er |ing|för|tt |ar |en |ätt|nde| fö|rät|ill|et |and| rä| en| ti| de|til|het|ll |de |om |var|lig|gen| fr|ell|ska|nin|ng |ter| ha|as | in|ka |att|lle|der|sam| i |und|lla|ghe|fri|all|ens|ete|na |ler| at|ör |den| el|av | av| so|igh|r h|nva|ga |r r|env|la |tig|nsk|iga|har|t a|som|tti| ut|ion|t t|a s|nge|ns |a f|r s|män|a o| sk| si|rna|isk|an | st|är |ra | vi| al|t f| sa|a r|ati| är| me| be|n s| an|tio|nna|lan|ern|t e|med| va|ig |äns| åt|sta|ta |nat| un|kli|ten| gr|vis|äll| la|one|han|änd|t s|stä|t i|ner|ans|gru| ge|ver| må| li|lik|ihe|ers|rih|r a| re|må |sni|n f|t o| mä| na|r e|ri |ad |ent|kla|det| vä|run|rkl|da |h r|upp|dra|rin|igt|dig|n e|erk|kap|tta|ed |d f|ran|e s|tan|uta|nom|lar|gt |s f| på| om|kte|lin|r u|vid|g o|änn|erv|ika|ari|a i|lag|rvi|id |r o|s s|vil|r m|örk|ot |ndl|str|els|ro |a m|mot| mo|i o|på |r d|on |del|isn|sky|e m|ras| hä|r f|i s|a n|nad|n o|gan|tni|era|ärd|a d|täl|ber|nga|r i|enn|nd |n a| up|sin|dd |örs|je |itt|kal|n m|amt|n i|kil|lse|ski|nas|end|s e| så|inn|tat|per|t v|arj|e f|l a|rel|t b|int|tet|g a|öra|l v|kyd|ydd|rje| fa|bet|se |t l|lit|sa |när|häl|l s|ndr|nis|yck|h a|llm|lke|h f|arb|lmä|nda|bar|ckl|v s|rän|gar|tra|re |ege|r g|ara|ess|d e|vär|mt |ap ',lin:'na | na| ya|ya |a m| mo|a b|to | ko| bo|li |o n| li|i n| pe|i y|a y|a n|ngo|ki | ba| ma|kok|pe |la |a l|zal|oki|ali|nso|oto|ala|ons|so |mot|a k|nyo|eng|kol|go |nge| ny|yon|o e|ang|eko|te |o y|oko|olo|ma |iko|a e|e m|e b|lik|ko |o a|ako|ong| ye|mak|ye |isa| ek|si |lo |aza|sal|ama| te|bat|o p|oyo|e n| az|a p|ani|sen|o m|ela|ta |amb|i k|ban|ni | es|yo |mi |mba|osa| oy|aka|lis|i p|eli|a t|mok|i m|ba |mbo| to| mi|isi|bok|lon|ato|ing|o b| nd|ota|bot| ez|ge |nga|eza|o t|nde|ka |bo |gel|kan|e k|lam|sa |ese|koz| po|den|ga |oba|omb|oli|yan|kop|bon|mos|e e|kob|oka|kos|bik|lin|po |e a| lo| bi|kot|‘te|ngi|sam| ‘t|omi|e y|ti |i b| el|elo|som|lok|esa|gom|ate|kam|i t|ika|a s|ata|kat|ati|wa |ope|oza|iki|i e| ka|bom|tal|o l|bek|zwa|oke|pes| se|bos|o o|ola|bak|lak|mis|omo|oso|nza| at|nda|bal|ndi|mu |mob|osu|e t|asi|bis|ase|i l|ele|sus|usu|su |ozw|and|mol|tel|lib|mbi|ami| nz|ne |ene|kel|aye|emb|yeb|nis|gi |obo|le |kum|mal|wan|a ‘|pon| ep|baz|tan|sem|nya|e l| ta|gis|opo|ana|ina|tin|obe| ti|san| ak|mab|bol|oku|u y|mat|oti|bas|ote|mib|ebi|a o|da |bi | mb|lel|tey|ibe|eta|boy|umb|e p|eni|za |be |mbe|bwa|ike|se | et|ibo|eba|ale|yok|kom| en|i a|mik|ben|i o| so|gob|bu |son|sol|sik|ime|eso|abo| as|kon|eya|mel',som:' ka|ay |ka |an |uu |oo |da |yo |aha| iy|ada|aan|iyo|a i| wa| in|sha| ah| u |a a| qo|ama| la|hay|ga |ma |aad| dh| xa|ah |qof|in | da|a d|aa |iya|a s|a w| si| oo|isa|yah|eey|xaq|ku | le|lee| ku|u l|la |taa| ma|q u|dha|y i|ta |aq |eya|sta|ast|a k|of |ha |u x|kas|wux| wu|doo|sa |ara|wax|uxu| am|xuu|inu|nuu|a x|iis|ala|a q|ro |maa|o a| qa|nay|o i| sh| aa|kal|loo| lo|le |a u| xo| xu|o x|f k| ba|ana|o d| uu|iga|a l|yad|dii|yaa|si |a m|gu |ale|u d|ash|ima|adk|do |aas| ca|o m|lag|san|dka|xor|adi|add| so|o k| is|lo | mi|aqa|na | fa|soo|baa| he|kar|mid|dad|rka|had|iin|a o|aro|ado|aar|u k|qaa| ha|ad |nta|o h|har|axa|quu| sa|n k| ay|mad|u s| ga|eed|aga|dda|hii|aal|haa|n l|daa|xuq|o q|o s|uqu|uuq|aya|i k|hel|id |n i| ee|nka| ho|ina|waa|dan|nim|elo|agu|ihi|naa|mar|ark|saa|riy|rri|qda|uqd| bu|ax |a h|o w|ya |ays|gga|ee |ank| no|n s|oon|u h|n a|ab |haq|iri|o l| gu|uur|lka|laa|u a|ida|int|lad|aam|ood|ofk|dhi|dah|orr|eli| xi|ysa|arc|rci|to |yih|ool|kii|h q|a f| ug|ayn|asa| ge|sho|n x|siy|ido|a g|gel|ami|hoo|i a|jee|n q|agg|al | di| ta|e u|o u| ji|goo|a c|sag|alk|aba|sig| mu|caa|aqo|u q|ooc|oob|bar|ii |ra |a b|ago|xir|aaq| ci|dal|oba|mo |iir|hor|fal|qan| du|dar|ari|uma|d k|ban|y d|qar|ugu| ya|xay|a j',hms:'ang|gd |ngd|ib | na|nan|ex |id | ji|ad |eb |nl |b n|d n| li|ud |jid| le|leb| ga|ot |anl|aot|d g|l l|b l| me|ob |x n|gs |ngs|mex|nd |d d| ne|jan|ul | ni|nja| nj| gu| zh|lib|l n|ong| gh|gao|b j|b g|nb |l g|end|gan| ad| je|jex|ngb|gb |han|el | sh| da|ub |d j|d l|t n| nh|nha|b m|is |d z|x g| ya|oul|l j| wu|she|il |nex| ch|b y|d s|gue|gho|uel|wud|d y| gi|d b|hob|nis|s g| zi| yo|lie|es |nx |it |aob|gia|ies| de|eib|you| ba| hu|ian|zib|d m|s j|oud|b d|chu|ol |ut | do|t j|nen|hud|at |s n|hen|iad|ab |enl| go|dao| mi|t g|zha|b z|enb|x j| ze|eit|hei|d c|nt |b s| se|al | xi|inl|hao| re| fa|d h|gua|yad|ren| ho|anb|gx |ngx|ix |nib|x z|and|b h|b w|fal| xa|d x|t l|x m|don|gou|bao|ant|s z|had|d p|yan|anx|l d|zhe|hib| pu|ox | du|hui|sen|uib|uan|lil|dan|s m| di| we|gha|xin|b x|od |zhi|pud| ju| ng|oub|xan| ge|t z|hub|t h|hol|t m|jil|hea|x l| ma|eud|jul|enx|l z|l s|b a| lo| he|nga|d r|zen| yi|did|hon|zho|gt |heb|ngt|os |d a|s l|aos| si|dei|dud|b b|geu|wei|d w|x c|x b|d k|dou|l h|lou| bi|x a|x d|b c| sa|s a| bo|eut|blo| bl|nia|lol|t w|bad|aod| qi|ax |deb| ja|eab| nd|x s|can|pao| pa|gl |ngl|che|sat|s y|l m|t s|b f|heu|s w| to|lia| ca|aox|unb|ghu|ux | cu|d f|inb|iel| pi|jib|t p|x x|zei|eul|l t|l y|min|dad',ilo:'ti |iti|an |nga|ga | ng| pa| it|en | ka| ke| ma|ana| a | ti|pan|ken|agi|ang|a n|a k|aya|gan|n a|int|lin|ali|n t|a m|dag|git|a a|i p|teg|a p| na|nte|man|awa|kal|da |ng |ega|ada|way|nag|n i| da|na |i k|sa |n k|ysa|n n|no |a i|al |add|aba| me|i a|eys|nna|dda|ngg|mey| sa|pag|ann|ya |gal| ba|mai| tu|gga|kad|i s|yan|ung|nak|tun|wen|aan|nan|aka| ad|enn| ag|asa| we|yaw|i n|wan|nno|ata| ta|l m|i t|ami|a t| si|ong|apa|kas|li |i m|ina| an|aki|ay |n d|ala|gpa|a s|g k|ara|et |n p|at |ili|eng|mak|ika|ama|dad|nai|g i|ipa|in | aw|toy|oy |ao |yon|ag |on |aen|ta |ani|ily|bab|tao|ket|lya|sin|aik| ki|bal|oma|agp|ngi|a d|y n|iwa|o k|kin|naa|uma|daa|o t|gil|bae|i i|g a|mil| am| um|aga|kab|pad|ram|ags|syo|ar |ida|yto|i b|gim|sab|ino|n w| wa| de|a b|nia|dey|n m|o n|min|nom|asi|tan|aar|eg |agt|san|pap|eyt|iam|i e|saa|sal|pam|bag|nat|ak |sap|ed |gsa|lak|t n|ari|i u| gi|o p|nay|kan|t k|sia|aw |g n|day|i l|kit|uka|lan|i d|aib|pak|imo|y a|ias|mon|ma | li|den|i g|to |dum|sta|apu|o i|ubo|ged|lub|agb|pul|bia|i w|ita|asy|mid|umi|abi|akd|kar|kap|kai| ar|gin|kni| id|ban|bas|ad |bon|agk|nib|o m|ibi|ing|ran|kda|din|abs|iba|akn|nnu|t i|isu|o a|aip|as |inn|sar| la|maa|nto|amm|idi|g t|ulo|lal|bsa|waw|kip|w k|ura|d n|y i',uig:'ish| he|ini|ing|nin|gha|ng |ili| we|we |sh |in | bo|quq|oqu|ni |hoq| ho|ush|shi|lik|qil|bol|shq|en |lis|qa |hqa|n b|hem| qi|ki |dem|iy | ad|ade|igh|e a|em |han|liq|et |ge |uq |nda|din| te| bi|idi|let|qan|nli|ige|ash|tin|ha |kin|iki|her|de | er| ba|and|iti|olu|an | dö|döl|aq |luq| ya|me |lus|öle|mme|emm| qa|daq|rki|lgh|erq|erk|shk|esh|rqa|iq |uqi|ile|rim|i w|er |ik |yak|aki|ara|a h| be|men| ar|du |shu|uql|hri|hi |qlu|q h|inl|lar|da |i b|ime| as|ler|etl|nis| öz|ehr|lin|e q|ar |ila| mu|len| me|qi |asi|beh|a b|ayd|q a|bir|bil| sh|che|rli|ke |bar|hke|yet|éli|shl|tni|u h|ek |may|e b| ké|h h| ig|ydu|isi|ali|hli|k h| qo|iri|emd|ari|e h|ida|e t|tle|rni| al|siy|lid|olm|iye|anl| tu|iqi|lma|ip |mde|e e|tur|a i|uru|i k|raw|hu |mus|kil| is|i a|ir |éti|r b|özi|ris|asa|i h|sas| je|he | ch|qig|bas|n q|alg|ett|les| xi|tid| él|tes|ti |awa|ima|nun|a a| xe| bu|hil|n h| xa|adi|dig|anu|uni|mni| sa|arl|rek|ére| hö|kér| ji|min|i q|tis|rqi| iy|elq|xel|p q| qe|y i|i s|lig| ma|iya|i y|siz|ani| ki|qti| de|q w|emn|met|jin|niy|i i|tim|irl| ti|rin|éri|i d|ati|si |tew|i t|tli|eli|e m|rus|oli|ami|gen|ide|ina|chi|dil|nay|ken|ern|n w| to|ayi| ij|elg|she|tti|arq|hek|e i|n a|zin|r a|ijt|g b|atn|qar|his|uch|lim|hki|dik',hat:'ou |an | li|on |wa |yon| po|li |pou|te | yo|oun| mo|un |mou|ak | na|en |n p|nan|tou|syo| dw| to|yo | fè|dwa| ak| ki|ki | pa| sa|out| la| ko| ge|ut |n s|gen| de|se |asy|èt |i p|n d| a | so|n l|a a|fè |n k| se|pa |e d|u l| re|ite|sa | ch|kon|n n|e l|t p|ni |cha|a p|nn |ans|pi |t m| ka| an|nm |fèt|i s|son|man| me|n m|n a|e p|swa|sou|e k|hak|òt |n y|men|i l|epi| pe|ote|san| ep|i k| si|yen|eyi|a l| ap|i a|yi |pey|je |n t|e a|k m|e s| ni|lib|e n|i t|lit|ran|lè |enn|al |a s| pr|a f|ns | lò|ap |lòt|enm|k l|n e|t l|kla|anm|e y|a k| ma|e t|ay |i m|ali| lè|è a|ye |a y|ant| os| ba|i g| tè|aso|u t|a n| pw|ras| pè|n f|nas|ka |n g|osw| ta|dek|i d|pwo|e m| di| vi|la |i n|u s|sos|bli| te|o t| tr|lwa|ète|a t|le |u y|i f|tan|a c|lar|a m|ete|ara|t k| pi|ibè|bèt|re |osy|de |ati|ke |res|tis|i y|tè |nen| fa|ekl|ze |nal|ons|ksy|ini|che| le|e r|a d| en|aye|he |o p|alw| kò|lal| no|esp|a g|ava|kou|las|way|u f|isy| za| ok|oke|kal|ken|sye|ta |onn|k k|nje|pra|van|esi|pès|kot|ret|sya|n v|lek|jan|ik |a b|eks|wot|è n|di |òl |tra|u k|i r|nou| as|k a|u d|ist|èso|ib | ne|iti|ti |is |y a|des|è l|a r|ont| ke|nsa|pat|rit|sit|pòt|ona|ab |è s| sw|ond|ide| ja|rav|t a|ri |bon|viv| sè|pre|vay|k p|l l|kòm|i o| ra|era|fan|dev',aka:'sɛ |a a| sɛ|ne |ra |a n| wɔ| a |ara|an |eɛ |no | ne| bi| no| as|iar|bia|yɛ |mu |aa | an|ɛ s|e a|ma | ho|bi |man|deɛ| mu|ho |ɛ a|na |a ɛ| ob|obi|e n|a b|n a|so |o n|pa |ama|ɛ o|o a|ipa|nip|ɛ n|naa| na|a w|ana| so| ad| nn|ɛ ɔ|ɛde|asɛ|kwa| on|oni|wan| am|a ɔ|sɛd|wɔ | ah|ɛyɛ| ny|oɔ | n |mma|i a| mm|nni| kw|ie |wɔn|ɛ w|de | ɛy| ba|ase|ɔ n|o b|i m|ɔ a|uo |n n|a m|o s|iri| yi|ni |e s|nyi|di |u n|a o|aho| de|tum| ɛn|ɔn |nya|i n|ɔma|e m|adw| yɛ|umi|die|mi |ɛ ɛ|o k| ab|ɛm |a s| ma|nam| ɔm| ɛs|yin| at| bɔ|o d|ina|pɛ |sɛm|ua |n s|bɔ |adi|ya |e h|aso|mar|ani|kuo|rɛ |fa |a k|ɔde|a h|ba |n b|re |uma|wum|om |ɔ h|m n|yi |u a| sa|se |dwu|ɔ b| nt|m a|erɛ| kɔ|a y|orɔ| nk| bɛ| ɔd|ten|rɔ |hyɛ|saa|ka |ɛ b|e b|i s|ade|am |nka|kor|i ɛ|ene|ena| ns|ban|ɛns| ku|ɛsɛ|ane|nsɛ|fof|ɛɛ | fi|gye|ɔtu| di|ano|i k|o m| ɔt| ko|yɛɛ|bir| ak|im |kye| pɛ|a d|yie|ko |nti|i b|ete|ofo|amm|ye |ri |foɔ|kɔ |bom|abo|ɔ s|ɔne| ɛb|soɔ|for|isɛ|m k|asa|nod|ɛ m|fir|ti | da|e y|sua| be|nii|seɛ|wa |ber| aw|dwe|n f| fo|o ɛ|i h|u b|ɔ m| mf|hɔ |kab|wɛ |to |rib|hwɛ|ibi| dw|dis|nso|ans|tir|u ɛ| ti| hɔ|sa |e o| tu|odi|ɛ y|ia |ofa| ɔn|o w|ɛbɛ|aba| ka|ii |wen|ɛsi|m m|sia|ada|yer|ian|da |set| gy|dua|i d|som|mfa|ɔ w| af|i y|any|ora|rim|wɔd|dwa|nsi',hil:'nga|ang| ka|ga |ng | sa|an |sa | ng| pa| ma|ag |on |san|pag| an|ung|kag|a p|n s|a k|n n|a m|ata|kat| ta|gan|g p|ay |tar|g k|ags|run|ala|aru|gsa|tag|a s|g m| mg|mga|n k|a t|od |kon|g s|a n|ing|a i|man|g t|agp|tan| si|n a|y k|mag|gpa|may|hil|pan|ya |ahi|la |g a|sin|gin|ina|aya|ana|ili| pu|han|g i|yon|nan| in|way|uko|gka| gi|aha| uk|ilw|lwa|asa|apa|kas|syo|at |ban|lin|iya|kah|n p| na|o n|lan|a a|in |ngk|g n|ini|aba|pat|pun|a g|ali|o s| iy|yan|agt|tao|ngs|gba|kab|wal|ngo|al |nag|agk|o m|ni |i s|aga|ano| wa|isa|abu|kal|a h|dap|ong|a d|mat| tu|gso|no |aho|aki|sod|agb| da|asy|ila|d k|pas| hi|agh|d s|n m|na |lal|yo |di |til| la|o k|s n|non|gay|sal|a b|god|ao |ati|aan|uha| is|ka |aka|asu|ngb|o a|ama|ato|atu|uga|paa|but|una|n u|bah|uan|iba| di| ba|pah|bat| du|ulo|os |y s|nah| ko|aag|agi|sil|gi |i m|hay|yag|gon|y n|sta|n d|ot |oha|tun|ida| pr| su|a l|uta|m s| al|do |uli|sug|n t|as |lon|sul|og |pam|pro|him|gua|alo|lig| bi|bis|asi|ula|ton|ksy|gtu|a e|k s| ib|n b|maa|ugu|ko |lib|ron|i a|hi |hin|tek|lab|abi|ika|mak|bot|aoh|ok | hu|ghi|ind|ote|tok|i n|t n|g e|eks|dal|uma|ubo|tum|hat|to |ado|kin| ed|rot|ho |ndi|inu|ibu|y a|nta|ad |gko|lah|duk|abo|iko|nda|aro|gal|mo |g o| bu|int| o |n o|aay|da |gsu',sna:'wa |a k|ana|ro |na | ku| mu|nhu|dze|hu |a m| zv|mun|oku|chi|a n|aka|dzi|ka |zer|ero| ch|che|se |unh|odz|rwa|ra |kod|zvi| ne| pa|kan| we| dz| no|ika|va |iri| an|kut|nyi|o y|yik|van|nek|ese|eko|zva|idz|e a| ka|ane|ano|ngu|eku|cha|ung| yo|ri |ake|ke |ach|udz|iro|a z|u w| va|ira|wes|ang|ech|nge|i p|eng|yok|nok|edz|o i|irw|ani|ino|uva|ich|nga|ti |zir|anh|rir|ko |dza|o n|wan|wo |tan|sun|ipi|dzw|eny|asi|hen|zve|kur|vak|a p|sha|unu|zwa|ita|kwa|e k|rud|nun|uru|guk|a c|a d| ya|a y|bat|pas|ezv|ta |e n|uti| kw|o k|o c|o m|ara| ma|si |ga |uko|ata|ose|ema|dzo|uch|hip|kuv|no |rus|hec|omu|i z|wak|o r|kus|kwe|ere|re | rw| po|o a|mwe|yak|mo |usu|isi|za |sa |e z|uta|gar| in|hin|nem|pac|kuc|we |ete| ye|twa|pos|o d|a i|hur|get|ari|ong|pan|erw|uka|rwo|vo | ak|tem|zo |emu|emo|oru| ha|uit|wen|uye|kui| uy|vin|hak|kub|i m|a a|kud| se| ko|yo |and|da |nor|sin|uba|a s|a u| ic|zvo|mut|mat|nez|e m|a w|adz|ura|eva|ava|pi |a r|era|ute|oko|vis| iy|ha |u a|han|cho|aru|asa|fan|aan|pir|ina|guv|ush|ton| hu|uny|enz|ran|yor|ted|ait|hek| ny|uri|hok|nen|osh| ac|ngi|muk|ngo|o z|azv|kun|nid|uma|i h|vem|a h|mir|usa|o p|i n|a v|i k|amb|zan|nza|kuz|zi |kak|ing|u v|ngw|mum|mba|nir|sar|ewo|e p|uwa|vic|i i|gwa|aga|ama|go |yew|pam',xho:'lo |lun|oku|nge|elo|ntu|tu |e n|ele| ku|nye|ye |nga|ung|la | ng|lek|a n|o n|yo |o l|e u|nel|gel|a k|ko |ho |ulu|ke | ne| na|lul|we |le |wa |ngo| kw|ule|kub| no|a u|onk| um|nke|o e| lo|ela|kun|ama|any|unt|ang|eko|uba|elu|ezi|mnt| wo|a i|eyo|alu|lel|umn|lwa|kwe|olu|ba | uk|kuk|won|ukh|une|uku|gok|nok|enz| un|khu| ok|the|e k|zwe|kan|eki|aph|ane|uny|ile|o z|aku|ley|lok| ez|het|eth|ath|oka|pha|sel|ala|o y|kul|akh|kil|enk| in|esi|o k| yo|use|hul|u u|tho|obu|wen|ana|nku|khe|o o|e a|na |kho|ban|a e|ise|ent|gan|uth|ni |kel| zo|he |izw|o w|hi |elw|nam|ing|eli|fun|za |lwe|eng|ya |kwa|fan|isa|o a|ndl|ntl|ayo|eni|gen|hus|uhl|iph|tha|nzi|isw|sa |phi|aba|ben|und|ume|thi|ha |alo|ka |ink|hla|lal|wan|i k| lw|i n|bel| ba|o u|azi|e o|swa|ngu|bal|pho| ab|man|kut|emf|e i|mfa|a a|e e|een|int|uph|eka|ebe|seb|lan|nee|zi |o i|mal|sha|sek|dle|ziz|mth|nen|zel| se|okw|tya|ike|lin|tla|ene|sis|ima|ase|yal|ubu| ak|ant|sen|olo|wak| ko|a o|mfu|ezo|sid|nay|oko| ub|ulo|zo |do |isi|wez|iso|han|nte| ph|zim| ya|ga |li | le|iba|ham|ube|kup|aza|jik| ul| en|eem|phu| ol|and|imf| es|o s| im|kuf|u k|kwi|nak|ma |nan|ety|kuh|kus|yol| am|hel|idi| so|lis| nj|nje|jen|tsh|aka|zin|kuz|‐ji|no |ufu|ale|ong| el|bo |a y|e l|men|yen|lum',min:'an |ak |ang| ma| da| ka| sa|ara| ha|yo |nyo|hak| ba|ran|dan|man|nan|ng | pa| di|kan|ura| na|ata|asa|ok |nda|ala| pu|pun|uak|ntu|n d|k m| ti|ah |o h|n s|k u|n k| ur| un|tua|n b|and|unt| ta|uny|n p|tio|iok|ama|pan|ek |ban|jo |n m|k h|k d|ado|nga|aan|g p|tan|aka|ind|at |dak|dap|o p|tau|pek|uan| at|amo|mar|ape|au |kat|mo |sas|ari|asi|di |o s|ia |ngg|bas|ika|sam|am |lia|o d|san|gan|sia|tar|n n| jo| su|anu|lam|gar|o t| in|par|sua|dek|sar|k s|ri |o m|ana|bat|asu|ko |ai | la|ant|dal|lak|aga|alu|iah|o u|n a|tu |k a|adi|rad|i m|mal|dok|usi|aku|i d|k k|al |aro|eka|neg|ega|ato|to | ne|mam|o b|eba|ian|beb|n u|um |si |aba|rat|uah|ro |mas|ila|a d|ali|uka|ard|kam|ti |atu|nus|dar|ami|n t|sa |in |amp|kal|car|lan|aha|kab|so |rde|un |i k|gsa|das|ngs|aca|yar|ka |ati|ar | an|uku|ras| ko|sya|mat|k n|aya|nta|lo |any|sur|kaa|dil|kar|o a|u d|k t|pam|dia|ra |iba|lai|i t|lah| bu|mpa|kum|abe|n h|ili|nny| as|u p|aki|amb|sac|as |k b|h d|uli|ajo|a n|raj|n i|dua|ndu|k p|i p|itu|lin|han|huk|o k|rik|a b| li|ik |ggu|jam|bai|a a|i a|nia| ad|i j| hu|gam|sal|aso|ngk|sad|apa|ann| mu|ony|dik|bad|ain|did|min|l d|ada|bul|rga|tin|ga |ani|alo| de|arg|ahn|sio|hny|n l|sti|awa|uju|per|bak| pe|tik|ans| pi|a s| um|bag|ndi|anj|mba',afr:'ie |die|en | di| en|an |ing|ng |van| va|te |e v|reg| re|n d| ge|ens|et |e r|e e| te| be|le |ver|een| in|ke | ve| he|eg |het|lke|lik|n h|de |nie|aan|t d|id |men| vr|nde|eid|e o| aa|in |of |der|hei|om |g v| op| ni|e b| el|al |and|elk|er | me|ord|e w|g t| to| of|ers| we| sa| vo|ot |erk|n v|vry|ge |kee|asi|tot| wa|sie|ere| om|aar|sal|dig|wor|egt|gte|rdi|rd |at |nd |e s|ede|ige| de| ’n|n a|eni| wo|e g| on|n s|’n |e t|erd|ns |oor|bes|ond|se |ska|aak|nig|lle|yhe|ryh|is |eli|esk|ien|sta|vol|ele|e m| vi|ik |r d|vir|edi|kap|g e|ir |es |sy |ang|din| st|ewe|gem|gel|g o| is|el |e i|op |ker|ak |uit|ike|nse|hie|ur |eur| al|e a|nas|e n|nge|ier|n o|wer|e d|ap | hu|ale|rin| hi|eme|deu|min|wat|n e|s o| as| so|as |e h|del|d v|ter|ten|gin|end|kin|it | da| sy|per|re |n w|ges|wet|ger|e k|oed|s v|nte|s e|ona|nal|waa|d t|ees|soo| ma|d s|ies|tel|ema|d e|red|ite| na|ske|ely|lyk|ren|nsk|d o|oon|t e|eke|esi|ese|eri|hul| gr|ig |sio|man|rde|ion|n b|n g|voo|hed|ind|tee| pe|rso|t v|s d|all|n t|rse|n i|eem|d w|ort|ndi|daa|maa|t g|erm|ont|ent|ans|ame|yke|ari|n m|lan|voe|n ’|nli|rkl|r m|sia|ods|ard|iem|g s|wee|r e|l g|taa|sek|bar|gti|n n|lin|sen|t o|t a|raa|ene|opv|pvo|ete| ty|arb| sl|igh|dee|g a|str|nsl|sel|ern|ste',lua:'ne |wa | ne|a m| ku|a k| mu|di | bu|a b| di|e b|tu |nga|bwa|ntu| bw|udi|a d|e m|i b| ba| ma|shi|adi|u b|a n|la |ons|mun|i n|ung|nsu|ga |yi |ya |na |unt| dy|idi|e k|buk|mu |ika|esh|su |u m|ku |nde|any| bi|lu |nyi|end|yon|dik|ba | ci| ka|ang|u n|u y| mw|ka |i m| yo|we |oke|tun|de |kes|hi |kok|mwa| kw|e n|ban|dya|sha|u d|ken|kwa|ji |ha |wen|dit| ud|a a| an|mwe|itu| pa|le | a | wa|nji|kan|kum|ibw|bwe|a c|ant|ena|yen|mba|did|e d|ala|u u|ish|mak|bul|i a|nda|enj|u a|ila|pa |ako|ans|uke|ana|nso|amb|hin|umw|kal|uko|i k|bad|aka|ela|ele|u w|u k|du |ja |bu | mi|ind|ndu|kwi| ns|mbu|atu|bud|dil|ile|sun|eng|ula|enz|nan|nsh|kad|alu| cy|bis|kud|lon|u c|gan|dib|da |dye|bid| by|ukw|i d|aa |ngu|a p|sam|isa| aa|ilu| na|aba|lel|ye |dim|cya|kub|so |ond|kus|mat|nge|e c| bo|aku|bak|mus|ta |umb|ulo|elu|man|iki|mon|ngi|abu|mud|kuk|omb| mo|und|diy|kwe|umu|mal| ke|ush|gil|uba|imu|dis|wil|wu |san|gad|uka|bon|ma |aci|mik|wik| me|pan|iku|nza|ben|ulu|ifu|iba|kak|ata|som|ong|e a|apa| tu|o b|umo|bya|utu|uja|yan| be|ke |akw|ale|ilo|uku|cil|tup|kul|cik|kup|upe|bel|amw|ona| um|iko|awu|and|za |ike|a u|ima|muk| ya|mum|me |map|ita|iye|ole|lum|wab|ane| lu|nu |kis|mbe|kab|ine|bum|lam|pet| ad|fun|ama| mb|isu|upa|ame|u p|ubi',fin:'en |ise|ja |ist| ja|on |ta |sta|an |n j|ais|sen|n o|keu|ike|oik|lis| va|ell|lla|n t|uks| on|ksi| oi|n k| ka|aan|een|la |lli|kai|a j| ta|sa |in |mis| jo|a o|ään|än |sel|n s|kse|a t|a k|tai|us |tta|ans|ssa|kun|den|tä |eus|nen|kan|nsa|apa|all|est| se|eis|ill|ien|see|taa| yh|jok|n y|vap|a v|ttä|oka|n v|ai |itt|aa |aik|ett|tuk|ti |ust| ku|isi|stä|ses| tä| tu|lai|n p|sti|ast|n e|n m|tää|sia|unn|ä j|ude|ä o|ste|si |tei|ine|per|a s|ia |kä |äne| mi|maa| pe|a p|ess|a m|ain|ämä|tam|yht| ju|jul|yks|hän|ä t| hä|utt|ide|et |llä|val|sek|stu|n a|lä |ami|hmi| ke|ikk|lle|iin|sä |euk|täm|ihm|tee| ih|lta|pau| sa|isk|mää|ois|un |tav|ten|dis|hte|n h|iss|ssä|a h|ava| ma|a y| ei| te| si| ol|ekä|sty|alt|toi|att|oll|tet| jä| ra|vat| mu|iel| to|mai|sal|isu|a a|kki|at |suu|n l|väl|ää |uli|tun|tie|eru| yk|etu|vaa|rus|muk| he|ei |a e|kie|sku|eid|iit| su|nna|sil|oma|min| yl|lin|aut|uut|sko| ko|tti|le |sie|kaa|a r| ri|sii|nno|eli|tur|saa|aat|lei|oli|na | la|oon|urv|lma|rva|ite|mie|vas|ä m| ed|tus|iaa|itä|ä v|uol|yle| al|lit|suo|ama|joi|unt|ute|i o|tyk|n r|ali|lii|nee|paa|avi|omi|oit|jen|kää|voi|yhd|ä k| ki|eet|eks| sy|ity|ilö|ilm|oim|ole|sit|ita|uom|vai|usk|ala|hen|ope| pu|auk|pet|oja|i s|rii|uud|hdi|äli|va | om',run:'ra |we |wa | mu|e a|se | n |a k|ira|ntu|tu | ku| um|ko |a i|mu |iri|mun|hir|ye |unt|ing|ash|ere|shi|a n|umu|zwa| bi|gu |ege|a a|za |teg|ama|e k|go |uba|aba|ngo|ora|o a|ish| ba| ar|ung|a m| we|e n|na |sho|ese|nga| ab|e m|mwe|ugu| kw|ndi| gu|ate|kwi|wes|riz|ger|u w| at|di |gih|iza|n u|ngi|ban|yo |ka |e b|a b| am| ca|ara|e i|obo|hob|ri |u b|can|nke|ro |bor| in|bah|ahi|ezw|a u|gir|ke |igi|iki|iwe|rez|ihu|hug|aku|ari|ang|a g|ank|ose|u n|o n|rwa|kan| ak|nta|and|ngu| vy|aka|n i|ran| nt| ub|kun|ata|i n|kur|ana|e u| ko|gin|nye|re | ka|any|ta |uko|amw|iye| zi|ga |ite| ib|aha| ng|era|o b|ako|o i| bu|o k|o u|o z| ig|o m|ho |mak|sha| as| iv|ivy|n a|i b|izw|o y| uk|ubu|aga|ba |kir|vyi|aho| is|nya|gan|uri| it| im|u m|kub|rik|hin|guk|ene|bat|nge|jwe|imi| y |vyo|imw|ani|kug|u a|ina|gek|ham|i i|e c|ze |ush|e y|uru|bur|amb|ibi|agi|uza|zi |eye|u g|gus|i a| nk|no |abi|ha |rah|ber|eme|ras|ura|kiz|ne |tun|ron| zu|ma |gen|wo |zub|w i|kor|zin|wub|ind| gi|y i|ugi|je |iro|mbe| mw|bak| ma|ryo|eka|mat| ic|onk|a z| bo|ika|eko|ihe|ukw|wir|bwa| ry| ha|bwo| ag|umw|yiw|tse| ya|he |eng| ki|nka|bir|ant|aro|gis|ury|twa| yo|bik|rek|ni | ah| bw|uro|mw |tan|i y|nde|ejw| no|zam|puz|ku |y a|a c|bih|ya |mur|utu|eny|uki|bos',slk:' pr| a |prá|ráv| po|ie |ch |ost| ro|ho | na|vo |ani|na | ne|nos|ažd|kto|kaž| ka|má |né |ávo|om | má|ebo|ti | v | al|ale|leb|bo | je| za|ých|o n|ždý|dý |ia | sl|mi |ova|sti|nie|van|to |eni|ne |áva|lob|ého|slo|rod|tor|rov| sp| zá|á p|o v|a p| kt|ý m| sv|voj|bod|obo|nia| ná| vy|ej |je |ať |o p|a v|a s|áro|a z| sa| ma|a n|e a|e s|mu |mie|kla|nár|svo|spo| by|ovn|by |roz|sa |ľud|iť |odn| vš|ov |i a|néh|vše|o s|va |o a| ľu|oci|pre|nu |a m|u a|ený|e v|ný |nes|a k|zák|pod|ným| do|u p| k |u s|áci|ajú|byť|yť |nýc|eho|ran|pol|tát|stn|jeh|a r|šet|ými|lad|čin|ému|a o|edz|ť s|kon|stv|oré| sú| ni|e z|pri|och|ny |štá|sť |oje|vna|tre|u k| či|ko |é p|maj|smi|a a|etk|nak|ým |med|dov|prí| ob|iu |uds|osť|esm|e b|m a|hra|i s|rác|bez|vať|chr|e p| ab|jú | št|žen| ho|čen| de|i p|ť v| vo|dsk|pro|nom| in|ou |du |že |aby|est| bo|ré |bol| so|nú |olo|kej|áln| oc|obe|ky |dzi|dom|áv |por|lne|rav|aké|ens|pra|ok | že|tné| ta|ako|res| vz|i k|ami| tr| ak|ní |len|o d|del|ský|cho|ach|ivo|h p|ože|iál|inn|slu|kra|loč|očn|ju | os|anu|oju|voľ|ákl|str|é s|ené| ži|niu|sta| st|ved|tvo| me|dno|m p|de |ké |kým|ikt|stu|é v|i v|vyh| to|v a|odu|hoc|a t|ím |ly |hov|y s|soc|júc|ú p|odi|vod|liv|aní|ciá| ve|rej|ku |ci |ske|sob|čno|oso',tuk:'lar| we|we | bi|yň |ary|ada|da | he| ha|an |yny|kla|dam|de | ad|yna|er |na | ýa|ir |dyr|iň |bir|r b|ydy|ler|ara|am |yr |ini|lan|r a|kly|lyd| öz|mag|nyň|öz |her|gyn|aga|en |ryn|akl|ala|dan|hak|eri|ne |uku|ar |r h|ga |ny |huk| de|ili|ygy|li |kuk|a h|nda|asy|len| ed|bil|atl|ine|edi|niň|lyg| hu| ga|e h|nde|dil|ryň|aza|zat|a g|‐da|a‐d|eti|ukl| gö|ly | bo|tly|gin| az|lma|ama|hem|dir|ykl|‐de|e d|ile|ýan|a d|ýet|ýa‐|ynd|lyk|aýy|e a|ünd|ge | go|egi|ilm|sy |ni |etm|em‐|lme|m‐d|aly|any| be|tle|syn|rin|y b|let|mak|a w|a ý|den|äge|ra | äh|mäg| du|n e|bol|meg|ele|ň h| et|igi|ň w|im |iýa| ýe| di|r e|ek | ba|ak |esi|ril|a b|in |p b|deň|etl|agy| bu| je|bu |e ö|y d| hi|mez| es|ard| sa|ähl|e b|yly| ka|esa|mek| gu|n a|e t|lik| do|e g|sas|ill|nma|ň a|ram|ola|hal|y w|ýar| ar|anm|mel|iri|siý|ndi|ede|gal|end|mil|rla|göz| ma|n b|e ý|öňü|ňün|n h| tu|hiç|yýe| ge|my |iç | öň|n ý|tla|ň ý|lin|rda|al |lig|gar| mi|i g|dal|rle|mal|kan|gat|tme|sin|and|ň g|gor| ta|öwl|ýle|y g|e w|ora|tiň|ekl| yn|alk|döw| dö|ere|m h| me|dur| er|asi|tut|at |çin|irl|umy|eli|erk|nme|wle|gur|a ö|aýa| çä|nun| ki|ras|aml|up |ýaş|tyn| aý|ry |ň d|baş|ip |gi |z h|kin|z ö|n w|ter|inm|eýl|i ý|kim|nam|eň |beý|dol| se| te|r d|utu|gyý|ez |umu|mum',dan:'er |og | og|der| de|for|en |et |til| fo| ti|ing|de |nde|ret| re|hed|il |lig| ha|lle|den| en|ed |ver|els|und|ar | fr| me|se |lse|and|har|gen|ede|ge |ell|ng |at | af|nne|le |nge|e f|ghe|e o|igh|es |af |enn| at|ler| i |ske|hve|e e|r h|ne |enh|t t|ige|esk| el| be|ig |tig|fri|or |ska|nin|e s|ion| er|nhv|re |men|r o|e a| st|ati| sk| in|l a|tio| på|ett|ens|al |tti|med|r f|om |end|r e|del|g f|ke | so|på |eli|g o| an|r r|ns | al|nat|han| ve|r s|r a| un| he|t f|lin| si|r d|ter|ere|nes|det|e r| ud|ale|sam|ihe|lan|tte|rin|rih|ent|ndl|e m|isk|erk|ans|t s|kal| na|som|hol|lde|ind|e n|ren|n s|ner|kel|old|dig|te |ors|e i| hv|sni|sky|ene|vær| li| sa|s f|d d|ers|ste|nte|mme|ove|e h|nal|ona|ger| gr|age|g a|vil|all|e d|fre|tel|s o|g h|t o|t d|r i|e t| om|arb|d e|ern|r u| væ|d o|res|g t|klæ|øre|n f| vi| må|ven|sk | la|gte|kab|str|n m|rel|e b|run|rbe|bej|t i|ejd|kke|t e|g d|rkl|ilk|gru|ved|bes| da|nd | fu|lær|æri|rdi|ærd|ld |t m|dli|fun|sig| mo|sta|nst|rt |od | ar| op|vis|igt|ære|tet|t a|emm|g e|mod|rho|ie |g u|ker|rem| no|n h| fa|rsk|orm|e u|s s|em |d h| ge|ets|e g|g s|per| et|lem| tr|i s|da |dre|n a|des|dt |kyt|rde|ytt|eri|hen|erv|l e|rvi|ffe|off|isn|r t| of|ken|l h|rke|g i|tal|må |r k|lke|gt |t v|t b',als:'të | të|dhe|he | dh|në |ë d|e t| e |et |ë t|imi|për|ejt|dre|rej| pë| dr| në|it |gji|sht|ve |jit|ë p| gj|ith| sh| i | li|het|e p| nj|t t|ër |ë n|in | ve|me |jtë|e n| ka|ara|e d|ush|n e|tet| pa|jer|hku|a t|re |ën |ë s|sh | ku|së |t d|ë m|kus|mit|lir|ka |ë k|jë |se | si| që| ba|etë|që |ë b|si |ë g|eri|thk|nje|eve|e k|e s|jet|ose|bas|ohe| os|ra | mb|iri|h k|min|shk|ash|rim|ndë| nd|një|jta|e m| me|eti|do | du|es |rë |e l|mi |anë|tar|t n| as|dër|hte|end|tën|vet|uar|und|ësi|kom|tje|duh|ndi|at |ave| ko|ri |ta |ë v|shm| de|ar |omb|i d| kë|i p|jes| ng|uhe|nga|i n|en |ë e|ga | ar|e a|ës |hme|bar| pe|htë|ë l|ur |ë i|isë|ime|sim|ris|tës|art|ëm |cil|tim|tyr|ësh| ma|shë|or |t a|kët|gje| ci|r n|e v|par|nuk|ëta|rgj|i i|ish|uk | nu|ë r|are| je|ë c| pu|atë|lim|lli| ës|ë a|i t|mar|ore| së|tit|lar|per|t p|rat|ite|inë|t s|riu|ke |ërg|a n|edh| pr|esi|irë|ërk| po|hë |ë j|i s|a e|ht |mba|roh|im |ari|e b|lit|ti |asn|tav|snj|t e|ik |tij|k d|qër|hëm|ras|res|otë|nal|mun| an|kla|ven|e q|tat|t i| fa|ij | tj|igj|te |ali|bro| di|roj| ti|uri|ojë|ë q|çdo|det|n p| pl|ekl|ind|erë|vep|dek|nim|ive|ror|sho|hoq|oqë|ëri|pri|r d|shp|esë|le |a d|shi| mu|dis|r t|ete| t |ë f|ëzo|zim| çd|mbr| re|e f|jen|i m|iut|n k|tha|s s|lot',nob:'er | og|og |en | de|for|til|ing|ett| ti|et | ha| fo| re|ret|il |het|lle|ver|tt |ar |nne| en|om |ell|ng |har| me|enn|ter|de |lig| fr| so|r h|ler|av |le |den|and| i | er|som| å |hve|or |t t|ne | el|els|re | av|se |esk|enh|nge|ska|nde|e o|ete|gen|ke |lse|ghe|ten|men| st|r s|fri|igh|ig | be|e e|nhv|r r|tte|ske|te | på| ut| sk|al | in|sjo|på |der|e s|ner|rin|jon|t o|unn|e f|han|asj|tig|ed |es |g f|sam|ent|tti|ene|nes|med|ge | al|r o|ens|r e|eli|isk|lin| ve|nin|g o| sa| an|t f|itt|lik|end|kal|r f|t s|rih|ihe|nas|nte|e r|ns | si|lan|g s|mme|ige|l å|erk|dig| gr|n s|ren|r a|all| na|kte|erd|ere|e m|und|r u|res|tel|ste|gru|inn|lær|ers| un|det|t e|arb|ale|del|ekt|ven|t i|g e|bei|eid|e a|n m|e d| ar|rbe|e g| bl|ans|klæ| li| he|g t|æri|sky|run|rkl| la|sta|sni|kke|m e|rt |mot| mo|e n|tat|at |e h|e b|ove|e t|jen|t d|str| må|r m|n e|ors|rel|ker| et|n a|bes|one| vi|nn |g r|e i|kap|sk |ot |ndi|nnl|i s| da|s o| no|id |ger|g h|vis|n o|bar|s f|ndl|t m|g a|opp|t a|dis|nal|r d|per|dre|ona|ære|rdi|da |ute|nse|bli|ore|tet|rit| op|kra|eri|hol|old| kr|ytt|kyt|ffe|emm|g d|l f| om|isn| gj|å d|ser|r b| di| fa|n t|r k|lt |set| sl|dom|rvi|me |l e|gre|å s|må | tr|nd |m s|g i|ikk|n h| at|tes|vil|dli|g b|d d| hv|rav',suk:'na | mu| bu| na|a b|ya |hu |a n|we | gu|nhu|a g| ba|a m|ili|wa | ya|li |unh| bo|mun|ali|bul|han|bo |i m|ilw|uli|ang|lil|la |i b|e n|ga | wi|kil|mu | al| se|u a|ge |kge|ekg|sek|lwe|ose|le |lo |bi |ulu|e y|kwe|ila|and|e b|i n|yo |ng’|a s|nga| ns|si |abi|nsi|ina|lin|aki|se |ban| ly| gw|dak|lu |ngi|gil|a w|o g|akw|u b|ile|anh|ka |ilo|a l|ubi|e g| nu|o n|ja |gan| ng| ma|lya|nul|g’w|ani|ndi|u m|iya|wiy| ji|jo | ka|yab|lwa|ada|o b|e k| ad|gwi|ho |gub| ku|ing|o a|o l|ula|ika|a i|u n|dik|iha|shi|ayo|gun| ja|ha |biz|o j|lag|ma |wen| sh|ele|ung|o s|gi |gul|mo |lan|iwa|a k|ala|iki|jil|ola|ji |a a|yak| li|nil|iza|agi|aha|man|bos|iga|kuj| ha|ana| lu| gi|iti| mh|uga|uyo|win| ga|za |a y|ki | nd|oma|ene|o w|a u|mah|yos|sol|hay| mi|iko|ong|aga|iku|gwa|i a|ndu|pan|u g|e i| ab|ujo|ida|nya|ibi|duh|but|i y|u w|iji|nhy| we|nik|aya|uhu|nda| il|je |abo|aji|lel|ubu|nay|ba |lug|lon|ale|mil|da |a j|dul|o m|mha|aka|e u|g’h|udu|lyo|e m|e a|gik|bus|bal|sha|wit|twa|ngh|nek|wig| um|okw|any|uma|ima|uso|bud|’we| ij|hil|bil|a h|imo|ita|no | ih|gut|nha|ne |iso|ulo|uno|yom|’ha|u l|elo|eki|wel|hya|ngu|omb|som|mbi|i g|o i|u i|bak| is|ugu| yi|utu|eni|tum|umo|u s|tog|inh|’wi|lit|waj|e j|ule|jiw|u u|kub|kul|lik|uto| uy|upa',sag:'tî | tî|na | na| ng|a n|ngb|gö |ngö|nga|nî | lo|lo |zo |bi |la |gbi|ang| sô|sô |î l|gan|ö t| zo|o n| wa|a t|îng|i t|ngü|gü | al|lîn| nd|a l|ê t| kû|äng|î n| te|wal|ala|alî|î k|ë t|î m|â t|î â|ô a|î b| mb|ûê |gâ |örö|ngâ|kûê| lê|o k|a â|e n|ko |î s| kö|ter|dör|köd|ödö|ï n|a k|lêg|gë |ôko|ëpë|mû |pëp| pë|o a|êgë|eke|yek|ke |ü t|î t| ay|o t|bên|ê n|rê |pëe|ra |ëe |erê|rö |tï |kua|aye| nî| ôk|ua |a z|ä t| âl|â n|ïng|î d|ö n|âng|ênî| am|î z|ten|âla| yâ|ê a|mbê|a m|û n|a y|ne |ene|rä |î g|a s|bê | ku|arä|ndi|ga |diä|ëng|iä | du| ân|amû|dut|öng|yâ |utï|ro |önî|lï |a p| gï|oro|lë |î a| âm|ndo| sê|ngô|do |i n|o s|ndö|âra|e t| bê|gba|ûng| mä|sâr| sï|î p| gb|ö k|e a|yê |a a| âk|dö |ara|ba |ï t| tö|a w|zar|tön|î w|war|ndâ|a g|ana|në |ênd| të|ta |ban| lë|zön|î f|nzö| sâ|sï |tën|o w| nz|sên| âz| da| za|îrî| në|nën|ate|ä s|bâ | at|o l|ënë|o ô|fa | kp| ma|o p| mû|kân|a b|bat|ata|ô n|se | kâ|alë| ko|ông|da |ë s|üng|ë n|ibê|rös|mbë|bët|ëtï|âmb|mbâ|ïgî|mba|gî |tän| po|bûn|gï |amb|ü n|gbï|ôi |gôi| af|rë |erë|lê | as|afa|âzo|i p|sor| ad|i s| ba|gïg|ä n|bät|dë |ö â|kûe|ûe |kpä|päl|älë|e z|ätä|ö w|ngi| yê|köt|ötä|tä |ê s|kod| hï|hal|hïn|lëz|ëzo|ngä|gän|odë|ö m|mar|sär|pä |ärä|îan|rän|bîa|a h|gi |bor|du ',nno:' og|og | de| ha|er |en |ar |til| ti|lle|ett|il |ret|om |et | re|le |har|enn| me| al|all| fr|ne |tt |re | å | i |nne|and|ing|ska| sk|men| fo|det|den|ver|for|ell|t t|dom| so|de |e s| ve| ei|ere| på|al |an |e o|e h|fri|sam| sa|l å|på |leg| el|ler|som|ein|ei |nde|av | st|dei|or |ten|esk|kal|gje|n s|tte|je |ske|rid|r r|i s|te |nes| gj|eg |ido|med|e f|r s|st |ke |jon| in|r f|sjo|asj|nas|ter|unn|ed |kje|han|ona| er|t o|t e|g f|ski|e m|ast|ane|e t| av| gr|lan|ste|tan|å f| na|der| sl|t s|seg|n o|r k|nga|ge | an|g o|at |na |ern|nte|ng | ut|lik|e a|bei|gru|e i|arb|kil|g s|lag|eid|r a|e d|g d| si| få|ame|a s|e r|rbe|jen|n m|r d|n e|nn |e n|erd| tr| må| bl| mo|ren|run|nin|bli|kra| kr| at|ege|n i|me |nsk|ins|år |frå|in |lov|v p|end|mot|ale|e v|å a|få |rav|int|nal| ar|sta|e k|t f|ome| la|ot |t a|sla| ik|nle|itt| li| kv|id |kkj|ikk| lo|nad|å v|tta| fa| se|gen|ld |å s|kan|g t| ka|r l|god|n a|lin|jel|ild|dig|ha |l d|kap|ve |ndr|g i|g a|inn|var|rna|r m|r g|a o|dre|d a|n t|ag |kår|mål|ig |va |i d|t m|e e|n d|tyr| om|g e|eve|då |e u| då|und| no|ir |gar|g g|l h|se |ga |d d|l f|ker|r o|å d|eld|ige|t d|t i|t h|oko|nnl|rel|nok|rt |lt |åse|jer|ta |ik |ial|eig|r p|i e|olk|bar|osi|kte|sos|lir|opp| un|ad | be',mos:' n |ẽn| a | se|a t|sẽ|̃n | ne|a s| ye|e n| ta| tɩ|n t| pa|tɩ | la| so|nin| ni| b | fã|fãa|ãa |ng |a n| bu| tõ|la |ẽ | te|tõe|ne |ye |a a|or | ya| to|ed |ned|pa |e t|õe |tar|em |tẽ|g n|ã n|n m|aan| ma|sor|buu|n y|maa|uud|a y|r n|ins|n p|ud |ra |paa|ɩ n|a b| wa|d f| na|me |n d|ara|n b|sã |taa|n w|bã |an |yel|eng|aal|ɩ b|n n|gẽ|̃ng|og | ka| bɩ|bɩ | tʊ|gã | yɩ|na |am |e b|ame|wa |g a|d b|aam|ab |mb | bã|ãmb| ba|m n|wã |aab|a m|aa |saa|ga |nsa|yaa| wã|a l|tog|ore|n s|nd |ʊʊm| sõ| sã|ãng|seg|egd|d s|el |tʊʊ|ngã|ba | tũ| da|ã t| me|b s|re |dat|l s|d n|ɩ y|ã y|dɩ |aoo|g t| kã|m t|ing|r s|a p|b y|b n|gdɩ|men|dã |vɩɩ| vɩ|lg |oor|ã s|n k|al |rã |nga|ar | le|gr |d a|neb|̃nd|ɩɩm|ĩnd|yɩ |lem| pʊ| bʊ|pʊg|nge|to |b t|ɩ s|g s| mi| ke|a k|bãm| we|kao|ilg|wil| zĩ| no|kẽ| ra|m b|ʊge|b k| bũ|oog|ã p|bũm|ngr|at | wi|gam| ko|eb |g b|sõn|ãad|ã f|õng|ɩm |m s| yi|ũmb| yã|ʊm |oy |wẽ|noy|ʊmd|da |ren|a z|ya | gã|le |b p|ɩ t|n g| f |ni |soa|oab|i t| sɩ|lag| ti|te |o a|s n|oga|go |tũ |gem|age|a w|̃ n|in | yõ|a g|b b|aor|ka |ẽe|tũu|aas|a r|e y|ag |eg |r t|e a|ã k|iid|e p|neg|o t|ate|oa |e s|ũ n|mã |ms |ell|eem|ẽm|b w|̃ms|too|ik | zã|zĩn|kog|bao|r b|s a|bui|uii|ogl|aba|alo|loa|kãa|od |l b|ll |nda|kat|aka',cat:' de| i |es |de |la | la| a | pe|per|ió |ent|tat| se|nt |ret|ts |dre|at | el|ls | dr|men|aci|a p|ció|ona| co|a l|al |na |s d|que|en |el | to|s i| qu| en|e l|ns |tot|et |t a|ers| pr|t d|ons|er | ll|ion|a s|ta |a t|con|els|s e| l’|rso|res|als|son| un|est|cio| re|pro|ita|cia| in|les| o |ue |del|lli|té | té|ia |ame|é d|sev|ota|nac|i l| al|s p|a d|ar |a i|ual|nal|a c|ant|nci| le|ert|sta|rta|ser|t i|i a|l d| no|va |ats| d’|s n|re |s a|e c|eva| na|rà | ca|ues|com|lib|és | so|ibe| es|ets|ber|da |r a|no |una|l’e|s l|ter|sen|ran|ure|des|man|i e|l p|t e|n d|e d|e e|om | di|cci|igu|a a|s t| pa|i d|tra|s o|aqu|tre|vol|ect|a u|l i|gua|ide|s s|ada|ene|ial|nta|ntr|ens|soc|cte|ra |oci|hum|uma|cla|ali|lit|erà|cti| aq| hu|ici|pre|era|ess|uni|nte| fo| ni|ble|sse|tes|alt|eme|ass|ica|seg|o s|ote|rac| ig| po|ans| és|a e|un |us |mit| ma|r s|se |ssi|s h|a m|r l|nit|l t|ènc|ó d|ten| te|ir |i p|tal|eta|dic|i i|hom|t q|par|egu|s f| as|n l|ria| mi| ac|lic|int| tr|act|eix|n e|s c|ont|nse|ecc|t t|ltr|amb|qua|l’a|eli|ura|an |ist|e t|ó a|one|nam|ing|lar|o p|esp|rec|lig|a f| ha|iva| am|lle|t s|rot|mat|liu|tiu|iur|n a|fon|ots|inc|ndi|e p|seu|olu|gur|i c|més|der|rna|ina|for|igi|cie|bli|ic |mb |in |art|ol |rom|nin|omp',sot:' le|le |ng |ho | mo| ho| bo|a h| e |lo |ya |ba |e m|a l| ya| ts| ba|na |ong| ka|a b|tho|e t|sa |elo|olo|a m|ets| di|o e|la |mon|oth|tsa|o y|ka |eng|a k|oke|kel|a t|g l|tok|ang|o t|tla|mot| se|o l|e b| na| ha|lok|wa |e h| tl| a |aba|o b|tse|ha | o |hab|e k|tjh|a d|tso|jha| to|se |so |oko|e e|tsh|dit|pa |apa|o n|e l|loh|kol| ma|o m|a e|ela|ele|ana|a s|let|bol|ohi|a a|tsw|kap| ke|hi |g o|ohl|eo |ke |ona|set|o k|o s|di | kg|e d|aha|lan|bot|bo |ito|o h| mm|hle|eth|ena|i b|ala|ats|moh|swa|lwa|g k|atl|abe|g m|ola|phe|bat|ane|a n|mel| me|o a| ph|ebe|ell|hlo|tlo|etj|mat| sa|g t| th|g y|lat|mol|g b|g h| en|she|the|seb|nan|lek|boh|hae|kgo|hel|e s|edi|wan|me |kga|ae |to |a f|ath|lao| hl|han|ile|nah|we |ume|kan|otl|len|aka|efe|ire|bel|bet|rel|swe|mme|sen|a p| ko|g e|atj|lel|its|bon|oho|eha|shi|man|ano|nts|he |lal|eka| fu|o f|heo|got|all|ao |het|hat|get|ban|hal|kge| wa|a y|lla|fum|mmo|kar|alo| ef|thu|e y|wal|tha|san|hon|tlh| he|e n|ben|hla|ing|uma|pha|o o|si | tu|tum|llo|lle| ta|pan|hen|mo |nen|hir| lo|son|ots|tab|ama|ato|din|lap|hil| eo|dis|oka|elw|tsi|llw|i m|hol|pel|iso|no |e a|fet|lwe|adi| fe|fen|hwa|opa|kop|are|amo|ret|emo|i k|isa|o p|o d|i l|gat|dik|i t| nt| la|ame|shw|hah| am|nya|ita|mab',bcl:'an | sa|in | na|ng |sa | pa|na |nin|ang| ka| ni| ma| an|pag| as|sin|asi|n s|ion|n n|cio|a m|on |ban| de|n a|ga |kan| mg|a p|mga|a n|os |rec|ere|der|cho|ech|n p|aci|aro|n m|man|a s| la|n d|o n|asa|n k|g s|kat|sar|ata|ay |o s|al |ong|n l| o |a a|ho |a k|igw|tal|gwa|amb|kas|sai|mba|wa |ara| ig|agk|o a|lam|ro |o i|gka|ali|apa|nac|san|aba|g p|ina|a d|iya|yan|ing|lin|may|ink|aiy|nka| ba|aka|a i|yo | in|ag |abo| da|aha|ini| ga|tan|s n|nta|ano|agt|s a|kai|ad |hay|ida|hos|o m|og |ia |iba|ent|han| ta|par|n i| hu|at |ron|a b|g n|ant|g m|nal|ayo|a g|dap|mag|no |sta|aya|iri| pr|nga|ran|cia|g k|es |pat|li | co|dad|l n|y n|bos| si|mak|pro|ala|men|gan|aki|nte|lan|o k|con|t n|gab|a l|g d|ona|n b|ta |do |nda|aan|as |uha|agp|a c|uli|awo|taw|pan|n o| so|hul|i n|ter|ado|ags|g a|tra|min|anw|tay|kam|nwa|waa|g o|a o|kap|ain|bal|bil|ami|g i|d a|res|ra |nag|gta|ton|n e|ba |nan| mi|kab|en |bas|gpa|nes|o p| di|pin|ika|l a|n g|ind|isa|cci|ili|ial|ecc|tec|nci|ios|bah| es|one|pak|om |imi|agi|ico| re|ana| bi|a e|nid|rim|rar| se|rab|s s|hal|i a|buh|sab|cri|ubo|bo |gi |wo |rin|int|agh|ipa|sii|ibo|ani|to |sad|hon| le|iis|a t|ast|say|lar|n c|aag|ote|rot|n t|y m|ici|paa|ley|ey |yag|aen|dan|ni | pu|atu|lab|sal|ica| gi',glg:' de|os |de | e |ión| a |da |to |ció|ere|ón |der|ito|en |a p| co|ent|eit|n d| se|rei|ade|as |aci|dad|s d| pe|per|o d|s e|e a|e d|men| da|nte|ers| pr| te|do |al |rso|ida|es |ten|soa|oa |que| to| po| o |a t| in|a e| li| do|cia|te |tod|res|o a|pro| re|tos|est|ra | es| ou|dos|lib|con|a d|nci|o e| na|e e|a a|a s|ber| á |oda| pa|e o| qu|e c|ue |ar |nac| en| sú|tra|s p| un|súa|com|ou |ia |nto|ser|a c|er |ns |a o|se |des|is |ter|s n| ca|ado|or |óns|sta|úa | no|rda|s s|ibe|rá |erd|era|no |nal| as|ica|e p|eme|erá|pre|sen|das|e n| ni|e s|por|ais|par|ant|ara|ame|cci|ona|io |o p|n p| di|cto|s t| so|o t|o á|nin| me| os|cio|enc|unh|n e|n c|nha|ha |ntr|ion|n s|á s|n t|s o|ese|nta|ect|e i|o s|e l|so |nid|oci|soc|ont|dic|ici|e t|tad| ac|tiv|ndi|ali|gua|l e|rec|a l| ig|omo|cas|o m|re | ma|ing|na |igu|vid|eli|ngu|und|s i|rac|a n|cla|cti|seu|ria|on |ase|o n|lic|s c|man|lid|a u|uni|ta | ó |ual|ido|ori| fu|ind|nda|ste|s a|tes| tr|act|ial|fun|dis|ecc|o ó|cal|mo |un |e r|iva|n o|ca |n a|o c|esp|ome|o o|seg|sti|r a|tor|r d|egu|ada|lo |nde|r o|uma|ote| el|alq|lqu|uer|spe|a i|tar|bre|tri|hum|olo|cie|ren|ena|ari|mat| fa|med|ura|lar|edi|ver|ixi|á p|ibr|gur|int|pen|rot|a f|cac|s f|ili|rio|ma |a v| vi|rim|len|ita',lit:'as |ir | ir|eis|tei| te|s t|os |uri|ti |us |is |iek| pa|ai | vi|vie|tur| ki|ri |žmo| tu| žm|ien|ės |ių |ali|ais|mog|vis| ka|lai| la|ini|i t|s i|s ž|sę | į |isę|ena| ne| pr| bū| jo|pri|kie| ta|kvi|nas| su|ekv|mas|gus|būt|tin|isv|s s|ogu|isi|mą |mo |ant| ar|s k|ama|kai|ūti|s a|s v|aci| ti|s n| sa|s p|oki|cij|inė|ar |val|ms |tai|jo |i b| na|gal|sav|kur|aus|men|rin| ap|imą|ma |sta|ę į|ina|i p|imo|nim|i k| nu|ima|oti|mis| ku|jos|lyg|dar|išk|je | at|tas|kad|r t|tų |ad |tik|i i|nės|arb|i v|ijo|eik|aut|s b| įs| re|iam|sin|suo| be|isu| va|li |sty|asi|tie|ara|lin|isė|i s|ą i|jų | ly| ga|vo |si |r p|tuo|aik|rie| mo|din|pas|mok|ip |i n|rei|ybė|mos|aip|r l|ntu|įst|į t|gyv| iš|nti|tyb|ų i|pag|kia|kit|es |uot| sk|jim|tis| or|aud|yve|ven|mų |als|ų t|nac|avo|dam|ą k|i a|s j|oje|agr|kla|gau|neg|nių|o k|ega|iki|aug|ek |tat|ieš|tar|ia | ši|ios|ška|sva| to|tau|int|sau|uti| as|io |oga|san|mon|omi|kin|ito|s g|ome|r j| ve|aty|kim|nt |iai|lst| da|ją |min|r k|o t|nuo|tu |ver|kal|am |usi|o n|o a|ymo|tym|vę |ati| ji|o p|tim|ų n|paž|ter|s š| vy|alt|ksl|ing|ų s|oma|šal|ran|e t| ni| ša|ava|avi|nie|uom|irt|elg|jam|ipa|kių|tok|eka|tos|oja|kio|eny|nam|s d|ndi|amo|yti|gri|svę| gy|lie|ėmi|ats|ygi|soc|sie|oci|pat|cia',umb:'kwe|oku|a o| ok|nda| kw| om|da |wen|e o|a k|la |ko | ly|end|nu |ka |o l|oko|mun|omu|unu|kwa|wa | ko|a v|o y|omo|mok|ali| vy|eka|olo|i o|osi| yo|lyo|mwe|si |okw|we |lo |iwa|o k|i k|le |te |a e|ete|gi |kut|sok|ong|iso| ya|vo |ang| ey|wet|ata|a y|o o|yok|ofe|fek|kuk|ela|a l|ilo| wo|owi|nga|iñg|kul|oka|vyo|uli|u e| va|li |ñgi|kal|wat|ta |u o|eci|ngi|ovo|ye |so | li|oci|yo |wiñ|nde|ga |ing| nd|ili|nge|ci |eye|ala|vya|e k|kol|isa|a a|lom|lon|go |avo|ako|ovi|pan| ol|uka|ngo|lya|ti |o v|akw|yal|olw|uti|imw|eli|alo|ge |ung| ku|a u|lis| al|onj|ati|wal|ale|e l|sa |i v|and| ov| yi|ika|ukw|ele|lil|yos|he | oc|yov|iha|ikw|omb|val|lin|lim|ahe|apo| ka| ye|yom| vo|lik|i l|kok|wav|aka|cih|o e|tiw| ke|yi |i w|ama|e y|lof|yow|yol| ek|kov|ole|vak|vik|tav|omw|a c|upa| el|ila| lo|aso|su |e v|lyu|ava|ñgo|lwa| wa|gis|gol| ce|tis|ave| on| es|po |wil|va |eso|kup|co | la|yam| ak|wam|iyo|ekw|e e|i c|tat|i a|a n|yah|eko|lwi|ita|lit| ec|kwi|upi|i y|epa|kan|kiy|nja|dec|asi|e u|yav|asu|mak|lap|yim|tya|vos|kas|cit| ha|lel|u c|a w|emb|u y|ola|yon| os|win|lye| ca|eyo| uk| ci| ow| yu|ayi|vel|liw|has|iti|sil| et|yuk|o w|umb|ulu|ya |wi |anj|kat|ngu|wom|o a|uva|esu|usu|mbo| co| of|mat|o c|ca |cel|vi |u l|ba |kon|mbe|wiw',tsn:' le|le |go | mo|ng | ts| go|lo | bo|ya |we | di|gwe| ya|ong|ngw|sa |olo|elo|a b|tsa|tsh| e |tlh|a l|o t|e t|a g|e m|wa |a t|o y|eng|na |e l| kg|wan|kgo|mo |o n|tse|a k| tl|ets|ane| ba|dit|mon|ele|hwa|shw|la |ka |a m|nel| na| ka|e d|o l| o |o m|ba |se |e g|e e|bot|a d| a |di | ga|ots|tla|otl| se|lol|o b|tho|so |lho|tso|o g|ang|got|e b|ga |lel|seg|o e|its|gol|ose|ho |oth|let|e o|lha|ego|aba|hab|e k|ano|los|a n| nn| ma|eka|g l|šha|tšh|kan|alo|ola|lhe|ela|aka|sen|gat|tsw|kga| nt|mol|o a|nng|o o|o k|aga|atl|o s|bat|tlo|agi|yo |len|g y|edi|e y| th|g m|dik|to |tir|e n| ja|a a|mel|o d|ana|ire|g k|rel|swe| yo|bon|gag|lek|e s|mot|kwa|i l| te|a s|he |agw|ats|iwa|i k|itš|ona|no |a e|mai|any|lao|ikg|she|ntl|lwa|dir|g t|lon|ale| sa|ao |hel|shi|tle| wa|ume|log|jwa|itl|pe |hir| jw|non|iti|a y|set|hok|ira| ti|odi| me|gi |e j|tek|etl|a p|ko |ath|ala|hol|bod|tet|mog|han|nya| mm|g g|nag|i t|adi| lo|oag|i b|nna| ko|the|lan|re |thu|wen|hot|nyo|hut|o i| ne|pol|me |tum|ope|ame|gan|emo|ore|wel|nts|oko|okg|iro|ro |tha|elw|amo|gor|ing|jal|isi|nan|ogo| it|jaa|si |oga|heo|gon|diw|pa |opa| kw|lat|are|bo |o j| ke|ke |ile|gis|o f|rag| ph|bok|aak|kar|rwa|nye|g a|atš|mok|ago|okw|hag|ate|ato|uto|gwa|mme| fa|fa | op',nso:'go | le|le | go|a g|lo |ba | di|ka |o y|ya | ka| ya|ng | ma|a m| mo| tš|elo|etš|e g|a l|o l| bo|a k|a b|e t|na |o t|tok|wa |e m|a t| ga|la |ang| a | ba| se|man|tše|oke|o k|ša |kel|dit|tša|tho|we |ele|a d|o g|o a|a s|o b|gwe|e d|ho |o m|ego|e l| na|tšh| to|šo |še |oko|ga |di | o |olo| e |let|ong|gob| ye|oba|ago| tl|tšw|mo |e b|re |g l|ngw|aba|tšo|swa|šha|ane|tla|hab|o n|ona|ito|ela| kg|ogo| th|oth|wan|eo |e k| sw|lok|kgo|log|ye |o d|a n|ola|g o|e s|set|hlo|kol|se | wa|lel|ao |eng|o s|šwa|mol| ts|eth|net|ano| bj|a y|o e| ke|thu|hut|šwe|ge |itš|leg|rel|alo|to |ohl| ge|mog|kan|e e|ire|nag|ke |eba|aka|pha|gag|bot|o w|aga|a a|mot|are|mok| yo|gor|oka|ko |gon|no |ore|ana|agw| wo|bon|bat|lwa|tse|bja| ph|din|yo |e r|šeg|e y|ath|nya|get|lao|sa |wo | re|wag|odi| sa|seb| me|utš|oph|mel|iti|kge|ato|kar|o o|šom| la|o f|phe|edi|hir|ala|pol|lat|ušo|i g|a p|g y|the| fi|ume|wel|bop|hel|emo| du|ile|gwa|bo |ale|tle|lwe|lek|ban|ta | lo|lon|o š|dir|mae| mm|tlh|god|pel|a w|weg|eka|elw|atš|išo|aem|šhi| ko|gam|rwa|mmo|boi|e n|ntl|pan|amm|i l|i b|hle|hla|leb| am|šon|jo |len|i s|kop|ret|gel|ing|opa|yeo|dum|sen|e a|ape|ase|kwa|lef|mal|amo|oge|bjo|oik|mon|kga|okg|a f|tsh|boh|uto|ika|ahl|ja |adi|iša|gab|hom|abo',ban:'ng |an |ang| sa|ing|san| ma| pa|ane|rin|ne |ak |hak| ha| ka|n s| ri| ke|nga| ng|man|in |lan|a s|ara|ma | ja|n p|n k| pe|g s|g p|pun|asa|uwe|gan|n m|nin|sal|pan| la|alu|iri|sa |lui|jan|adi|a m|adu|uir|ra |yan|mad|kan|wan|duw|ur |tan|g j|anm|we | tu|nma|ika|awi|nge|ah |tur|ih |ban|ka |e h| ne|n n|en |nte|un |ngs|eng|anu|beb|aya|ani|ana|ian|a p|ala|bas|nan|gsa|ngg|uta| da|gar|aka|eba|da |apa|asi|ama|lih|aha| wa|ten| ut| ta|a n|ebe|are| wi|han|aje|keb|oni|nik|ent|aki|uni|ata|wia|iad|g n| pu|jer|ero|ron|aan|k h|saj|din|sak|a t|nus|dan|n w|pen|usa| ba|ngk| pi|ant|sam|e p|taw|n r|ate|wi |nen|i m|ega|neg|iwa|pat|atu|e s|ami|ipu|g k|ina|mar|kat|kal|aga|sar|ran|kin|per|g r|ndi|arg|ar |ksa|e m|ren|nya|al |tat|ida|ela|h p|aks|ntu|ngu|ado|lak| ny|oli|at |wen|ep |i k| se|dos|h s|n l|dad|gka|eka|a k|rep|eda|n h|par|upa|ena|swa| sw| in|nay|ewa|ung|era|ali|a u| mu|eh |nip|r p|e k|n t|k p|ras|i n|uku|n i|wah|eri|g m|pak|n b|r n|ayo|nda|mal|mi |um |dik|os |osa| mi|yom|na |teh|awe|k r|lar|car|tah|sia|g h|ti | hu|ut |huk|kum|sti|ewe|tuk| me|rga|pin|h m| su|gi |ari|n d|a w|ta |uan|gaw|gen|h r|on |war|tut|lah|pag|gay|r m|n u|ada|ira|a b|ngi|end|kew|g t|min|ggi|gda|jag|as |rap|agu| an|e n|ngd|s k|ila|eta',bug:'na |eng|ng | na| ri|ang|nge|nna|ngn|gng|ge |sen|a r| ma| pa| si| ta| ha|ri |hak|app|tau|ak |au |ddi|a t|ase|edd|ale|a n|nap|gen|len|ass|pa |e n|ai |ria|enn|ega| ru|upa|rup|ias|a a|ing|inn|a s|pun|ngi|nin|e p|ini|nai|ga |lal|gi |sin|ppu|are|ae |ye | ye|ana|g n|sed|ada|le | as|i h|a p|ama|g r|i r|man| se|una|ara|ra |di |ssa|ren|a m|pad|e r|ila|ban|asa| ke|san|din|e a|ura| la|ane| de|nas|e s|i a|ipa|pan|u n|ann|i l| ad|da |ala|aji|ole|att| pu| e |ong|i s| ba|pur|aga|lai|i p|lan|g a|ngs|sal|ola|gsa|g s|a b|i n|ppa|rip| we|a k|g m|asi|wed|akk|mas|i m|ril|u r|reg|g p| pe|ung|gar|neg|sse| po|e m|k h| ar|pas| ne|map|ian| te|nar|pol|ett|ran| ja|bas|eba|jam|beb|ena|par| al|sib|ebe|ngk|uru|keb| sa|ain|ttu| mo|aka|unn|add|iba|sa |gan|gka|nen|bbi|i t| at|atu|kan|nan|uan|leb|rus|de |e d|ton|ata|tu |ssi|ro |e y|cen|kun|awa|ell| wa|k r|mak|wa |uwe|ire|ebb|gag|apa|sae| tu| ia|tte|mat|sim| to|a d|o r|ta |nat|ece|tur|la |ie |dec|ko |kel| di| hu|nca|caj|pak|rel|ma |lu |g t|bol|uku|e e|ter|jaj|tta|we |bir|deg|huk|e h|dan|ure|baw|kol|rit|kko|ele|arg|rga|llu|oe |lin|use|ari|auw|pat|mul|elo|ula|iti|gau|an |u p|nga|g y|a h|ekk|sil|ka |e w|ade|anc|iga|sip|ten|a y|e t| me|nre|aja|ji |rek|a w|dde|per|iko|sik',knc:' a |ro |be |nzə|ye |a a| ha| kə|abe|akk| ka|zə |adə|a n|a k|kki|hak|mbe| la| ad|ndu| nd|wa |ben|en |ma |də | ya|o a|əbe|ə a|ga |e a|əga|lan|əna|lar|aye|aro|kin|inz|rdə|ard|ana|yay| ga|əla|kəl|ji |awa| mb|bej|eji|kən| ba|an |uro|du | na| ku|anz|dəg|nəm|kal| nə|e m|na |gan| du| sh|shi|amb|n k| su|ara|u y| ta|so |a d|kam|wo | ye| sa|e h|a s|sur|aso|au | au|iwa|nyi|kur|a l| da|kar| as|dəb|iya|kiw|o k|obe|e s|ada|ama|and|u a|aa |ta |ima|n n|la |əwa|nga| ci|ba | ab| nz|əgə| fa|ənd|ata|ndo|ya |tə |nza|ə n|ndi|a g|in |nam| fu|ə k|aya|a t|tən|a b|təg|ru |uru|inb|am |e k|al |ida|mga|aar|a h|baa|ə s|nab|dəw|dun|asa|nya|owu|gad|taw|o w|gən|a y|kat|dam| sə|o h|əra|e n|awo|ade|əmk| wa| wo|amg|dən| tə|a f|ala|i a|zəg|o n|uny|iga|zən|əli|wur|u k|o s|wan|za |din|utu|e l|san|i k|uwu|wu |awu|n a|on |de |da |nba|mka|yi |gay|tam| ng|laa|gin|azə|bem|gai|taa|ibe|rad|adi|fut| mə|wow|wak|ali|kun| an|mər|o t|yab|nad|aim|əgi|i n| aw|liw|cid|u s|edə|atə|any|do |apt|lka|alk|dar|rta|bed|tu |ela|ndə|uwo|gal|yir|wum|n y|ayi|n d|mma|zəb| yi|nan|ltə|lmu|ilm|mar|bel|raj| il|ero|m a|utə|enz|iro|alw|uma|umm| um|e g|how|kka|o f| ny| ho|fuw|ə h|ang|tin|zəl|o g|ema|ən |no |a i|a m|wal|əny|iwo|lil|ədə|ə f|rtə|hi |diy|mu ',ibb:'ke | nd| mm|me | ke|e u|ndi|o e| em|mme|de |en |e n|owo| en| ow|wo |i e|mi |ye |emi|nye| un|e e|edi|ene| ek|yen|eny| ed|e m|nen|une|ana|n e|e o|e i| ye| uk|et |n n|eke|na |e k| mb|em |ne | id| es|un |kpu|ede|iet|ndo| nk|o k|di |kpo|ukp|did|am |an |kie|nam|kem|esi|o u| nt|idu|eme|o n|t e|no |yun|mo | uf|ho |mmo|nyu| in|o m|kpe|o o|sie|oho| kp|do |din|ie |ono|kpa|m e|ri |nkp|dib|on |e a|uke| ki|boh|a k| et|po |ida|dut|m u|ked|ded| ub| of|ond|ru |uru|pur|in |ut |du |eko|a u|ina| ot|mbe|n o|bet|iny|man| ak|op |idi|ikp|i o|edu|kon|ade|om | us|uan|wem|a m|uwe| uw|puk|ak |ode|ro |t m|a e|oro|a n|n k|u o|to |te |bo |akp|ufo|ok |dik|pan|mbo|bio|i m|ide|ini|fur|uri|ban|ofu|ubo|n i|o i|uto|iso|dom|omo|ema|diy|fen| nw|dis| ny| is|ni |usu|n m|u u|fin|tom|eto|pem|ed |m m|ibo|oto|o a|sua|wed|nwe|m n| ut|mde|dud| eb|ara| as|i n|oki| ob|nte|mok| ik| an|kar|m k|o y|t k| on|i u|nwa|n y|asa|ama|re |ufi|uka|io |nek|i k| or|pon|top|sun|ion|se |aha|t o|k n|e y|ere| ef|mba|mad|isu| mi|kor|ra |ian|i a|ka |a a|k m|ko |da |t i|ena|obi| ey|ha |dia|ti |aba|uk |u m|d e|dem|san|a o| se|pa | ab|tod|n u|p m|ude|fok|k u|efe|uku|nti|nka|ibi|son|he |pe |nto|dak|a y| od|nde|eye|anw|ndu|mbu|so |ebi|bie|nda|sin|med|tu ',lug:'a o| ok| mu|oku|mu |wa |nga| ob|ga |tu |ntu|a e|na |bwa|a a|ang|ra |aba| n |ba |a m|wan|a n| ng| ab|li |obu|unt|a k|era|ibw|dde|oba|a b|u n|za |la |mun|ban|ali|ka |emb|iri|bul|ate|mbe|i m| ek|tee|eek|uli| bu|u a|edd|sa | ku|ant|ana|eki|u b|be |dem| eb|ama|n o| om|ira|omu| ki| ed|ye |ala|amu| am|e o|gwa|nna| er|kuk|y o|kwa| en|okw|eer| ly|inz|ula|kus|kir|u e| ba| em|eri| ky|any|onn| wa| ye|ggw|ina|kol|n e|awa| bw|uyi|u k|eka|yo |bwe|ola|o e|usa|o o|kwe|mus|yin|bal|i e|u m|ngi|e m|bir|riz|ere|ri |ebi|kul|aga|nza|kub|ekw| eg|ko |a y|u o|we |kut|mat|e l|e e|a l|aan|ger|no |kan|sin|nka|gir|uso| at|a g|iza|gan|nyi|zes|uku|wo |nge|zib|isa|izi|ya |egg|ufu|rir|lin|wam|wal|eby|a w|i o|bee|oze|esa|eta|iko|ebw| ma|ako|bon|tuu|kin|uki|de |zi |kug|yen|ino|e b|obo|aka|ulu| te|ne |lwa|ma |y e|lye|kuy|nsi|i y|gi |utu|ly |imu|e n|taa|asa|enk|ku |o n|o b|sob|si |una|bun|usi|san|e k| ag|uka|uga|ata| ol|rwa|wen|ing|wat|kik|o k| by|nya|ong|kye|by |kyo| bo|ewa|yam|bye|ubi|ngo|kis|ani|boz|kit|i n| aw|ky | al|sib|muk|awo|uko|umu|ibi|uma|afu|olw|eky|tab|ung|buy|ini|uum|saa|y a|lal|mag|ro |end|add|enn|kib|ens|ole|ni |mbi|o a|i k|gat| og|maw|and|kuu|a z|wet|igi|yig|emu| ne| gw|a t|nzi|n a|gya|amb|uwa|ulw| ey',ace:'ng |an |eun|ang| ha|peu|oe |ak |on |nya| ny|yan| ta|ngo|ung|gon|na |ah | pe|reu| ng| ba| ke|hak|meu|keu| me|eut|at |ure| na|ban|ee | di|teu|roe|ata| ur|ara| be|seu|han|a h| sa|am |dro|eur|um |n n|tie|iep| ma| la|ala|nan|g n|ut |ong|a n|ep |tan| te|tap|jeu| ti|eul|eub|eu |eug| da|eum|eh |euk|ra |ih |n p|uga|ai |n b|a t|e n|lam|eba| se|beb|n t|awa|om |a b| ka|asa| at|eus|and|nyo|oh |ta |ka |h t|n k|p u|man|e t|n d|n h|ana|dan| pi|ape|a s|neu|nda| si|t n|bah|ula|yoe|a k|h n|dum|euh|g d|e p|eng|e b| le| pa|ngs|sia|ran|ma |g k|un | wa|ndu|lan|una|heu|ura|n m|lah|sa |n a| ra|aba|g s|a p|ia |und| je|wa |kat|bak|k n|anj| dr|asi| bu|nga|beu|uny|yar|sya|hai|k m|k t|k a|ama|aan|ek |a m|ok |g h|aka|sab|g p|i n|uta|khe|h p|ue |uka|har|ari|di |e d| su| um|t t|a l|ya |san|e s|gan|uko|gsa|e u| li|kan|bat|lee|aro|ot |n s|leu|ina|h d|lak|oih|yat|n u|kom|pat|ate| ne|ngg|nje|taw|mas|uma|sid|anu|umu|aja|si |uh |h m|rat|aya|sal|et |soe|t b|n l|aga|taa|usi| ja|ute|m p|en |dek|ila|a d|ube|dip|gam|any|lin|tam|don|ika|usa| ji|rak|idr|h b|nus|adi| as|dar|ame|n j|ngk|m n|eup|h h|bue|k h|huk|euj|g b|gar|eka|gah|upa|ile|sam| bi|h s| de| in|mum|‐ti|t h| hu|k k|pho|dil|ep‐|nta| ge|geu|h l|hat|ie |tha|use|ieh|sas',bam:' ka|ni |a k|ka |an | ni|kan| bɛ|n k| la|i k|ya |la |ye |ɔgɔ|na | ye|bɛɛ|ɛɛ |en |li |sir|ɛ k|ama| ma|ira|a d|ra |ali|’a | da|man|a n|a b| i |ma | kɛ| wa|gɔ |wal|mɔg|ana|n n| ba| ja|ɔrɔ| mi| kɔ| k’| mɔ| jo| si|min|iya|dan|len|i m|’i |in |kɔn|ko |aw |den| sa| o | n’|ara|bɛ |i n|jam|ɔnɔ| na|ɛrɛ|a s|i j|ani|n b|a m|i d| fɛ| tɛ| an|osi|jos|a y|kɛ |a l|iri| ko| di|ɛ b|ada|ila|ɛ m|i t| fa|nɔ | de| ha|asi|tɛ |ari|a j|raw|a t|ɛ s|ale|a f|tig|ɛn |aya|dam|a i|i b|sar|si |riy|ɲa |n y|nu |inn|e k|ɔn |rɔ |ang|a w|o j|w n|nnu|k’i|nti|nɲa|ade|abi|bil|ala|hɔr|kal|had|igɛ|i s|a a|mad| a |aga|u k|kab|a ɲ|aba| ti|olo| hɔ|o b|ɛ j|i f| ta|ɔ k|aar|baa|ɛ n|n’a|kun|ugu|iɲɛ|diɲ|n j|k’a|a h|rɛ |ati|ɔ m| se| cɛ|ɲɔg|bɔ | tɔ|i y|lan|i h| ɲɔ|tɔn|don|nɛ |inɛ|ga |i l|ɲɛ |ile| fo|o k|ɛ l|nna|ili|un |gɔn|maa|fɛn|n d|ant|n i|aay|go |da | jɛ|u b|ri |rɔn|aka|lak|ɔnɲ|e m|ɔ b|nin|nw |cɛ |w k|yɔr|n o|o f|nga|jo |o m|nen|n’i|on |ɛ t| ku|o l|igi|ɲɛn|anb|fɛ |ɔ s| bɔ|n m|e b|afa|nka|n f|nma| fi|’u |ɔ n| ɲɛ|fan|i ɲ|ti |a o|dil|ɛ d|uya| sɔ|ago|ɛ y|e f|ɛmɛ|mɛn|aju|e d|bɛn| jɔ| fu|til|bag|fur|n t|uru|kar|atɔ|be | d’| du|d’a|oma|lom| u | do|riw|taa|w l|mɛ |gɛ |imɛ|n w|iir|nni|iim|amu|so |bal| ɲa| b’|gu |ɛɛr|’o |iwa|n s|wol|ele|ɲan',kmb:'a k| ku|ya |la |ala| mu| ki|a m| o |u k|ni |o k| ni|kal| ky|mu | ya|lu |dya| dy|a o|ang|kya|a n|tok|i k|oso|so |kwa|nge|xi |na |elu|nga| kw|wa | wa|a d|hu |kut|thu|uka|oka|mut| ka|a i|mba|uth|ka |gel|ba |u m|u y|ku |ene|u n|ga |kuk|ban|ixi|i m|e k|wal|oke| mb|kik|kel|ne |u w|ela|uto|i y|ana| ng|iji|a y|kit|ma | ji|nda|ngu|yos|kum|ulu|ji |i d|isa|und| it|and|ong| mw|u i|iba|ika|wen| di|ten|ilu|ila|ndu|ye |sa |kub|aka|ena|amb|ung|olo|a w|ngo|kil|oxi|lo |muk|ke |sok|du |mox|ate|o w|kus|wat|ta | wo|gu | ph|u d|ito|ita|e m|alu|a j|kis|tun|uma|wos|luk|o m|san|mwe|a a|di |imo|ula|wan|nji|jix|i j|a t|kij|idi|kan|uku|gan|kul|e o|kye|adi|ato|o i| ja| ix|da |nu |o n|uta|kud| yo|i n|udi|ki |su |tal|a u|lun|e y|u u| ye|jin|iki|pha|hal|wij|we |a s|lak|ikw|go |tes|fol|itu|eng| ke| uf|yen|ing|yat|ele|utu|kyo|o y|kwe|kwi|uba| en|kib|ite| we|dal|i o|yan|ge |eny|tan|uki| ik|dib| im|esu|lon|kat|atu|e n|ja |i u|jya|vwa|kam|i w|ute|ini|uke|lel|esa| se|xil| ut|fun|unj|ufo|mbo| a |uso|kim|mun|u p|nen|ukw|u o|i i|umu|han|gon| il|lan|ata|te |i a| ko|jil|o a|nde|nyo|eka| at|o d|exi|ijy|tu |usa|tul|kuz|ilo|dis| un|u j|dit|ufu|ote| ib|ivw|mwi| bh| ha|se |bul|ubu|win| os|imb|bha|ama| to|axi|inu| uk|sak|kos|bot',lun:'la | mu|ng | ku|a k|tu |ntu|chi| ch|a n|aku|di |mun|ma |unt|a m|g a| a | na|ela|ndi|aka| we|ima|jim|shi|eji|u w|i k| ni|ind|wu |i m|a w| in|a i|u m|hi |awu|na |kul|wej|lon|cha| ja|sha| kw|a c|i n|nak|ala|mu |wa |ing|ka |ung|kum|a h|ulo|him|mbi|muk|u c| wa|hak|iku|nsh|yi | ha|bi |amu|imb|ewa|wen|kwa|ang|adi|idi|kut|esh|ana|g o|ila|ha |tun|u j|ong|nik|kuk|tel|ovu| ov|u n|han| an|ate|vu |a a|kal|ula|kwi|jak|u a| ya|a y|ilu|u k| he|ham|and|uch|kus|ond|eka|hel|kew|zat|del|hin|uku|nde|i j|enk|i a|uka|eng|ach|lu |nat|nji|ona|mon|awa|nke|umo|ins| yi|a d|ama|udi|wak|i h|ati|i c|wan|ta |bul|mwi|ata|ayi| ak|uma|i y|ina|ich|itu|uza|kuz|nin| mw|ku |kin|wun|sak|naw|nyi|ni |ant|muc|wal|ish|u y|mul|kud|waw|uke|wes|uki|i i|kam|yid|wit|da |akw|kad|yan| di|ken|uta|ika|imu|iya|nda| ns|mbu|ya |ule|dil|iha|kuy| ko|hik|eni|ahi|kuh|si |kun|ush|umu|atw|g e|his|dik|ji |any|li | ye|dim|kos|osi|hih|wat|eyi|ney| ne|amb|twe|til|wil|nu |kwe|u h|etu|tiy|ja |nan|ash|mwe|win|was|hit|iti| wu|iwa|wah|lem|g i|tam|din|hu |haw|nga|kay| ka|hid|yin|isa|iki| ma|jaw|jil|che|mpe|omp|eta|tan|jin|hiw|usa|umb|eme|inj| hi|ulu|ubu|nam|wik|mpi| da|ale|ite|tal|twa|ahu|end|nka|mba| at|ga |mes|dic|iwu|yej|kan|kuc|iyi|sem|emb|lun|una',tzm:'en |an | ye| d | n |ad |ur | ad|n i| s |agh|ḥe|n t| i |dan| ta| lh|lḥ|d y| gh|ell|n a|ra |̣eq|i t|eqq|s l|mda|ett|n d|d t|akk|la | ti|qq |hur|di | di| am|gh |ghu| is|t i|r s|in |nag| na|a y|is | te|a d|n n|yet|n g|ll |ara|ghe|ma | we| ar| wa|n s|l a|n l|sen|edd| ak|it |li | le|dd |ull|lla| id|d a| ur|rfa|erf|kul| yi| ku|as | se| ma|zer|amd|a n|lli|lel|men|t a|kw | de|t t|nt |kkw| im|fan|a i|a t|eg |n w|i d|q a|rt |ar |gar| ag|es | tl|ize|emd|i w|i l|deg| as|ken| dd|n u|lan|d i|a a|wak|tta| tm|d u|er | tu|wem|at |ddu|tle|w d|n y|t n|sse|r a|mur|s t|tam|gi | tt|yes|wan|r i|tim|na |wen|twa|d l|ttu|kke|wa |nen| iz|iḥ| u |win|d n|ame|s d|ent|ḍe|hel|a l|hed|ess|t d|mga|arw|i n|ḥu|mi |mad|agi|i g|der|udd|s n|rwa|̣en|awa|i i|ya |h d|iya|s y|msa|uḥ|idd|urt|un |n m|ane|em |sef|lsa|ili|q i|qan|leq|siy| ik|el |err| in|yed| la|ant|den|tag|man|g w|mma|yen|len|tmu|i u|aw |taw|r y|wad|edm|ṣe|hla|t l|̣er|ala|asi|ef |u a|tte|ddi|ttw| lâ|imi|l n|til|al | ne|am |̣ud| lq|iḍ| ya|dda|̣ṛ|med|ren| ss|gra|m a|ghl| il|chu|tem| ll|khe|way|eln|lna|ana|ukl|duk|gha|lt |ni |all|i a|tal|ray|nes|s k|tes|naw|ert|ila|awi|lqa|kra|anu|nun| kr|ikh|ezm|n k|iwe|iwi|ima|net|ser|s u|ir |yeh| an|aya|ehw|hwa|esk|dde',war:'an |ga |nga| ka| ng| pa| ha|han|pag|in |ata| hi| an|mga| mg| ma|kat|hin|a m|ay |a p|ya |ung|a k|gan|on |n h|n n|ug |n p|n k| ug|n m|da |a h|n i|ha |iya|adu|dun|tad|a n| ta|ada|sa | iy|ara| na| di| o |pan|may|a t|ang|ud |ana|n a|o h|o n|taw|n u|ags|yon|y k|al |tag|asa|kad|o p|man| ba|awo|gsa|wo |ag |gad| in|a a|a u|ina|syo|a i|a s|od |ing|agp|ala|asy|ngo|n b|ali|nas|san|aka|a d|ra |g a|was|g h|aha|gpa|agt|to |ad |n t|tun|ng |usa| wa| tu|ini|iri|tan|ahi|kan|ray|nal|war|dir|i h|gka| us|god|g p|ri |a b|nan|ida|o a|i n|bal|y h|kas|uga|hat|tal|nah|awa|ni |pin|uha|buh|o m| bu|gud|aba|at |no | pi|bah|g m|ili|him|aya|atu|d h|agi| su|agk|lwa|mo |d a|alw|sya|uma|ano|int|kal|upa|mag|yo |o u|agb|n d|asu|lin|a o| ko|ona|did|hiy| bi|as | ki|l n|sud|iba|hi |o k|kon|ira| la|gba|pam|amo|g i|ton|gin|n o|uro|ho |os |la |g k|gtu|d m|aud|aag|t h|gi | gu| ig| ir|n g|abu|aho|ami| sa|ati|par|kau|ern|ban|tra|gar|ama|ras|yan|adt|tum| un|ka |aga|aso|api|dto|kin|tik|mil|iko|rin|sal|ika|a g|ila|mah|lip|rab|non|agu|ak |dad|lau|d n|ko |it |pak|n e| ti|una|i m|lig|s h|bay|ro |sug|mak|n w|naa|g n| so| ag|yal|nte|lal|ba |aup|lan|ihi|y b|kah|tub|bye| am|ari|yer|uka|ani|uyo|oha|ito|n s|upo|ent| pu|sam|iin|til|mat|ato',dyu:'a’ | kà| ká|kà |ye | ye| à |ya’|ni | bɛ|kán|la |án |ya |ɔgɔ| ni| la|ɛɛ |ká |na |a k| mɔ|bɛɛ|mɔg| i |nya|á k|n k|ɔrɔ|’ k| mí|’ l| kɛ|mín|’ y|ín | mà|à k|ɛ k|’ m|ma | ya|à m| wá| jà| ní| be|be | ò |i y|ní |i’ | lá|ra |iya|ɛrɛ|n’ |n n| há| kɔ|te |wál|àma|jàm| te|áli|a b|ima|man|à à|hák|e k|lim| kó|ɔnɔ|mà |n b|i k|ɛn |gɔ |e b|n y|ɔ’ |ana|’ n|o’ | sà|ɛ y|’ s|kɛ |à l|rɔ |e à|kɔn|li’|àni|a m| dí|aw |rɛ |ɔ k|’ b| bá|à b|a à|ákɛ|riy|e s|gbɛ|nɔ |a j| bɔ| ù | sɔ|bɛn| sí|à y|sàr|e m|ara|kó | fà|à s| àn|dún| là|en | sì|an’| fɛ|úny| dú|a n|a y|ɛya|àri| gb|in |kɛr|kan|’ t|dí | cɛ|nin|yaw| tá|na’|e w|mìn|ìna|lá |ɔn | mì| ɲá|à d|ali|n m|yɛr| yɛ|sɔr|gɔ’| tɔ|ama|báa|nga| dà|i m|i à|sìg|ìgi|yɔr|gɔn|w n|áar|a d| sé|ána|àng|len|à i|si |ɛra|á d|bɛr|a s|bɔ |ólo|a h|i b|ɔ s|ɛ l|den|ɛ’ |à t|àra|ɔya|gɔy|kɛy|ógo|u’ |aya|’ d| má| dɔ|ra’|a f|ɔny|’ f| ó |ili|sí | se|se |ko |cóg|a t| có|dén|hɔr|ɔɔn| hɔ|ma’|lan|ika|ina|kàl| a |àla|n s|ɛ m|i t|rɔn|tig|ànt|a w|tá |e n|i s|à n|nna| í |’à |ò k|a g|n d|an |ga |fɛn|ɔ à|li |e i|ɛɛɛ|kél|ati|so’| yé|i f|áki|dàn| k’|i n|k’à| nà|í i|í à|lik|yé |igɛ|e’ |e ò|go | lɔ| na|ɔ b|w l|í t|rɔ’| dò|ò b|min|ti |àga|ow |n t|mad| mi|ò l|éle|gi |ɲán|í y|kil|dɔ |nba|i ɲ|gu | wó|ɛli|i l|úru',wol:' ci|ci | sa|am |sañ|añ | na| ak|ak |lu |it | mb| am|aa |na |al |ñ s|ñu |ne |mu |te |pp | ne| ko|m n|i a| ku| ñu| te| mu|baa|u n|ko |u a|mba|a s|e a|ay | wa| lu| do|ar | ni|u m|nit|oo |épp| ta|oom|gu |t k|i b|ku |u k| it|éew|rée| ré|u y|xal| aa|kk |i d| bu|doo|i w| bi|war|u c| yi|aay|llu| li|fee|loo| xe| xa| ya|taa| di|yi |ama|on |u j|yu |eex|ew | yo|boo|xee| bo| wà|àll|wàl|mi |o c|ir |mën| më|yoo|ul | gu|nn |en |oot| du| so|oon|e m|dam|een|u d|i n|uy |eet|i m|ara| ba|bu |a a|ata|okk|aad| lé| ay|ju |ada| nj|nam|und|axa|dun|m a|enn|r n|aar|ex |taw|ala| jà| pa|et |di |ën |ana|ral|ota|k s|awf|naa|wfe| gi|u l|igg|aju| dë|ma | aj|ti |u t| se|ax |gée|mbo| ja|ool|bii|li |a m| ke|see|m c| ye|i l| ng|yam|ngu| yu|w m|an |ken|n w| lo|i s| me| de|m m|i t|om |u x|n t| an| mi|jaa|laa|ee |bok|lig|p l|n m|t y|ggé|k l|a l|lép|àpp|jàp|aam| jë|aax|ekk|nd |góo|ewa|ndi|tax|a d| da|amu|éey|gi | su|k c|n n|l b|o n|k t|p n|jàn|àng|gir| jo|a c|n a|n c|ñoo|i ñ|a n|kaa|ba |m g|le |une|kan|e b|la |nda|lee|i j|ang|aat|k n|ey |ant|iir|a y|l a|e n|nan|añu|men|j a|ok |k i|nee|l x|omi|i c|oxa|aw |g m|dox|nte|opp|u w|ngi| mo|omu|y d|are|i k|aan|em |du |a b|njà|ñ ñ| ti|m r|kun|ddu|ali| së| la|eg | ma|ëra|ng |xam|mul',nds:'en |un |at |n d| da| de| un|een|dat|de |t d|sch|cht| ee| he|n s| wa|n e| vu|vun|ech|rec|ht |er |ten| to|tt | si| re|ver| ge|nne|t w|n w|ett|n h|n v|k u|n u| el|gen|elk|lk |t u|ien|to |ch | ve|wat|sie|war|het|it | an|n f|ner| mi| in|ann|rn | fö|ör |r d| fr|t r|hte|orr|ich|för| sc|rie|eit| or|den|nsc|ege|fri|rer| st|t g| up|aar|t a|nd | is|ll |rre|is |up |t e|chu|rt |se |ins|daa|lt |on |t h|oon|che|all|n g| ma|rrn|min| se|ell|hei| na|t s|n i|n a|nn |len| sü|in |rd |nen| we| bi|n m|e s|ven|ken|doo|sse|ren|aat|e m|ers|n t|s d|n b|lle|ünn|t t|n o|ik |kee|e g|t v|n k|hen|arr| dr|heb|lie|ebb|e v| al|e a|llt| ke|hn |he | wi|cho|ehe|ok |ard|sta|men|ill|gel|tsc| ok| do|an |düs|ene|erk| gr| dü|weg|ie |ede|ieh|r s|sün|üss|und|raa| dö|röf|drö|t m|ats|öff|e f|ünd|e w|dör|ens| gl|rch|sik|ig |kt |örc|ere|gru| ün|ff |ahn|nre|mit|st |al |aal|hon|ert|kan|nat|der|dee|enn|run| so|eih|lic|ehr|upp|iht|nwe| fa|pp |eke|e r|unw|t n|taa|hup| ka| be|bbt| wo|p s|el |as |t f|bt |e e|nee|maa|huu|eve|nst|ste|mee| ni|inn|n n|ern|iet| me|hör|dde|ent|n r|t o|öve|are|arb|ite|ter|l d|ach|nic|bei| as|lan|t b|d d|t i|ang|ame|rbe|utt| ut|pen| eh|uul|iek|hr | ar|r t|ul |e d|art|n ü|one|eer|na |nte|mut|ete|üd | mu|üüd|lüü',vmw:'tth|la |thu|a e|na |hu |kha|a m|we |ana| mu|a o|awe|ela|ni |ala|hal|edi|to | ed|ire|dir|eit|ito|rei|ya |a n|wa |mut|a w| wa| ni|akh|aan|u o| on|o y|okh|utt|a a|haa| n’|wak|nla| wi|ari| yo| si| ok| ot|iwa|ka |iya| sa|ne |apo|lap|ale|le | oh|oth|att|the|mul|aka|oha|kun| el|aku|oni|mwa|ha |e s|unl|tha|ott|ele|ett|e m|o s| va|ene|e n|e o| ya|oot|hav|ade|ihi|iha|ihe|de |o o|e a|eli|hen|amu|e w| aw|hel|dad|ra | at|po |i m|lel|wi |o n|owa|e e|ula| en|ta |o a|i a|moo|waw|ina| ak|ota| mo|sa |a s| so|han|ara|var| kh|a i|ri |aya|itt|anl|row| mw| et|i o|ika|’we|nro|i e|n’a|her|lan|nak|sin|lo |elo|vo |u e|eri|n’e|oli|thi|u a|a’w|ida| ah|a v|liw|kan|him|lib|yar|riy|ona|onr|erd|wal|hiy|aa |ibe|rda|wan|ber|era|avi|hiw|nna|i v|hwa|lei|mih|vih| ep|khw|ntt| na|ko |ia |sik|aha|iwe|e k|hun|una|mu |avo|ikh|laa|riw| ma| an|e y|kel|’el|huk|u y|phe|kho|pon|i s|nid|upa|ath|ila|yot|eko|ali|tek| es| it|o e|uku|wih|nan|tte| a |mur|’at|i w|ani|ulu|nih|wel|lik|ira|ane|a y|nkh|saa|ro |n’h|wir|i n|ile|som|u s|hop|inn|ei |ont|kum|yaw|saw|iri| eh|tel|tti|ola|aki|mak|ret|uth|nnu|a k|nuw|ahi|enk| il| nn|ena|va |yok|ute|soo| pi|lal|ohi|hik|mpa|uwi|lih|har|kin|aph|ma |ope|man|ole|uma| oo|mpw| v’|nal|ehi|nin|uni| ek|khu',ewe:'me |ame|e a|le |wo |kpɔ| am|ɖe |ƒe | si| me| wo|be |si | le|sia|esi|la | la|e d| ɖe| kp|pɔ |aɖe|e l| be|e w| ƒe|e e|dzi|na |nye|a a| du|ye | ŋu| na|duk| dz|ukɔ|e s|ome| mɔ|e n| aɖ|kpl|nya|gbe|e b|e m|ple|ɔkp|ɔ a|pɔk|woa|ɔ m|kɔ |evi|nɔ |ŋu |ke | nu|ɔ l|mes|awo| o |iwo|ɔnu|e ɖ| ab|ya |ekp|e k|ɔwɔ|u a| al|nu |ia |ɖek|e ŋ|kpe|ɔme|o a|iny|zi |dze| ny|o k|eme|eƒe|o n|iam|egb|mɔn|blɔ|i n|wɔ |a m| eƒ|o d|alo|siw|ɔɖe|lo |o m|eke|e g| bu|eny|ubu|ŋut|ɔ s|bub|lɔɖ|enɔ|meg|akp|abl| ha|e t| ta| go|mek|eɖo|ukp|li |nɔn|to |any|a l|etɔ|ɔ ƒ| ey|e h|nuk|gom|ɔ ɖ|ɔe |bɔ |ɖo |i s| to|anɔ|a k|ɔnɔ|e x|awɔ|e ƒ|tɔ | ƒo|mev| es| ɖo|ɖes| xe|i w|tso| wò|wɔw|mɔ |iaɖ|i l| ag| li|ã |o ƒ|odz|a s|agb|yen| ts|bu | he|bet| gb|o e|ewo|a e|ɔna|i d|ti |ele|dɔw| ka|i a|uti|peɖ|ta | an|afi|a ŋ|a ƒ| ad|ƒom|se |ɔwo|xex|exe|oma| ma|vin| dɔ|o l|wɔn|eye|a n|i t|vi |ɔ b|so |edz|gbɔ|ɖev|ado| se|ɔ n|oto|ene|eɖe|xɔ |nan|ɖod| af|ben|zin|ee |de |ɖok|dzɔ|gɔm|adz|ɔ k|wom| gɔ|uwo|i ɖ|a d| vo|a t|o g|i b| xɔ|oɖo|i m|e v|ats|o ŋ|sɔ |ovo|i e| at|vov|ne |ɔ e|kat|o s| ne| aw|da |wòa|eŋu| as|asi| el|o t|yi | sɔ|men|a b|ze |mee|uny|te |dom| ak|man|ẽ |i o|ie |ana|ata|ui |axɔ|u k|ɖoɖ|tsi|ema|rɔ̃|ded|ɔ g|ena| en|kɔm|met|u s| eɖ|oku|kui|mew|xem',slv:' pr|in | in|rav|pra|do |anj|ti |avi|je |nje|no |vic| do|ih | po|li |o d| za| vs|ost|a p|ega|o i|ne | dr| na| v |ga | sv|ja |van|svo|ako|pri|co |ico|i s|e s|o p| ka|ali|stv|sti|vsa| ne| im|sak|ima|jo |dru|nos|kdo|i d|akd|i p|nja|o s|nih| al|o v|ma |i i| de|e n|pre|vo |i v|ni |red|obo|vob|avn|neg| bi|ova| iz|ove|iti|lov|ki |jan|a v|na | so|em | nj|a i|se | te|tva|oli|bod|ruž|e i| ra| sk|ati|e p|aro|i k| ob|a d| čl|eva|rža|drž| sp|ko |i n| se| ki|ena|sto|e v|žen|nak|kak|i z|var|ter|žav| mo|di |gov|imi|va |kol|n s| z |mi |ovo|rod|voj| en|nar|ve | je|pos|a s|ego|vlj|jeg| st|h p|er |kat|člo|ate|a z|enj|n p|del|i o|lja|pol|čin|a n|ed |sme|jen|eni| ta|odn| ve| ni|e b|en | me|jem|kon|nan|elj|sam|da |lje|zak|ovi|šči|raz|ans|ju |bit|ic | sm|ji |nsk|v s| s |n v|tvo|ene|a k|me |vat|ora|krš|nim|sta|živ|ebn|ev |ri |eko|o k|n n|so |za |ičn|ski|e d| va|o z|aci|cij|eja|elo|dej|si |nju|vol|kih|i m|nst|kup|kov|uži|la |mor|vih| da|h i|lju|otr|med|o a|sku|rug|odo|ijo|dst|spo|tak|zna|edn|vne|ara|ršn|itv|odi|u s|čen|boš|nik|avl|akr|e o|vek|dno|oln|o o|ošč|e m|ta |vič|bi |pno|čno|mel|eme|olj|ode|rst|rem|ov |ars| bo|n d|ere|dov|ajo|kla|ice|vez|vni| ko|ose|tev|bno|užb|ava|ver|e z|ljn|mu |a b|vi |dol|ker|r s',ayr:'apa|nak|aka| ja| ma|ata|ana|aña|asi|aqe|cha|aki|ñap|jha|mar|aw |kan|ark| ch|una|aru|paw|ti |jh |pat|jaq|rka| ta|a j| ar|hat|ama|tak| wa|ach|iw |a a|ani|a m|spa|na |kap|ki |taq|pa |jan|sa | uk|qe |kis|kas|ha |ina|niw|may| kh| am|at |ati|pan|i j| ya| mu|iti|ka |ayn|t a|as |amp|ch |a u|an |pjh|yni|mun|iña|uka|ajh|ru |w k|hit|ñan|h a|is |isp|qen|khi|isi|has|ejh|e m|sis|atä|oqa|nch|rus|kam|siñ|han|mpi|kañ|qha|sin|asp| in|ham| uñ|ñat|hañ|qat| sa|yas|yat|ita|äña|ska|tap|asa|kha|sit|täñ|tha|arj|ma |a t|ta |tas|nka|sti|iri|sna| ji|a y|ara|pas| as|ñja|rjh| ku| ut|hap|tat|kat|tis|pi |apj|jam|noq|aya|i t|i u|ukh|ura| ka| ju|ans|qas|uñj|asn|a c|nin|aqa|kaj|nañ|sip|i a|us |i m|kun|w u|anc|api|ino|ili|uya|pac|tan|jil|ña |lir|utj|w j|s a|ipa|chi|kiw|w m|kak|muy|pis|rak|hac|isa|njh| lu|mas|amu|ena|nsa|w t|nan|ali|s j|ink|tay| a |upa|wak|a k|way|wa |in | ay|tañ|s m|jas|mp |lur|ank|khu|rañ|h j|t m|iru|eqa|ayt|yt |heq|che|anq|en |lan|rin|ipj|i c|mat|qpa|aqh|tja|awa|uki|k a|qej|anj|sap|pam|usk|yaq|kar|nip|llu|wal|run|yll| aj|lin|a w|ayl|n m|jac|isk|naq|ast|h u|ni |ath|a i|ayk|jhe|aqp|h k|uch|inc|hus|sar|s u|s w| pa|nap|ap | un|ak |n j|tir| ak|ns |s c|ust|arm|ask|war|ri |man|pit|qer|juc|sir|n w|hik|ika',bem:' uk|la |uku|wa |a i|a u| mu|kwa|ali|ya |shi|a n|amb| na|sam| pa|ula|ta |nsa|fya| no|nga| ya|mbu|bu |ata| in| ku|a m|lo |se |nse| ba|ntu|kul|ons|ala|ang|ins|aku|li |wat|mo |tu |alo|a a|ngu|ili|nok|ika|na |nan|a p|ing|a k| al|mu |gu |o n|sha| ca|ila|oku|e a|ikw|yak|ka |lik| um|ana|lin|yal|ga | ci|aba|lwa|ku |ish| fy|uli|a b|u u|unt|i n| on|kal|lil|u y|ba |hi |ukw|amo|po |ulu|kan| sh|kup|ko |we |and|a c|aka|le |u n|cal|o u|ha |ile|ama|umu|bal|kus|akw|u m|mul| if|o a|kut|nsh|o b|ung|apo|e n|kub|mun|uci|yo |mbi|nka|cit|bul| ab|any| bu|pa |ne |u c|u b| ka|abu|ndu| fi|e u|a f|ton| ne|ant|no |i u|u a|ban|o i|cil|cin|ify| ng|pan|tun|gan|nda|kuc|kwe| ns|o c|ngw|o f|ans|fwa|a l|pam|tan|ti | am|kum|kuk|lan|u s| is|wil|du |nya|und| ic|e k|wal|aya|bi |bil|ubu|ush|fwi|int|nta|utu|twa|wab|afw|ela|o m|uko|ako| ta|lam|ale|gwa|win|u k|apa|ma |onk|way|kap|i k|imi|a o|upo| im|iwa|mba|o y|ngi|ici|pak|lul|ind| ma|e p|de |nde|gil|e b|iti|uti|ilw|a s|imb|da | li|uka|hiw|umo|pat|afu|kat|ine|eng|fyo|bun| af|uma|kuf|alw|til|ita|eka|afy|mas|e y|tul|but|nto|usa|kwi|mut|i i| ak| ap|bom|umw|sa |ont| wa|ilo|u f|baf|fik|ina|kab|ano|pal|ute|nab|kon|ash|bwa|ifi| bo| bw|lya|atu|ubi|bik|min|aik|cak|nak|men|ubo|ye |hil',emk:' ka|a k|ka | la| a |la |an |kan| ma|a l|ni |ya |na |ama|a a|lu |n k| di|ɛɛ |di |a m|ma | bɛ| ja|ana|a b|aka|bɛɛ|man|iya|a d|ara|dɔ |jam|alu|en |a s| si| sa| mɔ|mɔɔ|ani| ye| dɔ| tɛ|ye |i s|i a|den| ba|riy|tɛ |sar|ɔɔ |da | al| kɛ| ni|ari|ila|a j| i |a t|n d|ɛn |ɲa |kak|ra |ada|ɛ k|i k|i d|len|u d|ele|nna|sil|n n|n m|olo| se| bo|ade|aar|ɔdɔ|ɛ d| kɔ|ɔ a|ank|ɔn | fa|fan|a ɲ|se |lak|lo | da| na|bol|kel|e k| wo|i m|aya| ke|ko | ad| mi|nu |baa| sɔ|dam|nda|ɔnɔ|mɛn| ko|a f|and|ala|ɛ y|ɔ b|ɛ s|le |ɛ m|i l|i b| wa|n s|a i| de|ina|li |ɔya|mad| mɛ|aba| le|n a| ha|a n|ɔ s|u l|nɲa|han|n b|sɔd|dɔn|kɔn|kɛ |ata|nɔ |kar|dan|in |u k|ɔ m|kɛd|ɛda|i j| su|nnu|a w|ɔ k|nka|lat| gb|ɲɔɔ|aji| an|a h|nin|olu|u m|kun|a g|on |asa| ku|ibi|jib|don| lɔ|i t|waj|bɛn|ɛnn|ban|ɔrɔ|wo |ran|si |ɛ b|ɛnɛ|ɛ l|mak|suu|e m|ii |i f| ɲi|e a|o m|ɲin|enn|usu|ba |ɛdɛ|yan|taa|nan|u b|u t| ɲa|nal|nba|ɲɛ | ɲɔ|law|ati|nad|rɔy|hɔr|a y|iri|sii| hɔ|mir|ti |enɲ|bɔ |u s|n t|u y|ini| te|ta |kol|enb|awa|bat| fu|nki|kil|ili| du|bar|ɛ j|fɛn|fɛ | do| dɛ|gbɛ|su |uus|aam| ta|afɛ|may|lɔ |nni|ɔnn|lɔn|maf|o a|e d| bɔ|din|sab| fɛ|ɔ j|o y|i w|tan|ɔɔy|dɛɛ|bɛd|kad|min|ɔlu|dal|ɔɔl| tɔ|ɔɔn|e f|biy|ali|e b|kɔd|te |wol|bi |e w| mu|ida|du |ant|nɛn|dɛ |ɛ a|dah',bci:'an |be | be| ɔ |un | i |ran|sra|wla| sr|kwl|in |la | kɛ|n b|kɛ |n s|n k| kw| ng|n n|lɛ |a b|n m|le | nu|a k|nun|i s| a |man|n i|ɛn |e k|ɛ n|kun|n ɔ|mun| ni| ti| mu|nin|nga|ti | n |ɛ ɔ|e n|ɔ n| su|ga |ɔ f| fa| ku| li|e s|su |a n|a s|a ɔ|ɛ b|i n|e a| sɔ|wa |sɔ |i k| ma| le|ɛ i|tin|ɔ k|di | at|ata|ta |ɔ l|fat| mɔ|ati|mɔ |lik|akw|ɛ m| sɛ|lak|e w| sa|dɛ |ndɛ|mɛn|i b| mm| yo|iɛ |ba | nd|nvl| nv| kl|vle|sɛ |a a| mɛ| fi|ke |und| wu|ɛ s|n a|mml|liɛ|mla| ka|ike|yo |ɔ t|ngb|i a|e b|a m| an|ɔ ɔ| di| yɛ| si| bo|e t|ndi|bo | ye|o n|n t|e m|fin|e y|n f|sa |ɔ b| fɔ|dan|n y|fa |i i|uma|yɛ | ju| ny|ɔ i|nan| na|kan|ɔun| tr|wun| b | o |n l| aw|a y|b a| wa|fɔu|i f|ɛ a|ing|ge |uɛ |i w|a w|nge|klu|ka |gba|e i|awa|o m|jum|ɔ y|ɛ k|wie|a i|ie | fl|e f| wl|tra| ba|lo |lun| ak|ang|ye | wi|e l| kp|uan|i m| uf|uwa|n w|sie|flɛ|kpa|alɛ|luw|flu|o i|kle|ua | da|nyi|nzɛ|wuk|ɔ s|wo |e ɔ|ika| wo|wan|bɔ |ian| bl|wlɛ| bu|anz|o ɔ| af|aci|u b|bu | ya|ɛ w|ufl|bɔb|te |zɛ |ɔ d|a t|elɛ|i t|ci |nua|fuɛ|ɔbɔ|u i|anm|i l| w |w a| bɔ|o b|lu |se |u m|ilɛ|iɛn| ja|a j|afi|i ɔ|n u| se|unm|nda|yek|bɛn|gbɛ|eku|ɛ l|nma|kac|u s|san|ko |o y|o s|a l|u n|si |anu|aka|any|ɛ d| ko|n j|ɔ w|u a|fi | yi|anw|i j|uka|fiɛ|a d|o a|lel| kɔ|ɔlɛ|ɔn |a f',epo:'aj | la|la |kaj| ka|oj | de|on |de |raj| ra|iu |ajt|as |o k| ĉi|e l|j k| li| pr|eco|aŭ |ĉiu|jn |ia |jto|est| es| al|an | ki|pro|io | ko|en |n k|kon| ti|co |j p|o d| po|ibe| aŭ|ro |tas|lib|ber|aci|toj| en|a p| ne|cio|ere|ta | in|to |do |o e|j l|n a|j d| se|a k|j r|ala|j e|taj| re|rec|iuj|kiu| pe|o a|ita|ajn|ado|n d|sta|nac|a a|nta|lia|ekt|eni|iaj|ter|uj |per|ton|int| si|cia| ha|stu|a l|je | je|al |o ĉ|n p|jta|tu | ri|vas|sen|hav|hom| di| ho|nte|a e|ali|ent| so|nec|tra|a s|ava|por|a r| na|igi|tiu|sia|o p|n l|ega|or | aj|soc|j ĉ|s l|oci|no | pl|j n|kto|evi|s r|j s|ojn|laj|u a|re | eg|j a|gal|ers|ke |pre|igo|er |lan|n j|pri| ku|era|ian|rim| fa|e s| ju|e a|ika|ata|ntr|el |is |u h|li |ioj|don|ont|tat|ons| el| su|go |un | ke|ebl|bla|n s|oma|ĉi |raŭ|kla|u r|ne |ili|iĝo|o t|s e|tek|men|nen|j i|nda|con|a d|ena|cev|moj|ice|ric|ple|son|art|a h|o r|res| un|u s|coj|e p|ĝi |for|ato|ren|ara|ame|tan| pu|ote|rot| ma|vi |j f|len|dis|ive|ant|n r| vi|ami|iĝi|sti|ĝo |r l|n ĉ|u l| ag|erv|u e|unu|gno| ce| me|niu|iel|duk|ern| ŝt|laŭ|o n|lab|olo|abo|tio|bor|ŝta|imi| ed|lo |kun|edu|kom|dev|enc|ndo|lig|e e|a f|tig|i e| kr| pa|na |n i|kad|and|e d|mal|ono|dek|pol|oro|eri|edo|e k|rso|ti |rac|ion|loj|j h|pli|j m',pam:'ng |ing|ang| ka|an | pa|g k| at|ala|g p|at |apa| ma|kar|lan| ki|ata|kin|pam|g m|ara|tan|pan|yan| a |pat| in| ba|aya|n a|g a|ung|rap|ama|man|g b| ni| di|nin|din|n k|a a|tin|rin|a k|ami| la|tun|n i|ari|asa|nga|iya|ban|ati| me|nan| da| sa| na|t k|gan|g s|bal|etu|mag|a i|met|sa |la |ant|kal| iy|kap|a n| mi|in |ya |aka|tau| o |san|n d|au |lay|ana|mak|yun|na |ika|a m|ipa|ran|atu| al|n n| ta|ti |ila|g l|ali|kay|nsa|aga|a p|iti|g t|par|u m|ans|nu |al |g i|t p|iwa|a d|syu|t m|sab|anu|un |uli|mip|ra |aki|aba|u a|mal|as |mil| it|una|bla|abl|ita|awa|kat|t a|ili|kas|g n|lag|da |tas|i a|wa |n l|lal|dap|mas|bat| pr|abi|ap |a b| e |mik|ani|sal|li |ad | an|ral|ira|gal|a r|lin|g d|nte| li|ale|kab|e p|ula|wal|lit|nti|s a|lip|nta|pro|te |ie |wan|ag |tu |upa| ya|g e|tek|usa|g g|bie|o p|it |pun|ian| bi|lat|aku|be |n p|sas|iba|yat|alu|tul|e m|kan|l a|nap|t i|lir|u k|isa|pag|abe|len|e k|rot|en |bil|mam|ksy|ngg|lam|p a|ily|liw|eks|ote|n o|gga|u i|eng|ipu| tu|lya| ri|aul|pas|dan|uri|ema|lab|ta |lak|are| ar|ail|tam|o a| ke|ril| pe|sar| ra|ina|asi|ka |art|pak|sak|mit|rel|i k|gaw| ul| re|inu|i i|mun|abu|asy|mba| pi|ags|obr|gpa|a o|am |n m|mem|o k|isi| mu| nu|mis|nun|era|ndi|ga |agp|aun|mab|anm|lub|gla|e a|nme',tiv:'an | u | sh| na|nan|en | a |ha |sha|shi| i |er |a i| er|or | ma|ar |gh |n i|n u|a m| ve| ci|n s|han|u n| ke|lu |man| lu|n m|yô |a u|u a|n a|r n|a k|mba|in |ii | ha|kwa|ken|n k|na |hin| mb|a a| kw|n n| ga|ga |cii|agh|a n|aa |wag|ve |a s| yô|nge|ba |r u|u i| gb|ana| or|a t|mao|r i|ity|ma |aor|anm|nma|gen|oo | ta|ir |ren| kp|i n|ang|r m|e u|gba| ng|r s| ia|ere|ugh| it|ian|doo|ese|uma|kpa| la|u k|n g|ngu|gu |om |oug|on |ol |a h|ior| ts| he| ne|tar|h u| ka|la |n t|se |e n|r a|a v|hen| ku|aha|mac|yol|i u|ace|ge |ce | de|ish|u t| io| do|tom|hi |a e|u u|o u|i m|iyo|i d|bar|ave|ua |u s| te|igh|a l|e a|m u|a w|un |n c|n e|ne |ev |r k|ind|ene|sen| is|ndi|ker|era| to|a o|ima|u v|a g|paa|n h| wo|di |yar|tya|ase|e s|de |n y|ee |end|him|tes| mk|u m|ka |tyô| mz|won|u e| um|u h| wa| mi|yan|tin|ran|ie |hie|a c|hir|i a|e k|i v|mak| in| za|r c|nen|e l| ig|i k|kur|nah|tse| ik|ves|eng|rum|mzo|men|zou|i l|e i|a d|i e|i i| ya| vo|mlu|ô i|inj|nja| as|vou|ura|ron|gbe| iy|r t|ôro|a y|oru|e e| zu| ti|ra |n l|ci |u l|ver|kpe| fa|was| ml|e m|em |io |mi |da |civ|môm|ant|see|ivi|wan|vir|nda| ij|soo|zua|lun|ea |vea|wa |ôm |av |hio|ake|a f|igb|l i|u z|r l|zan|nta|e g|hem|h s| mt|ded|iky|o s|r g|do |ndo|iji| hi|e h',tpi:'ng |ong|lon| lo|im | ol| na|la | ma|pel|ela|ri |at | bi|ait|na | yu|ol |gat| ra|bil| ka|ilo|man|rai|t l|it |eri|mer| o |wan| i |mi |umi| wa|ing|yum|ta |t r|tin|eta|get|lge|olg|iga| ig| sa|ara|em |rap|i o|ap |nme|anm|in |ain|an |a m|ant|ape|nar|m o|i n| no|g o|g k|i i|as |ini|mas| me|n o|sim|tri|kan|kai|ntr| ga| st|a s| pa|gut| ha| wo|g y|yu |a l|g s|ama|m n|ok |g w|wok|spe|a k|i b|i m|g l|i l|sin|sam|pim|m l|kam| gu|l n|amt|tpe|g n| in|ts |a i|mti|utp|isp|kim|its| la|isi|aim|api|lo |o m|g b|tai| di|a o|dis|a t|p l|en |map|t w|s b| lu|luk|sem|no |tim|lai| ko| ki|ave|ols|nog|m k|lse|sav|nem|ve |a p| fr| em|nim|tu |i y|nka|et |m y| ti|g t|nap|g p|sta|tap|aun|a n| tu|un |asi|fri|pas|n m|m g|l i|aut|ane| sk|kau|t n|nta|sen|n s|oga|i g|g g|m i|kis|o i| ba|tok|os |usi|m s|ngt|anp|a w|s n|a h|s i|iki|i s|sai|l m|npe|ari|o l|o b|g r|ik |uti|iti|gti|aik|ut | to|a g|ili|a y| pi| ta|kin|ni |n b|lim| ye|yet| we|k b|ina|g m|uka|str|ins|rid|a b|anw|nsa|nwa|m w|m m|dom|ot |hap|ido|aus|i w| ne| si|n i|t o|dau|ese|rau|ank|sap|o k|m b|nin|pos|o n|am |go |s o|s l|u y|pik|vim|ivi|es | go|n n|kot|ron|ple|g d|a r|kul|ali|sku|apo|om |g h|l l|s s|ti |les|t m|gav|eki|nai|mek|kom| as|ind|nda|ip |liv|ul |ati',ssw:'nge|eku|a n|ntf| le|e n| ng|tfu|lo |la |nga| ku|fu | ne|o l|khe|tsi|nkh|le |he |unt|elo| lo|si |ele|a l|ni |ung|mun|ma |lun|lel|wa |lek|nom| um|eni|oma| no|kut|hla|onk|a k|e l|ent|e k|gel|ela|ko |eli| ba| la|pha|ats| em|o n|ang|ema|eti|nel|nye|ban|ulu|uts|hul| na|aka|tfo|e u|lan|oku|lok|won|khu|esi|lul|a e|ule|ala|umu|tse|akh|ye |ve |i l|nek|ana|ane|lil|kwe|aph|na |we |ke |aba| wo|nti|ndl|ale|i n| ye|ba |ilu|gek|gan|lab|any|hat| li|tin|wen|gen|kel|len|ndz|fo |and|let|eko|e b|lwa| ka|te |set|nem| kw|mal|ka |ant|alu|ne |phi|ing| un|u u| ek|ise|une|e e|kul|nal|lal|mph|o y|uhl|fan|‐ke|ile|i k|kub|ukh|ben|kan|ako|a b|kat|eke|ive| ti|sek|nak|sit|seb|u l|alo|yel|kho|wo |kha|les|o e|ngu|kus|lom|ini|ikh|elw|isa|sa |fun|e w|ebe|o k|jen|iph|eng|kwa|ahl|uph|emb|be |tis|lwe| si|etf|isw|uma| se|ene|ta |nan| im|i e|enk|e a|abe|kun|ume|hak|nen|dle|ase|sen|kuv|tel|ebu|omu| in|lin|sel|tfw|nhl|a i|e i|kuk|uba|ti |kuf|mhl|bon|ula|sin|int|fut|dza|lak| wa|ind|ave|ali|yen|ete|to |ngo|use|kuh|hol|ze |a‐k|ona|a a|se |nje|und|swa|lon|eki|ike|i a|lis|tsa|gab|sim|i w|its|fol|e t|o m|hi |ndv|phe| ya|ma‐|utf|sik|liv|bun|cal|nta|ata|gal|mel|ute|wem|gap|han|uny|oba|alw|ili|a w|mbi| bu|gob| at|awo|ekw|dze|u n|emp',nyn:'omu| om|ntu|tu | ku|a o|ra | ob|wa |obu|ari|a k|mun|a n|unt|mu |uri|nga| mu|aba|ri |a e| na|e o|gye|rik|ho |a a|han|ang|re |ga |iri|bwa|oku|aha|bur| bu|na |eki|ka |iku|ire|uga|ndi|ush|ban|ain|ere|ira|we |kur|sho| ek| ab|ne |ine|a b|and| ni|u a|e k|sa |u b|iha|i m|e n|kir|be |aho|bug|ibw| eb| ba|ing|ura|gir|u n|kut|ung|ant|abe| ah|ye |e b|i n| bw|kwe|ebi|era|iki|ba |ro | kw| ok|uba|gab| no|zi |bir|i k|u o|o o|rwa|o e|kub|end|ama|mer|eka|kug|ate|tee|di |rir|bus|kuk|rin|ish|sha|i b|wah|ha |u m|bwe|ngi| ai|ara|kwa|kan|o g|za |ngo|kuh|ana|i a|eme|eek|i o|baa| ka|go | gw|nib|zib|ash| or|iro|she|o k|u k|iin|o b|iba|oon|gan|agi|ngy|hem|mwe|ona|oro|bwo| ar|ya |i e|uru|nar|eir|uta|tar|kwi| ti|egy| n |hi |bar|isa|ute|o a|shi|ora|e e| en| ki| nk|riz|nda|da |ja |si |nsi|wen|yes|tek|yen|aga| am|o n|rei|rag|ki |obw|mur| ha|ris|wee|amb|aab|bya|kus|ugi|a y|ind|ata| ne|bas| ky|ija|hob|ikw|mus|gar|a g|eky|dii|bor|aar|ibi| we|aka|ham|emi|ekw|rer|ini|har|gi | bi|naa|kor| er|gwa|n o|iza| by|eih|yam|iho|rih|i y|ete|o m|eby|but|a r|ika|mag|ozi| em|ong|iik|iko|uka|nik| yo|sib|eri|utu|tuu|amu|uko|irw|nka|ani|yaa|u e|mut|roz|mub|ens|aij|nis|uku|kye|nde|der|e a|nok|nko|asa|aas|hab|obo|ent|ahu|rye|oba|kih|yob',yao:'chi|ndu| wa|du | ch|a m|aku|akw|ni |kwe|und| mu|wak|wan|mun| ku|la |e m|wa |ulu|amb| ak|kut|u w|ali|mbo|lu |we | ma|le |ufu|ful|ila|a k|bo |a n| ga| ni|amu|kwa|se | na|ose|hil|nga|go |aka|and|ang|na | uf| pa|ete|uti|jwa|kul| jw|son|ngo|lam|e u|ne |kam|oni| so|u j|e a|ele|a c|ana|wal|ti |isy|cha| yi|gan|te |ya |mwa|lij|wet|che|ga |yak|ili|pa |e n| ya|o s|nda|i m|ula|jos|i a|ile|ijo|li |e k|o c|a u| mw|ich|mul|uch|o m|asa|ala|kas| ka|i w|ela|u a|ach|his|nam|lan|yin|i k|ind|ani|sye|yo |si |pe |gal|iwa|man|sya|aga|a w|o a|ule|ikw|asi|kus|ope|ma |gak|e w|jil|kap|hak|ika|ite|aji|mba|u g|ase|mbi|kum|uli|any|ape|a y|ekw|mal|imb|ja | al|end| ng| ja|mas|usi|kup|e c|pen|ye |anj|ka |a j|a p|lem|o n|ama|him|ago|sen|eng|ane|ako|mch|ola|och|oso|ena| kw|sop|lek|pel|gwa|hel|ine|gam|u y| mc|i y|awo|ons| mp|ole| li|wo |i u|hik|kol|auf|mka|tam|syo|e y|mpe|ten|ati|mau|nji|wam|muc|ong|i g|kan|uma|je |iku|nag|kwi|da | ul|cho|ngw|ene|iga|ano|esy|ion|upi|pag|o k|eka|wu |uwa|kuw|sa | un|a l|bom|iya|uni|jo |ale| ji|apa|yil|lil|uku|i n|o g|a a|o w|waj|mus|ipa|pan|pak|one|i c|ujo|duj|emw|nya|tio|jak|oma|nja|hiw|dan|apo|e j|poc| wo|lic|alo|eje|ing| mi|e p|lo |lig|a s| yo|ung|no | m |upa|ata| bo|nde|he |i j|was',lav:'as |ība| un|un |tie|ies|bas|ai | ti|esī|sīb|ien| vi|bu |vie|ir | ir|ību|iem| va| pa|em | ne|s u|am |m i|šan|u u|r t|pie| ci| sa|ās | uz|vai| ka| pi|brī| iz|rīv| br|uz |cij|dzī|ena| ar|ar |isk|s p|es | at|āci| ap|ot |nam|viņ|inā|ikv|kvi| no|s v| ie|vis| ik|i i|pār|u a|ju |nu | pr|edr|vīb|īvī|iju|drī|u p|dar| st|lvē|cil|ilv|s t| la|iņa|ana|s i|n i|īdz|s s|kā |tīb|i a|ija|bai|ībā|ied|s n|arb|val|līd|s b|aiz|tu |iec|cie|ām |gu |vēk|īgu|īgi|ka |jas|umu|mu |t p| jā|u v|zīb|ska|lst|als|kum|gi |s l| tā|jot|stā|st |n v|vēr|a p|arī|aut|n p|ama|kas|u k| da| ta|nīg|izs|ojo|anu|ņa |u n|sta|s a|ba | ai| so|s d|a u|ā a|stī|cīb|m u|i u|son|not|mat|sav|iev|ā v|jum| kā|u t|ned|ajā|s k|u i|i v|līt|ēro| pe| dz|i n|per|u d|īks|kat|nāt|līb|nāc|rdz|nīb|pil|rīk|kst|a s|cit|pam| pā|ekl|tau|u s|bie|jā | re|i p|kur|a a|t v| li|evi|tis|evē|bā |ma |rīb|a v|os |ras|abi|nev|iku|skā| ve|lik| lī|nas|t k|ant|uma|roš|kād|zsa|sar|ciā|mie|ais|eci|oci|oša| je|jeb|būt|atr|n b|ieš|rso|ers|soc|enā|a t|t s|īša| be|bez|āda|ebk| ku|glī|isp|tot|spā|roj|lie|pre|ret|aul|na |tra|iet|du |zgl|āt |ard|kt |ier|izg|ikt|paš|iāl|nod|ts |eja|ā u|sab|eno|ēt |ta |tik|tīt|ecī| de|īga|tar|arp|r j|īst|tās|ja |enī|atv|vu |ārē|rēj|rie|oši|dro',quz:'una|an | ka|nan|cha|ana|as |apa|pas|man|lla|aq |sqa|ta | ru|run|kun|ach|qa | ll|pa |paq|na |nta|chi|npa| ma|nch|aku|anp| ch|in |a r|ant|hay|mi |taq|ay |ama|asq|qan|tin|kuy|chu|lap|a k|yta|a a|ima|wan|ata|spa|all| wa|n k| ja|ipa| ya|nin|ina|aqm|his|qmi|a m| ju|pi |anc|nap|iku|aus|usa|kau|pan|nak|kan| mu|naq|aqt| pa|kam|aqa|kay|i k|kus|un |ank|isq|nku|may|yku|ayn|a j|a l|ayt|qta|ati|a p| pi| ri|aci|lli|lin|ayk|uku| al| at|n r|yac|ion|pip|han|inc|n j|ayp|yni|qpa|nac|say|asp|uy |mac|s m|cio|awa|a c|laq|tap| yu| im|a y|yoq|n m|asi|mun| de|has|n a| as|n c|int|uch|nma|s k|oq |ari|q k|hu | na|ypa| tu|tuk|tun|atu|rim|q r| sa|jat|yan| ji|nat|anm|jin|a s|api|hik|uya|nti|pac|tan|ash|mas|n p|n l|k a|ura| su|a q|yuy|n y|ech|q j|unt|yay|ypi|is |lan| qa|usp|kas| an|a w|s w|inp|sin| ta|ma |a t|shw|q a|hwa|uyt|nmi|sim|ere|rec|der|uma|s t|isp|n t|ña | ni| ay|upa|nam|hur|war|waw|imi|nka|sap|kaq|s j|was|y r|usq|kin| un|inm|qas| si|ani|tiy|t a|sta|pay|pis|maq|hin|ha |arm|npi|rmi|ink|aqp|q c|la |i p|nis|yma|nk | ku|aym|nal|hak|rik| ti|unc|niy|y s|iyo|juc| qh|ist|pap| aj|s y|cho|onq| re|ayo|iqp|n s|s p|os |i m|t i|ras|ita|piq|qsi|ku |yqa|mik|q y|eqs|pat|tak| pu|lak|i r|ipi|iya|ywa|muc|a n| qe|san|jun|y l',rmy:' sh|ri | a |shi|hi |i s|ti |ea |ari|i a| ca|rea|tsi|i c| s |a a|ndr|tu |câ |dre|i n|ept|ptu|rep|li | nd| di| un|a s|are|i u|ats|la | la|i l|ear| li|lje|di |ati|lui|ui |a l| tu|tat|â s|ei |sea| ti| câ|un |jei|or |caf|afi| lu|â t| ar|ali|i t|fi |ilj|a c|bâ |râ |car|ibâ|lor| cu|nâ |icâ|a n|i d|s h|hib|tâ | hi|â a|si |u c|eas|tur|tul|ber|â c| in| co|lib|u a|n a|cu |ibe|u s|tea|lu |tsâ|ul |tse|int|a p|i i| pr|u p|i p|url|i m|lji|min|sti|alâ| al| pi|sht|nal|â n| si|ji |â p|rar|ert|sii|ii |nat|til|u l|sâ |lâ |â l|sta| nu| ic|i f|nu |ist|mlu|ili|a t|ots|uni|rta|a d|its|â d|pri| ts|oml|i e| de| na|sia| po|gur|tut| st| at| ân|ura|al |ita|anâ| ma|ips|can|oat|tsl| su| as| so|ând|nts| ap| ea|sh |nit| mi|ent|a i|ate| ac|poa|ilo|sot|ina|ash|ona| lj|âts|rli|lip|â i|unâ|t c|iti|bli| u |nji| fa|zea|tât|ril| om|urâ|con|i b|sig|igu|ntr|pur|par|ntu|let|com|iil| ni|eal|ind|r s|hti|at |ucr|art|adz|arâ|itâ|rtâ|inj|uri| eg| sc|atâ|sin|ral|pse|asi| ba|r a|apu|âlj|ia |chi| va|sun|ter|rlo|ica| pu|luc|unt|i v|ise|ini|est|ast|gal|ega|act|nda|ead|uts|a u|imi|ma |ra |pis|s l|ets|a o|va |pi |lit|scâ|asc|ial|sa | ta|rim|tar|alt|idi|tlu| gh|era|ant|eri|aes|a m| nâ| ae|oar|nea|pro|apt|ana|ta |atl|lic|l s|iun|nte|mil',src:' de|de |e s|os | sa|tzi|tu | su|one| a |sa |ne | e | in|ent|ion|der|su |zio|ere|as |e d|a s|u d|ret|es | cu|ess| pr| so|s d|men|ale|ade|atz| s |re |e c|sos|in |s i|chi| un|nte|ten|etu|er | pe|et |e e|ida| te|le | is| ch|ene|are| es|a p| si|u s|a d|pro|hi |dad|te |sse|tad|zi |e t| on|e i|s e|nt |nzi|u a|sso|onz| co|ame|cun|tos|e a|sas|a c|ntu|net|na |e p|at |nes|du | li|t d|n s|son|s a| o |ber|ro |pes|u e|int|zia|nat|i p|ia |res|nu |un | re|sta|s p|ter|era| po| di|per|s c|t s|rar|ser| at|e o|s s|ibe|lib|si |tra|ust|u c|rta|unu|cus|ntz|adu| to|da |nal| na|ant|egu|eto|und|ine|i s|a e|otu|u p|t a|ert|est| da|a a| fa|ist|ona|pod|s o|pre|iss|ra | ma|ica|tot|les|ntr|una|sua|con|dae|ae |s n|man|sia|ndi|nid|ada|a l|nta|o s|a i|ua |ide| ne|otz|min|rat|iat| pa|nde|ode|dis|ren|ali|a u|ta |u o|sot|u t|ime|ssi| as|o a|pet|e u|nsi|fun|lid|epe|eru|unt|st |t e|end|us | fu| ca|ner|dos|s f|ass|nda|uni|das|iu |ind|a t|ial|a f|ghe|gua| eg|a n| se|ont|etz|s m|s ò|sti|t p|ual|nen| me|sen|com|ura|a b|lic|a o|pen|ado|nos|inn|des|seg|e f|din|òmi|ire|a m| òm|e l|dep|ènt|for|ena|par| tr|u i|ara|cra|sid| no|s u|u r|suo|e n|pri|ina| fi|ria|gur|art|det|s t| bo|tar|emo|run|ama|icu|isp|dam|e r|itu|cum|tut|eli| bi',sco:' th|the|he |nd | an|and| o |al | in|ae |in |es |ion|cht| ta|tio|or |t t|ric| ri|ich|tae|on |s a|is |e a| aw| be|s t| he|ati|ent|ht |ts |e r| co|er | na| fr|bod|ody|his|dy |hes| fo|e t|o t|for|it |ng |ty |n t| or|be |fre|ree| hi|l a|ing|awb|wbo| sh|s o|ter| on|sha|nat|r t|nal|an |n a| as|hal|e o|y a|d t|tit| pe|l b| re|y h|aw | ma|nt |men|air|ce | pr| a | ti|hts|e f|e c|le |eed|edo|dom|n o|e s|ons|d a|res|e w|man| wi|d f|ed |sta|ar |t o|ona| it|ity|at |as |her|ers|t i| de|con|til|il | st|nti|e p|e i|e g|nce|ny | so| di|nte|ony|ns |und|ith|thi| fu|ie |ir |oun|ont|e e| un|pro|oci|nae|y i|lit|soc|com|nin|en |ic |ne |r a| me|ly | wa|ear|ual| en|ame|uni|r i|e h|hum| is|ane|uma|ess|inc| fa|equ| hu|ver| eq|e m|hei|o h|ms |d o| ha|wi |t n|s f| no|t a|int|cla|rit|qua|d i|iti| se|rsa|y s|ial| le| te|e d|r o|ive|r h| la|nit|om |ite|s r|cie|s i|ali|cti|cia|re |aim|rat|ld |tat|hat|rt |per|s h|n f|dis|tha| pu| we|g a|oms|eil|ntr|fai|tri|ist|ild|e u|r s|dec|lea|e b|hau|imi|mai|s n| ac|elt|lt |l t|omm|d p| ga|din|war|law|eme|y t|era|eir|art|ds |s e|ral|nor|tel|ge |g o|eik|eli|rie|rou|nda| gr|lan|mei|ate| ge|n i|ten|id |s d|ors|iou|bei|sam|nta|sec|mmo|lar| tr|ful|ul |mon|s w|anc|l o|gar|ern|ara|d s',tso:' ku|ku |ni |a k|hi | ni|a n| a |i k|ka |i n|wa | ya| ma|la |ya |na |a m| ti| hi|fan| sv|nel|hu |a t|ane|ela| ka|iwa|u n| na|svi|lo |nhu|a l|a h|ele|le |ndz|u k|va | xi|a w|vi |mbe| à |elo|wu | wu|eli| mu|u y|mun|i l| le|nga|umb|lan|nfa| va|u l|be |u h|li |kum|tik|ihi|iku|aka|unh| wa|a s|liw|isa|i m| fa|ma |anu|nu |u t|han| la| ng| wi|wih| ha|a x|yel|a a|lel| nf|i h|ta |ana|o y|e k| nt|u a|i a|eni| li|ndl|ga |any| ko| kh|van|u w|u v|amb|a y|ti |sa |pfu|i t|i w|in |lek|e y|ang|and|ati|yi | è |irh|sva|mat|ani|i s| nd|a v|mel|yen|hla|isi|hin| ye|eke|n k| lo|ulu|kwe|hul|thl| kw|nth|tin|mah|wan|ava| mi|ko |khu|u s|à n|dle|lul|ule|tir|o l|i y|aha|aye|kwa|inf|à k|è k|rhu|mba| th|fum|end|anh|xi |dzi|kel|a f|u f| lè|we |may|eka|nye|gan|dze|vu |ham|xim|mis|thx|aku|tà |xa |hlo| tà|eyi|ima|nti|eki|ngo| si|u p|vak|ngu|lak|ume|oko|lon|a è|o n|lok| ta|zis|hak|u m|i à|ke |i x|u x|rhi|ha |awu|dza|u à|za | là|n w|ung|e n|a à|i f|esv|les|vik|siw| y |à m|to |mha|ola|sav|ond|nya|kot|kol|uma|e h|mbi|e s|naw|ths| dj|fun|mu |a u|xiw| ts| hl|u d| lw|nyi|ki |ong|sun|lwe|ike|ind|nis|xih|e a|èli|imu|sel|sek|iph|zen|lum| pf| xa|sin|umu|sim|ave|kar|ala|wey|sik|o t|avu|wav|oni|ile|wak| yi|ali| hà|gul|e l|ba |i v',men:' ng|a n|i n|ɔɔ |ti | ti|i l| i | ma| nu| gb|ngi|a k|aa |gi | kɔ|ia |ɛɛ |ei | na| a |ma |hu | ye| ta|kɔɔ|a t|na | hu|a m| kɛ| nd|gbi|ya |bi |i y| lɔ|a h|ɛ n|ii |ɔny|u g|i h|nya|uu |lɔn| kp|i m|ngɔ|nga|la |i t|kɛɛ|lɔ |i k|ɔ t|mia| mi|a y|nge| ji|ee |gaa|a a|ɔ n|ɔ i|gɔ |ind|tao|ao | hi|num| le| yɛ|umu|mu |ung|nda|hin|ye |i g|hou|hug|e n|ugb|ni |a l|sia|ndɔ|nuu|a i|maa| ya|ahu|gba|u k|mah|oun|ɔma|le |da |i w|ɔlɔ|i j| va| ɔɔ|eng|i i|va |yei|dɔl|li |lei| sa|yɛ |kpɛ|yil|isi| la|bat|a w|u n|e t|ta |ahi| ki| wo|ɔ k|e a|ɛlɛ|saw| lo|o k|ji |gbɔ|pɛl|uvu|ili| ho|vuu| gu|nde|aho|gbu|ɛ t|ale|ila|nah|kɛ |ɛi |ndu|kpa| wa|nuv|ge |e m| ny|e k|atɛ|wei|awe|a g| ii|bua|ie |awa|wot|yek|kɔl|ulɔ|ing|ga |gul|tɛ |ɔle|u t|gbɛ|ɔ y|nun|wa |hei|ani|ɛ k| tɔ|bɔm|ɛ g|ein|taa| ha|ang|uni|u i|ekp|ɔ g|lɛɛ|kpɔ|a v|kpe|ote|i b|te |u m|tii|ɔ s| we|ɛ h|baa|pe |ɛ y| ɛɛ|i ɛ| ba|fa |a j|bu |ifa|kia|jif|u l|eke|ama|gen|u w|lee|lɛ | lɛ|ɛmb|a b|e y|aah|hii|ngo|bɛm|lek| wi|ui | yi|u y|bɛɛ| he|u a|e h|ɔ m|uah|o g|yen|yan|nyi|aal|hi |wu |yee|maj|ajɔ|jɔɔ|nye|mbo|e g|u ɔ|ong|ka |oi |lon|dun|uny|ɛng| sɔ|lɔl|nyɛ|lii|a p|oyi|iti| bɛ|lɔm|akp|e i|ɛ i| ka|jis|oko|i p|ɔla| wɛ|a s|ewɔ|iye|dɔɔ|lok|gua|ɛ b| li|u h|nin|wee|lah|ula| ga| du|i v',fon:'na | na| e | ɖo|ɔn |ɖo |kpo| kp|nu |o n| ɔ | nu| mɛ| gb|mɛ |po |do |yi |tɔn| é | si|gbɛ|e n|in | to| lɛ|lɛ | tɔ|nyi| al|wɛ | do|bo |ɛtɔ| ny|tɔ |e ɖ|ɖe | bo|okp|lo |ee |ɖok|to |ɔ e|bɛt| wɛ| ac|a n|sin|acɛ|o t|o a|ɛn |i ɖ|o e|bɔ |ɔ ɖ| bɔ|cɛ |ɛ b| ɖe|a ɖ|ɔ n|ɛ ɔ|n b|an |nɔ |odo|ɛ ɖ|o ɔ|ɛ n|ɛ e|ɖɔ |ji | ɖɔ|lin|n n| en|bi |o ɖ|mɔ |n e|pod| bi|lɔ | mɔ|n a|nɛ |ɛ k|i n|un |ɔ m|i e|mɛɖ| hw| ji| ye|ɛɖe|enɛ| ǎ |alo|o s|kpl|u e|a d|ɔ b| nɔ|alɔ|ɔ é|ɔ g|ɖee|si |n m|gbɔ|a t|n k| yi|sɛn|jɛ |e k| wa|o m|e m|é ɖ| jl|hɛn|e e| hɛ| sɛ|nnu|nun|wa |n ɖ| ee|é n|kpa|unɔ|bɔn|ɔ t|a s|ɛ é|u k|ɔ w|inu|e s|i t|zɔn|o l|a y|o g|bɛ |ma |n t|e j|ɔ s|ɔ a|o b|a z| zɔ|jlo|i k|nuk|ɔ k|a e|ɔ l|u t|kɔn|xu |e ɔ| lo|hwɛ| ka|eɖe|o y|e w|jij|sis|n l|ixu|six| su|ali|isi|ukɔ|ɛ a| ay|ayi|su |n g|u a|a b|n d|dan|nmɛ| ta|n ɔ|etɔ|e g|o j| we|onu|wem|ba |ema|ɛ g|o h|ɛ s|ɛ t|i s|u w|n s| sɔ|bǐ | bǐ|hwe|a m|sɔ |lɔn|o d|u m|ple| ma|ɛ l|azɔ| az|tog|ye |i l|hun| jɛ|o w|ogu|o k|u g|kan|oɖo|elɔ|gbe| le| el|wu |ka |ɛ w|n w| li|sun|esu| hu| i |ɖó | ɖó|plɔ|ɖi |ɖè |ɛnn|pan|i m|yet|xo |iin|tii| ti| fi|e b|zan|i w|poɖ|ɖes|a j|ann|a g|gun| ɖi| tu|gan|ɛ m| wu|u s|ɔ y|a l| da|u n|u l|ɔnu|obo|ɔ h|vi |lee|ijɛ|ta |e a|ya |nuɖ|ɔ d|wen| tɛ| ga| ɛ | xo',nhn:'aj |tla| tl| ti|ej |li |j t|i t| ma|an |a t|kaj|tij|uan|sej|eki| no|chi|ij | ua|ma | to| te|j m| ki|noj|ika| se|lis|j u|aka|laj|tle|pa |pan|j k|ka | mo|amp|ali|ech|uaj|iua|j n|man|oj |och|tek|tli|kua|ili|a k|se | pa|ano|ise|ual|mpa|tec|n t|en |len|iaj|is | ue|a m|jto|ajt|pia| am|uel|eli| ni|ya |oua|j i|ni |hi |tok|kin|noc|one|lal|ani|nek|jki|ipa|kit|oli|ati|amo|j s|kam|aua|ia |tim|mo | ku|ant|stl| ik| ke|opa|ase|nij|ama|i m|imo|ijp|ist|tl |ijk|tis|mej|itl|tik|mon|ok |lak|par|n n|ara|ra |tit|kej|jpi|a s|ojk|ki | o |alt|nop|maj|jya| ka|iti|cht|ijt|uam|a n|kiu|lat|leu|o t|ita|lau| ip|tep|kia|jka|n m|ana|lam|kij|nka|tou|epa|n s|til|i n|i u|e t| ak|s t|k t|lti|nem|lan|eyi|mat|nau|ose|emi|j a|ntl|uat|uey|jtl|nit|nti|kip|oka|onk| on|eui|i k|kat|j p|ini|toj|kem|ale|ajy|ame|ats|pal|iki|ema|uik|n k|eua|ach|e a|ijn| sa|mpo|tot|otl|oyo|mil|hiu|eka|tol|ajk|uak|ite|san|pam|atl|yek|tia|ate|ino|jua|a i|ipi|j o|tsa|oke|its|uil|o o|jne|oju|tos|kui|oui|a a|yi |kol|ote|a u|i i|n a|ken|chp|iko|as | ne|tin| me|ank|jti| ye|kon|ojt|aui|xtl|ine|tsi|kii|you|ko |ejk|o k|uas|poy|tst|ejy|nok|las| ya|yol|hti|pou|siu| in|nel|yok|mac|ak |hik|sij| si|sto|htl|jke|nko|jch|sek|mot|i a|ela|ui |kis|mel|axt| ax|ijc|nan',dip:' ku|en |ic |ku | bi|bi | yi| ke|an |yic|aan|raa| ci| th|n e| ka| eb| ra|c k|c b|n a|ci |in |th |kua|ny |ka |i k|ŋ y|i l|ben|k e|ebe| ek| e |höm|nhö|öm | al|ai |kem| ye| nh|eme|m k|men|i y|t k|n k| la|c e|ith| er|lɛ̈|thi|alɛ|ua |t e|ek |ɛ̈ŋ| lo|ɔc |n t|ŋ k| ep|u l|it |yen|kɔc|̈ŋ |de |k k|pin|a l|i r|n y|epi|n b|lau|at |iny|aci|aai|u t|ken|au |ok | te|a c|ath| pi|ke | ac|e y|cin|u k|oŋ | lu| ti|a t|uat|baa|ik |tho|yit|ui |hii|u n|h k|e r|n c|te |kek| lö|l k|h e| lɛ|hin|thö|m e|ɛŋ |n r|n l| et| mi|ëk |i b|ekɔ|era|eŋ |e w|i t|el |ak |nhi|iic|a k|i e|pio| ny|ŋ e| aa|nde|u b|e k|kak|eba|ök |k a| ba| en|ye |lɛŋ| pa|iim|im |köu|e c|rot|e l| le|öŋ |ot |ioc|c t|i m|r e| kö| kɔ|eth|y k|oc |ŋ n|loo|la |iit| el| we| ey|i p|uny| ro|ut | tu|oi |e t|enh|thɛ|m b|hok|pan|k t|ëŋ | wi|yii|tha|wic|pir| li|u e|bik|u c|ën |ynh|y e|lui|eu |ir |y b|nyn|uc |n w|mit| ec|öun|any| aw|ɛt |ɛ̈ɛ| dh| ak|and|loi|wen|l e|höŋ|e e|thë|aku|̈ɛ̈|kut|am |eny|u m|i d|iek|k c| ko|tic|leu| ya|u y|tii| tö| ma|nyo|tö | ew|hök|den|t t|hëë|i n|k y|i c|cit|h t| ed|uee|bai|ɛ̈n|öt |eri|ɛ̈k|awu|rin|a p|cɛ̈|hai|kic|t a| të|tue|cii|hoŋ| bɛ|ooŋ|n p| cɛ|̈k |c l|u p|uk |c y|löi|i a|eke|dhi|wel|thk|eeŋ|öi |elo|n m|r k|ien|om |hom| wa|nho',kde:'na | na| va| wa|la |nu |a k| ku|a w|ila|wa |a v|chi| mu|unu|e n|mun|van|a m|a n|ya |le |ele|sa | ch|asa|amb|ana|was|lam|mbo|ohe|ave| vi|ne |bo |aka|e v|a u|u a| n’|u v|e m|ke |anu| li|ve |vel|ake|ala|hil|ile| pa| av|ng’|a l|he |ing|ene|ela|ili|ika|vil|ngo|vak|ali| di|uku|wun|any|lan|a i|mbe|a a|uni|e a|ama| ma|go |nda|bel|emb|wak|kuw|nya| mw|ola|a d|den|lem|a c| il|ulu|kol|g’a|o v|nji|kan|ji |au |ma | au|lil|mbi|uwu|lik|ye |’an|kuk|din|ula|no |and|umi|kum|eng|ane|dya|ong|o l|ach|mwa|e w| ak|an’|a p|kal|nil|lew|mad|n’n|voh|ilo|wen|aya|apa| vy|kut|ale|va | al|ang|ava|kul|hin|o m|hel|e k|ond|hi | la|lin| lu|idy|dye|u l|da |ole|ka |ani|ndo|ton| in|ewa|lov|o c|dan|u m|cho|uva|ia |pan|kam|we |ove|nan|uko|bi |kav| ya|lim| um|eli|u n|nga|uli|lia|mil|o n|’ch| kw|li | an|aha|dil|ata| dy|e l|n’t|i v|tuk|hoh|u i|hev|ni |niw|und| ul|ade|lel|kay|lon|e u|ino|i n|nje|uwa|she|yik| ly|hum|ako|i w|uma|vya|kwa|ba |’ma|val|kil|mwe|mba|mu |pal|umb|wav|hih|ulo| ka|e c|nde|wal|ima|’ni|lun|ihu|a y|vin|yoh|e i|vyo|inj|u c|kup|kuv| ki| m’|a s|e p|dol|lek|awa|o u|n’c|iwa|imu|anj|mal|yen|u w|yac|bil|oja|o a|ha |utu|ech|i d|uka|taw|n’m|ita|awu|ina|m’m|i a|itu|hon|lu |atu|mak|iku|lya|lit|jel|evo| vo|i l|mah|hap',snn:' ba|ye |bai| ye|ai |e b| ca|ai̱|ia |ji | ne| si|i̱ | go|goa|sia|i n|e c|a y|i y|̱ b| ja|se |aye|i j|a b|jë |iye|e g|re |oa |hua|yë |quë| gu|hue|e̱ |u̱i|gu̱|ne | ma|̱i |je̱|eo |e s| hu| ña|bay|o y|ñe |ja |ajë|to |aij|deo| ñe|a i|ayë|ba | ji|beo|cat| de| be|e j|i s|mai|e e|bi |a ñ| co| e |ato|uë |ña |i g|e ñ|i b| iy|cha|ë b|eba|coa|na | ts|e y|̱je|reb| i | ti|i t|ja̱|ach|ue |e i|i c|ni |oac|e t|a ë| re|je |aiy|oji|eoj|a̱j|oye| ë |ë t|cay|ija|ico|ihu| sa|i d|ere|a c| qu|ahu|iji|ca |ua | yë| to|a h|ase|ues|ë s|aca| se|uai|e d|ese|asi|caj| ai| tu|tut|utu|ë c|yeq|equ| na|cai| i̱|ti |mac|e m|ë g|ebi|a a|ani|tu |e n|yeb|eje|oya|toy|co̱|a m|̱ t|ije|sic|eso|eoy|a t| a | te|haj|cah|oas|are|i m|a s|ehu|añe| da|o b| do|i i|i r|e r|neñ|yer|huë|ë y| o |jai|a j|aje|a g|ibë|ëay|aña|aja|a o|coc|bëa|oca|sos|doi|oi |aco|eñe| jë|ë d|ë j|cas|ëca|hay|ea |̱ g|ari|tsi|yij|sai|̱ c|osi|teo|o h|co |̱re|nej|ëhu|o s|ose|jab|̱ni| me|rib|ñes|si |yaj|jëa|uaj|ë m|dar| yi|oe |e o|nes|i̱r|ma |nij|i h|oja|uëc|ama|ë i|i̱h|o̱u|̱uë|̱hu|aqu|ëco|e a|a̱ |ëja|̱ñe|o̱a|go̱| ëj|ñe̱|tia|abë|sih| bi|tsë|sëc| je| cu|̱ a|ned|cab|a d|ore|me | oi| ro|jay|tso|ë r|eye|ta |bë |ñaj|soe|̱ca|o̱c|año|o c|ire|ohu|uej|ñej|i a|ñas|ë q| ju|ban',kbp:'aa | pa| se|se |na |nɛ | nɛ| yɔ| wa|yʊ | ɛy|ɛ p|ɖɛ |aɖɛ|a ɛ|a w|ɛwɛ|ɛna|yɛ |ala|ɛ ɛ|ɛ s|ɔɔ |yɔɔ|ɩ ɛ| ɛ |paa|e ɛ|e p|ɛyʊ|aɣ | pɩ| ɛw|a p|waɖ|ʊʊ |a n| ta|yɔ |yaa|yɩ |wɛn|la |taa|ʊ w| tɔ|a a|ɔ p|ɛya| kɩ| ɩ |ɩyɛ|a t|ʊ ɛ|a k|wɛɛ|tɔm|ɔm |ɛ t|wal|ʊ n| wɛ| ŋg| tɩ|ɛ n|ɛ k|kpe|ɛ ɖ|maɣ|zɩ | an|ʊ t|ɛ y| pʊ|nɩ | tʊ|ɛyɩ|ɩɣ |ɩ t| we|ɩ y|anɩ| pɔ|a s|gbɛ| pɛ| ɛs|pa |kpa|ɛɛ |wɛ | nɔ|daa|nɔɔ|ʊ y|ama|ya | kʊ|tʊ |pal|mɩy|ayɩ|ɩ p|ɩna|tɩ | ɖɩ|ʊ p|ɔ ɛ| ɛl| mb|ɔ s|ŋgb|a y|ɩma|ɖɩ |ʊ k|ɔɖɔ|ɩ n|bʊ |mbʊ| ɛk| kp|ɛja| ɛj|tʊm|jaɖ|paɣ|kɛ | ye|ɛyɛ|alɩ| na|i ɛ| ke| ya| ɖɔ|ɩ ɖ|ɔɔy|nda|ɖɔ |fɛy|ɣ ɛ|ɩ s|jɛy|yi |ɖɔɖ|ɛla|lɩ |kɩm|kɩ |aŋ |bɛy|pee| ñɩ|lab|ɩzɩ|pe |eyi|ŋ p|ɩ ɩ|ɛzɩ| fa|ɔyʊ|aʊ |ʊmɩ|ʊyʊ|ʊma|a l|sɔɔ|a ɩ|ekp|ʊ s| aj|ajɛ| ɛt|iya|wey|ɩ k|ʊ ŋ|ma |kan|ɩsɩ|laa|ɔyɔ|ɩm |li | kɛ| lɛ|and|sam| sa|ɣtʊ|ɔ k|day|ɔɔl|ɣ p|sɩ |ɔŋ |ɩfɛ|akp|pak|sɩn|pɩf|naa|ndʊ|kul| ha|aɣt|ɔ y|uli| ɖe| kɔ|eek| pe| sɔ|m n|ŋga|ee |ga |ɖʊ |maʊ|m t|e e|ɣna|ɣ s|ŋgʊ|abɩ|akɩ|a ñ|yaɣ|pɩz|eki| ɖo|maŋ| la|yee|ana|tɩŋ|ɣ t|pad|ñɩm| ca|ɛ a|a ɖ|pɩs|ina|dʊʊ|ɖe | ɖa|a m|lɛ |ked| ɛɖ|lak|aka|gʊ |asɩ|ʊ ɖ| ɛd|dʊ |nʊm| nʊ|ñɩn|ba |ɛpɩ|pʊ |ada|ɛhɛ|hal| a |le |zɩɣ|ɛɛn|ɛsɩ| le|aɣz|uu |nɖɩ|e t|ŋ n|ɛda|lɩm|e w|ɔ w|ɩ a| ɛp| nɖ|ɛkɛ|i p|ɣzɩ|alʊ|zaɣ|bɩ |ɛ l|ɩkɛ|ɔ t|e y|ɖam|aaa|pɛw',tem:'yi | yi| ka|a ʌ| tə|uni|ni |wun| ɔ | aŋ| wu|ka | kə| kʌ| ʌŋ|nɛ |kə |tək| ʌm|əkə|ɔŋ |mar| ɔw|a k|ma |i k| a |wa | mʌ|i t|ri |ɔwa|thɔ| th| ma|ari|i m|a a|ʌma|aŋ | o | ba|tha|ba | kɔ|a y|ŋ k|ɔm |‐e | rʌ|lɔm|kɔ |i ɔ|kom|o w|ʌnɛ|te |mʌ | ŋa|i o|əm |hɔf|ɔf |alɔ|om |a m|ɔ b|ɔ y|aŋf|fəm|hal|kəp| mə|ŋfə|ʌth| tʌ|a t|a r|ŋ y|ŋth|ŋa | ʌt|ɔ k|e ɔ|ɛ t| ro|wan|ema| gb|ank| ye|th |yem|nko| mɔ|ʌwa| sɔ|kʌm|m a|kət|ʌmʌ|anɛ|rʌw|ɔ t|ʌme|ʌŋt|me |ʌte| bɛ|hɔ |a ɔ|ki |ʌŋ |m ʌ|m k|ar |ŋ ɔ|yɛ |əth|ɛ ʌ| ta|i a|ta | ʌk|ə k|thi|et |pet|pa |ŋɔŋ| te|ŋe |i ʌ|ra |i r|əpe| ŋɔ|ɛ k|ʌ k| yɔ| rə|kʌt|rʌ | yɛ|bɛ |e a|e t|ro |ɔ ʌ|akə|thə|ɔ m|a‐e|əpa|a w|kəl|ə b|yɔ |ə t|mɔ |bot|ŋ t|e y|əŋ |mʌs|gba|e m|m r| bo|ʌŋe| ak|ɛ a|nʌn|ləŋ|ələ|sɔŋ|ŋ b|təm|wop|ʌ a|ə y|kəs|sek|ə s|tʌt|li |ot | ko|ɛ ŋ|ŋ a|ekr| ra|ɔth|sɔt|ʌse|ath|ru |t k|ɛ m|e k|ɛth|ma‐|po | po| wo|ʌrʌ|i y|m t|m ŋ|tʌŋ|tɔŋ|e w|gbʌ|tə |nth|ʌyi|ʌlə|hən|ʌ ʌ|op |iki|ʌkə|rʌr|ʌru|ŋgb|sɔ |əyi|rʌn|gbə|ɔ a|ər |ɔkɔ| pə| ʌr|ənʌ|ləs|nka|ith|əli|ʌy |bəl|mʌy|ran|o ɔ|ɛ r|ant|f ʌ|mə |ti |f t| tɔ|əs |r k|hi |yik|ɔ ɔ|rək|kar|ʌ t|mʌt|lɔk|ayi|krʌ|pan|na |kʌr|mət|tət|tho|pi |mʌl| to|to | wa|ʌgb|thɛ|ə g|bas|eŋ |aŋk|ɔ r|thʌ|o t|ɛŋ |i‐e|kʌ |kʌs|mɔŋ|o d|kɔŋ|din|ɔ g|kəw|di |ŋ w|əma|ɛr |ʌ y|ək |ŋko',toi:' ku|a k|wa | mu|a m|la |ali|ya |tu |i a|e k|a a|aku|ula|ntu|ang| al|lim|lwa|kwa|aan|mun|mwi|de |ulu|ngu|wi |imw|luk|gul|na |ele| ak|kub|ons|unt|kul|oon|se |ant|nse| oo|zyi|gwa|si | ba|ba | lw|zya|uli|ela|a b| ci| ka| zy|waa|and| an| kw|ili|uki|eel|uba|nyi|ala|kut|ide| ma|kid|isi|uny|i m|kun|cis| ya|li |i k|nga|a l|yin|kuk|ka | ul|kus|ina|laa|nte|ila|tel|mul|wab|wee|nda|izy|ede| am|led|amb|ban|we |da |ana|kwe|e a|lil| bu|o k|bwa|aka|ukw|o a|ati|uko|awo|yan|ko |uci|ilw|bil|bo |a c|wo |amu|law|mbu|i b|bul|umi|ale|abi|kak|e m|u b|akw|u o|ti |sal|kuy|ung|bel|wak| bw|o l|ga |kal|asy|e u|lan| mb|lo |usa|ika|asi|aam|a n|ule|bi |cit|bun|kup|egw|muk|igw|u k|u a|mbi|wii|kum|a z|aci|ku |yi | mi|yo |le |mas|yig|ubu|kka|i c| ab|ene|ne |no |a y| wa|abo|ndi|uta|syo|aya|aba|len|kuc|eya|o y|mal|ind|lem| lu|ukk|mo |eka|mil|mbo|ita|uka|ama|lik|u z|ndu|mu |nzy|zum|bal|abu|upe|bam|syi|u m|liz|int|ta |yak|ley|e b|nzi|lii|kab|uti|ube|uum|i n|cik|ezy|iib|iba|ani|iko|iin|ile|was| ca|zye|alw| aa|sya|uku|twa|min|tal|muc|umu| nk|du |azy|onz|lek|kon|buk|o m|yik|i z|lwe|u u|oba|kwi|imo|gan|zil|del|usu| we|peg|yee|ngw|sum|imb|ump|mpu|nde|end|i o|yoo|o n| nc|a u|mi |ano|uya|o c|di |mba|yil|yal|ako|a o|isy|izu|omb',est:'sel|ja | ja|le |se |ust|ste|use|ise|õig|mis| va|gus|ele|te |igu|us |st |dus| õi| võ| on|on |e j| in|ini|nim|ma |el |a v|iga|ist|ime|al |või|da | te|lik| ig|adu|mes|ami|end|e k|e v|l o| ka|est| ra| se|õi |iku| ko|vab|aba|tus|ud |a k|ese| ku|l i|gal|tsi|lt |es |ema|ida|ks |a i|n õ|lis|atu|rah|tam|ast|sta|e t|s s| mi|ta |ole|stu|bad|ga |val|ine| ta|ne | pe|nda|ell|a t|ali|ava|ada|a p|ik |kus|e s|ioo|tes|ahe|ing|lus| ol|a a|is |vah|a s|ei | ei|kon|vas|tud|ahv|t k|as |a r|s t|e e|i v|eks|oon|t v|oni|kõi|s k|sio|sus|e a|gi |mat|min| pi|s v|oma|kul|dad| ni|e p| om|igi|tel|a j|e o|ndu|dse|lle|ees|tse|uta|vus|aal|aja|i t|dam|ats|ni |ete|pid|pea|e õ|its|lma|lev|nis|dis|ühi|sli|i s|nen|iel|des|de |t i|et |nin|eva|teg|usl|elt|ili|i m|ng | ee|tem|ses|ilm|sek|ab | põ|ait| ne|õrd|sed|võr|ul | üh| ki|abi| kõ|ega|rds| vä|ots| et| ri|põh|ed |töö|si |ad |i k| tä|ata| ab| su|eli| sa|s o|s j|sil|nni|ari|asu|nna| al|nud|uma|sik|hvu|onn|eab|emi|rid|ara|set|e m| ke|a e|täi|d k|s p|i e|imi|eis|e r|na | ül|a ü|koh|a o|aks|s e|e n| so|õik|saa|and|isi|nde|tum|hel|lii|kin|äär|sea|isk|een|ead|dum| kä|rii|rat|lem|umi|kor|sa |idu|mus|rit|har| si|vad|ita|ale|kai|teo| mõ|ade|üks|mas|lse|als|iaa|sia|sot|jal|iig|ite',snk:'an | a | na|na |a n|ga | ga|en | su|re |a k| ka|su |a a|a s| ta|un | se|ta |ma | i |ama|do |e s|ere|ser|aan| do|nan|nta| ra|n s| ma| ki| ja|jam| da|taq|ne |a g|a d| ya|n d|ni | ku|ren|ri | si|ana|u k|n ŋ|ŋa | nt|e k|maa| ŋa|ndi|wa |aqu|ane| ba|ra |a r| sa|oro|n t|raa|tan| ke|oxo| xa|i s|di |a f|and|ti |a b| be|i k|gan|aax|aaw| go|iri|kit|awa|axu|sir|a i| du|a t|me |ara|ya |ini|xo |tta|i a|oll|ran|on |gol|e d|n g|a j|nde|aar|e m|be |a m|ari|u n|lli|ron| fa|qu | ti|n n|aad|axa| ña|o a| so|ke |nu | ko|din|lle|dan|a y|man|i g|sor|u r|i t| no|are|xar|kuu| wa|enm|ada|baa|de |qun|o k|yi |xun|i n|i x| an| ha|kan|fo |att|ang|n k|o s|dam|haa|da |n y|kat|e t|li | fo|i d| mo|nme|u b|i m|aba| fe|len| re|pa |ant|ayi|yan|e n|a x|e y|n b| di|ppa|app|kap|xa |u t|o g|mox|ure| xo|ond|i i|a ñ|n x|taa|du |ell| me|iti|xu |u d|udo|ind|uud|anu|nga|o b|nun|nox|n f|ku |aga|anŋ|dun|itt|eye|ye | bo|ore|ite|u a|oor| yi| ro|sar|saa|ill|e b| wu|le |riy|nma|ro |ken|edd|fed|bur| mu|mun|o n|iin|tey|sel| tu|u m|lla|la |ono|ñaa|den|faa|a w|te |inm|ka |aay| te|ina|xoo|o d|ira|u s|o t|nmu|nen|ban|ene| ni|ña |o i|uur|una|o m|xon|n w|kaf|gu |e g|a h|kil|yu |und|aqi|een| bi|bag|i j|n ñ|laa|i r|no |sig|igi|kor| o |i b|bat',cjk:' ku|a k|yi |nyi| ny|la | mu|wa | ci|a c|a n| ha|we |a m|nga|ga |i k|kul|uli|sa |esw|ana|ela|a h|ung|ha |tel|swe|ze |ya |a u| ka| wa|uci| ya|ate|ci |mwe|kwa|ma |mbu|ji |kut|han|u m| ul|ang| mw|nat|ca | ca|e m|mu |uth|ali|i n|mut|thu|i m|e k|lit|hu |ina|ka |kup|na | ma|asa|aku|e n|a i|pwa|nji|wes|li | mb|e a|ifu|fuc|kan|bun|ize|ing|a y|anj|mba|uta|ita|i u| kw|muk|ite|kus|amb|lin|awa|imb|cip|lim|ong|esa|i c|nge| ak|ngu| ce| an|ili|ulu| na|naw|kuh|ama|upw|emu|lem|ila| un|a a|ula|ukw|aka|cif|ule|wo |has|kun|kha| xi|o n|tam| es|usa|ala|te |u c| ng|iku|cik|lya|wil|e c|ta |xim|wik| li|muc| ly|ikh|no |o m| in|i a|utu|e w|akw|mo |imo|mil| mi|i y|ba |ko |ngi|ufu|ku |lij|uka|iji|a w|umi|o w|tan|o y|e y|imw|ulw|uha|nal|so |o k| ye|i l|e u|umw|bu |aci|lwi|aha|ciz|mwi|kat|lon|u k|yes|ipw|ulo|aze|uni|wak|lo |ema|o c|aco| iz|kum|ika|e i|cim|isa|eny|umu|pem|yum|kwo| ik|kwe|e h|ngw|wam|cin|i h|a e|wan|ge |a x|was|le |kuk|uze|lik|gul|nin|pwe|o u|mah|ata|uma| up|sak|zan| uf|fun|go |wen|mbi|uso|ges|co |ngo|iki|hal|gik|ile|nda|kol|kal|kuz|ne | ja|oze|yoz|ikw|ipe|ces|swa|cis|man|i i|iso|ele|aso|waz|mi |upu| if|ise|umb|uvu|kil| it|i w|sok|o l|oko|nyo|una|bi |tum|iko|ene|hak|sem|a l|da |vul|nyu| ut| uk|eka',ada:'mi |nɛ | nɔ| nɛ| e | he|he |nɔ | a |ɔ n|kɛ | kɛ|i k| ng|a n|i n|aa |e n|blɔ| bl|ɛ n|ɛ e|gɛ |ngɛ|e b|lɔ | ma| mi|ɛ h| ts| ko|hi |ɛ a| ɔ |ko |e h|ɛɛ |tsu| ni|ɔ k|a m|a k|i h|ma | ny|emi|a h|ami| be|be |i a|ya | si|e m|e j| ka|si |ɛ m|ɔ f| kp|nya| je|ni |oo |loo|o n| hi| fɛ|fɛɛ|a t|laa|a b|je |e k| pe|pee| ye|mɛ |umi|ɔ m| ha|a a|ɔmi|omi|kpa| wo|ɔ e|i t|ɛ ɔ|e s|i b|ɔ h| lo|ɛ k|ke |ha |bɔ |maa|mla|i m|ɔ t|ɔ́ |e p|kaa|ahi| sa|lɔh|ɔhi|sum|ɔ a|nɔ́|o e| na| gb|ee |e ɔ| ji|e a|i s| ml|ɛ s|sa | hɛ|ɔɔ |yem|u n|alo| jɔ| ku| lɛ| bɔ| to|a s|ɛ b|i l|lɛ |sua|o k|uaa|a j| su|ɛmi| ad|ɛ y|imi|ade| fa| al|jɔm|des|esa|eɔ |ihi|ji |ne |ɛ t|a e|ɛ j|ake|e e|kak|ngɔ|o a|eem|i j|e y|wo | bu|him|e w|́ k|ɔ y|tom|suɔ|ia |ane|mah| ya|o b| ke|e g|wom|gba|ue |ba | bi| gu|uo |e t|san|uu |pa |hia| tu| hu|suo| we|tsɔ|ɔ s|e f|kuu|gɔ |o m|a p| ja|ɛ p|fa |ɔ b|ɛ g|hɛɛ| ab|a l|hu |ye |na |tue|i ɔ|isi| sɔ|sɔs|jam|gu |ti |ɛ w|sis|o h|uɔ |li |a w| ba|sɔɔ|abɔ| ju| hl|ɔsɔ|hla|ɔ l|a y|sɛ | ɔm|ɔmɛ|i w|ɛti|pɛt|kpɛ|to | yi|asa| kɔ|nyu|akp|pak|kpe|sɔɛ|ɔɛ |u ɔ|yɛm|o s|uɛ | nu|pe |se | sɛ|o j|a g|ɔ w| wa|sem| pu|su |e l| mɛ|u k|hɛ |nih|kas| fɔ|kon|onɛ|bim|lam|imɛ|nyɛ| fi|hiɔ|usu|i p|bi | ní|yo |eeɔ|uam|bum|níh|íhi|o l|ula|kul|guɛ|naa',bin:'e o|ne | ne|be |an |en |vbe| o |wan|mwa|n n|e e|emw|evb|mwe|in |na |e n| na| em|omw|e a|n e|e i| vb|re | ke|gha|gbe|wen| gh|ie |wee| om|e u| kh|bo |hia| ir|ha |o k|nmw|tin|n o|vbo|he |eti|ia |kev| ev| we| et|win|ke |ee |o n| hi|a n|a r|o r|gie|ran| ya|ira|mwi|a m| mw|a g|ghe|ogh| a | re| uh|eke| og|n k| no|ro |ye |khe| ye|hek|rri|nog|een|unm|a k|ogi|egb|ya |ere|wun|hun|mwu| mi|mie|de | rr|a e| ar|a o|n y|e v|o g|un |ra | ot| gb|uhu| ok|n i|ien|a v|rhi|e k|n a|i n|a y| ru|khi|n m|hie| eg|oto|arr|ba |ovb|u a|e y|ru |ian|hi |kpa| ra|o m|nde|yan|e w|and|to |o e|o h| ni| rh|e r|n g| er|n h|ugb|we |hae|on | iy|dom|rue|u e| or| ik|ren|a i|aro|iko|o y|n w|ben|ene|rio|se |i k|uem|ehe| ov|otu|okp|kug|oba|iob| uw|aen| do|iru|ae |tu |ue | iw| ma|wu |rro|o o|rie|n v| ug|a u|nna| al|ugh|agb|pa | ay|o w|ze |uwu|ma | eb|iye|aya|ugi|inn|gho|rre|nii|aku|gba|khu| se|yi |onm|ho |a w|ii |iwi| uy|uyi|e d| i |hin|obo|u o| ak|beh|ebe|uhi|bie|ai |da |i r|gbo|o v|won|mwo|umw| ag|ode| ek| la| um|aan| eh|egh|yin|anm|mo | kp| bi|kom|irr|i e|a a|kha|oda|bon|a d| ow|owa|ghi|n u|o a|yen|eem|ieg| az|aze|hoe| yi|oe |e g|ele|le |lug| ka|aa | as|yaa|gue|a h|mu |nre| od|n r|ero|ese| ku|enr|lel|vbi|wa |u i|a b|oro|bi ',gaa:'mɔ | ni|ni |kɛ |ɛ a| ak|lɛ |i a| he|ɛ m|akɛ| lɛ| ko|gbɛ|ɔ n|ɛɛ | mɔ| kɛ|yɛ |li |ɛ e|ko |ɔ k|i e|aa | yɛ|bɛ | ml|shi|ɛ h|egb| gb|ɔɔ |mli| fɛ|fɛɛ|heg|nɔ |a a|i n|aŋ |oo | nɔ|i k|he |ɛ n| es| am|ɛ k|ɔ y| sh| ma|esa|loo|ji |maŋ|amɛ|emɔ|ɔ f|fee| ek| al|ɛi |ii |ɔ m|ɔ a|bɔ |e n|ɔ l|amɔ| eh|alo|hi |naa|ee |ɔmɔ|oni| en|o n|kon|aji|i y|i m|sa |o a|eli|umɔ| bɔ| hu|yel|hu |eem|nɛɛ|tsu| ah| nɛ|sum|tsɔ| an|nii|o e|baa| as|mɛi|yɔɔ|gbɔ|aaa|na |i h|eye|ɛ g|eɔ |ɛji| at|ana|eko|ena|o h|ŋ n|kom| ts|ɔ e|maj|i s|i l|efe|ome| kp|a l|kwɛ|ku |ehe|toi|a n|saa|bɔm|ha |a m|kɛj|kpa|hew| ku| sa| na|hiɛ| hi|ane|gba|e e|i f| mɛ|ɛ t|bɛi|ash|ŋ k|e k| ej|hey|aka|ats|ne |its|e a|san| ay|ye | je| kr| ey|mla|eŋm|nit|a h|ɔ b|ɛ s|anɔ|ŋmɔ|a e|ɛ b|jeŋ|ɛ y|aan|kro| ab| af|any|iaŋ|ɔ g|a k| yɔ|uɔ |shw|ets|ekɛ|usu|ŋŋ |ŋma|esh|u l| ba| et|iɔ |i j|o k|suɔ|oko| yi|e s| ag|afe|agb|oi |ŋ a|rok|o s| aw|ai | ji|ɛ j|aye|ŋ h|ish|nyɛ|la | ad|o m| ef|tsɛ|sɛ |wɔ |ewɔ|mɔɔ|ehi|aŋm|hwe| bɛ| to|ɔ h|jɛ |aha| ja|paŋ|alɛ|awo|sɔ |ŋts|ɛŋt|iɛŋ|bii|diɛ| di|mɛb|eni|his| ny|e b|hik|u k|ate|i b|ŋmɛ|akw|o y|eŋ |ahe| lo|me |ade|ɔ j|kɛn|teŋ|yeɔ|ɔ s|des| su|wal|nyɔ| eb| eg|ŋ m|mef|saŋ|ɛ l|o l|u n|asa|sem|jia|wɛ | em|o b|gbe|hil|ihi|hih|ɔŋ |nak|e h|sus|e g',kng:' ya|na |ya |a k| na|a y|a m| ku|a n|a b| ba|u y|and|ka | mu|yin|wan|tu | lu|aka| mp|ve | yi|la |ntu| ki|mpe|pe |nda|a l|si |yan|ana|so | ke|e n|ons|nso|di |da |ndi|i y|u n|lu |mun|alu|unt|ina|e y|nza|luv|ala|uve| ma|u m|ke |za |ayi|sal|o m|ban|ndu|ta |isa|kan|ulu|i m|amb|ma |kim|u k|fwa| ny|nyo|yon|ama|ti |ang|anz|du |kus|o y| me|i n|to |ins|nsi|wa |usa| mo|kon|uta|end|i k|uka| bi|a d| ko|mbu|mos|sa | ve|ika|mu |osi|e k|uti|kuz|imp|a v|e m|und|ind| fw|ila| to|pwa|mpw|ngu|bal|adi|ba | sa|len|sam|sik|mab|tin|vwa|mba|kuk| di|yay|a t|yi | le|ant| ka|ata|isi|olo|kis|mut|ula|lo |bu |su | bu| at|amu|o n|dya|kut|dil| nz|ngi|abu|usu|but| nt|ni |bak|kul|e b|nga|e l|inz|imv|gu |wu | dy|lus|awu| ti|lak|bay|bun|kat|ngo|tal|i b|utu|kak|o k|bim|uzi|uza|mvu| ng|nak|iku|baw|esa|kin|ken|yak|mpa|luz|umu|nu |nta|dis|dik|vuk|u f|tan|sad|ati|nka|ank|luk|mak|ong| mb|ani|i l|lwa|aba|luy|uya|yal|ing|zwa|kuv|idi|ku |ga |zit|bis|uvw|uzw| ni|swa| nk|iti|mef|fun|ibu|nsa|aku|ufu|kub|lam|met|i a|mus|eta|a a|u t|twa|atu|tuk|fum|uko|iki|don|kol|kun|bam|eng|uku|ndo| ns|a s|ela|usi|pam|mvw|u b|i t|zo |anu|tis|uke|sul|te |gid|dib|yam|ilw| mf|ola|umb|uso|kam|gi |mbi|oko|nzi|i s| nd|mfu|luf|dus|bum|lut|mam|ded|wil|tad',ndo:'na |oku|wa | na|a o|a n|ka |ntu| uu|tu |uth| om|e o|mba|ong|omu|ba | ok|uut| ne|he |the|ang|hem|emb|unt|o o|a u| wo|nge| iy|ehe|kal| no|a w|o n|no |nga|e n|ko |mun|oka|lo |o i|lon|we |ulu|a m|ala| ke|la |a k|u n|han|ku |gwa|osh|shi|ana|ngu|ilo|ano|ngo|keh| mo|ga |nen|man|ho |luk|tha|ge |gul|u k|eng|ha |a y|elo|uko|a e|ye |hil|uka|li |go |wan|ath|wo |thi|dhi|uun| pa|kwa| ta|a p|ya | sh| ko|nka|lwa| os|mwe|oma|ta |ema|sho| ka|e m| yo|sha|wok|ika|po |o w|onk|e p|pan|ith|a i|opa|gel|hik|iya|hi |aan|una|o g|kuk|alo|o e|nok|ndj|le |a a|men|yom|a s|i n| li|and| po|pam|lat|kan|ash|waa|aka|ame|gam|umb|a t|ond|yuu|o k|olo|ane|ing|igw|aa |ele|kul|mon| gw|ilw|gan|o y|iil|iyo| el|kut|nin|oko|ike|o m| ku|adh| ye|amw|ome|yeh|aye| ga| on| yi|a g|lyo|ne | ng|mbo|opo|kug|eko|yok|wom| oy|non|iye| go|ulo|e e| we| e |ina|ant|omo|ene| a |i k|mok|him| dh|und|ndu| me|eho|wen|nek| op|alu|e g|ima|kat|ota|oye|ila|ngw|yop|wat|ela|o u|a l| ii| ay| nd| th|o l|yon|ili|oon|okw|yaa|taa|lwe|omb| ni|aku|i m|mo |ula|ekw|enw|iyu|pok|epa|uki|ke | wu| mb|meh|e t|uni|nom|dho|pau|eta|yi | ly|o a|ono|lun|lak|ola|yo |lol|ank|bo |i o|awa|nwa|a h|naw|hok|nem|kom|ndo|o s|u t|vet|mbu|ani|uga|ndi|ukw|udh|lok|e k|alw|kwe|kun| ya',quy:'chi|nch|hik|una| ka|anc|kun|man|ana|aq |cha|aku|pas|as |sqa|paq|nan|qa |apa|kan|ikp|ik |ech|spa| de|pa |cho|ere|der|rec|am | ru|an | ma| ch|kpa|asq|ta |na |nam|nak|taq|a k|qan|ina|run|lli|ach|nap|pi |mi | ll|yoq|asp|ima|hay|hin|aqa|nku|ant|ayn|oyo| hi| im|hoy|cio|nta|nas|q k|api|iw |wan|kuy|kay|liw|aci|ion|ipa|lla|oq |npa|ay |kas|a m|nac| na|inc|all|ama|ari|anp| ya|chu| hu|nin|pip|i k|qmi|hon|w r|ata|awa|a c|ota|in |yku|yna| wa|a h|has|a d|iku|a l| li|pan|ich|may| pi| ha|onc|a r|onk| ot|ku | qa|ank|aqm|mun|anm|hu |a p|nma| mu|qta|n h|pap|isq|yni|ikm|ma |wsa|aws|kaw|ibr|bre|lib|ayk|usp|nqa|e k| al|lin|n k|re |ara|nat|yac|kma|war|huk|uwa|yta|hwa|chw| sa|was|kus|yan|m d|kpi|q m|a i|q l|kin|tap|a a|kta|ikt|i c|a s|uy | ca|qaw|uku| tu| re|aqt|ask|qsi|sak|uch|q h|cas|tin|pak|ris|ski|sic|q d|nmi|s l|naq|tuk|mpa|a y|k c|uma|ien|ypi| am|qaq|qap|eqs|ayp|req|qpa|aqp|law|ayt|q c|pun| ni|a q|ruw|i h|haw|n c| pa|amp|par|k h| le|yma|ñun|ern|huñ|nni|n r|anq|map|aya|tar|s m|uñu|ten|val|ura|ita|arm|isu|s c|onn|igu| ri|qku|naw|k l|u l|his|ley|say|s y|rim|aru|rma|sun|ier|s o|qar|n p|a f|a t|esq|n a|oqm|s i|awk| va|w n|hap|lap|kup|i r|kam|uyk|sap| qe|ual|m p|ran|nya|gua| pe| go|gob|maq|sum|ast| su| ig',rmn:'aj |en | te|te | sa| le|aka|pen| si| e |el |ipe|si |kaj|sar| th|and| o |sav|qe |les| ma|es | ha|j t|hak|ja |ar |ave| an|a s|ta |i l|ia |nas| aj|ne | so|imn|mna|sqe|esq|nd |tha|haj|e s|e t|e a|enq|asq|man| ja|kan|e m| i | ta|the|mes|cia|bar|as |isa|utn|qo |hem|o s|s s| me|vel|ark|i t| na|kas|est| ba|s h|avo| di|ard| bi| pe|rka|lo | ak|ika|e r|a a| pr|e k|qi |mat|ima|e p|a t| av|e d|r s|n s|anu|nuś|o t|avi|orr|o a| ka| re|n a|re |aja|e o|sqo|sti| ov|õl |l p|nqe|ere|d o|vor|so |no |dik|rel|ove|n t|ve |e b|res|tim|ren| de|àci|o m|i a|but|len|ali|ari|rre|de | pa|ver| va|sqi|ara|ana|vip|rak|ang|vi | ra|or |ker|i s|eme|e z|ata|e l|a e|rip|rim|akh|la |o p|kar|e h|a p|na |ane|rin|ste|j b|er |ind|ni |tne| ph|nip|r t| ke|ti |are|ndo| je|l a|uśi|e n|khi| bu|kon|lim|al |tar|ekh|jek|àlo|o k| ko|rde|rab|aba| zi|ri |aća|ćar|śik|dõl|dor|on |ano|ven| ni|śaj| śa|khe|ća |ast|j s|uti|uni|tni|naś|i d|mut| po|i p|a m| pu|a l|l s|som|n n|ikh|nik|del|ala|ris|pes|pe |j m|enć|e e|nća|ndi|rdõ|kri|erd|śka|emu|men|alo|nis|aśt|śti|amu|kh |tis|uj |j p|do |ani|ate|nda|o b|nge|o z|soc|a d|muj|o j|da |pri|rdo| as|cie|l t|ro |i r|kla|ing|a j| ze|zen|j e|ziv|hin|aśk| st|maś|ran|pal|khl|mam|i b|oci|rea|l o|nqo| vi|n e',nym:'a k|na | ku| na|ya |a n|la |hu |a b| ba|a m| ya|ila|aki| ha|nhu|wa |hak|ki |le |a h|ga |nga| mu|ban| wi|ja | kw| ki|i n|ang|a w|i y|ele| bu|we |han|aga|unh| ly|kil|lya| wa|mun|ali|ili|a i|u n| ma| ng|kwe|ina|anh|kwi|si |u b|nsi|win|u w|mu | ns|e b|e k|kul|ula|gan|ala|e n|and|ulu| bi|no |iya|ba |ini|lo |yag|gal|yo |se |kub|lu |alu|ha |ose|lul|a l|ule|mo |ani|wiy|e l|lil|gel|ing|li |uli|iha|lwa|akw|ile|ka |ngu|ige|i k|ku |bi |shi|ngi|i j|lag| lu|a y|u k|bal|aya| ja|o n| nu|o y|u a|cha|gi |aba| al| ig|ana|uno| bo|kuj|gun|ubi|wan|lin|ilo|ika|o l|lim|iku|i b|iwa|nil|jo |ng’|aha|zil|nul|wel|kwa|bos|o a|e i|g’w| ga| li|ziw|uma|nzi|ndi|ung|lel|bo |imo|mah|kus|wen|bil|yak|kuk|o g|gil|usa|a u|iwe| we|kup|ilw|abo| il|e w| hu| sh|ma |bul|elo|dik|o k|o b|uba|lek|gwa|sab|kut|nda|da |nha|aka|u m|mba| zi|eng|kuz|gul|lab|agu|anz| nz|nik|ujo|tum|man|kin| yi|umo|e m|iga|a s|ano|hay|ayo|mil|ish|utu|o u|mal| ul|i w|lis| um|o m|iki|agw|ne |uga| ch|lug|i l|nza| ib|bun|agi|ni |ngo|ye |uko|oba|bya|ndy|ene|asa|bas| ik|zi |o h|azi|mas|ko |biy|uja|uku|i m|imu|som|e h|elw|iyo|iso|za |i i|yi |yin|u l|ngw|uhu|lwe|bak|iba|pan|upa|sha|nel|ash|ima|atu|bad|yal| i |sho| mi|ho |fay|afa|maf|o w|kal|kim|w’i|wib|go |’ik',sus:'xa |axa|ma |a a| ma| xa|ama| na|an | a |ra |un | sa|ada|xan|a x|ya |nun|a n|xi |ui |a m| nu| ax|iri|di |dam| ad|i n| ra|fe | bi|de |yi |in |lan|bir|rin|bɛ |a b|a s| bɛ|nyi|nax|n a| fe| mu|ari|na |i b|a f|mu |ara|kui| ku| ɲa|man|nde|dax|sar|a k| wa| la|ɛe |nɛ |xun|ɛtɛ| ba|i a|ndi|n m|iyɛ|ayi|aya|fer|ali|era|a y|n n|riy|n b|aba|ɛ a|adi| xu|mad| fa|i s|any|amu|ɲam|n f|una|iya|e m|ana|li |ɛ n|i m|ɛ s|ala|e n|e x|e b|ɔtɔ|sab|n x| nd|bar| yi|wal|ati|sɔt| e |i k|en |afe|i x|nam| da|ixi| sɔ|nxi|kan| ya|bun|a l|tɛ |nad|ima| ki|axi|ti | su|ie |yib| yɛ|e s|mas|inɛ|e r| fi|yɛt|ira|ibi|anɛ|ɛ m|mal|and|yɛe| bɔ| mi|may|a ɲ| nɔ|ras|den|biy|way| gb|tɔ |aga|nma|asa|ase|sen|ɛra|a d|gi |ɛ k|a w|ind|ere|yir| di|i d| ko|ibu| ib|ank|mak|ɔxi|fan|ɔma|i r|e f|yɛ |i f|abu|kim|nɔm|tin|e y|n s|on |xin|bat| ke|e k|bɔx|gan|uga|sug|alu|sa |aka|n y|ant|xaf|fin|awa| al|ta |eya| de|ban|anx|tɛr|und|i y|mix|ɛrɛ|yo |n l| ta|ren|ide|e a|mui|nba|ker|a t|rɛ |lon|olo|kol|u n|ga |ri |bɛt| fu| an|ee |nka|nan| si|rat|afa|u a| am| yo|mɛ | so|yam|o m|mun|o n|gbɛ|mul|a r|lui|ni | ti|xɛ |ɛ b|end|axe|ɲɛ |e t|ral|n k|e l|n d|xam|far|ba |ɲax|rab|n ɲ|ɛ d|i g|ɛ f|iny|lu |inx|ndɛ| xi|a e|tey|tan|i t|nni| fo|ɛ r|ndo|iɲɛ| i |raf|i ɲ|a i',ven:'na | na| vh|a m| mu|ha | u |wa |tsh|a n|a u|we |hu | ts|vha|nga| ya|ya |a v|lo |vhu|ṅwe| dz|thu|ane|ho |ana|o y| kh|shi|a t|ga | pf|e n| zw|elo|uṅw|sha|muṅ|nel|a p|ne |fan| ng|pfa|uth|a k|edz|kha|u n|dza|ele| a |mut|aho|zwa|a h| ha| ka|kan|o n|a z| hu| mb|dzi|la |vho|wo |za |zwi|ang|i n|fho|han|hum|u v|lwa|ela|a d|e u|u m|o d|u t|mul|olo|aka|ḓo | wa|o v|hol|e a|ofh|u s|no |si |gan|mbo|hi |ano|he |zo |shu|o k|ula|hak|low|zi |ka |led|lel| ḓo| ma| sh|bof| i |o m|hat|e k|dzw|yo |o t|o h|ngo|owo|elw|tsi|rel|ath|o i|a s|hon|its|sa |dzo| te|awe| mi| nd|go |a i|mba|avh|umb|isa|wi |hil|iṅw|ing|nah|unz|ni |and|i h|ine|a l|mis|e v| lu|i k|e m|swa|ṱhe| ḽa|li |mbu|i t|a y|vel|a ḓ|one|dzh| ḓi|ush|evh| fh|lan|hut|uts|alo| si|oṱh|het| an|amb| it|sir|ire|vhe|u k|nḓa|ea |mo |eth|tea|ḓa |u a|wan| bv|o a|ila|nda|ri | sa|o ḽ|i m|hus|zan|ndu|fha|uri|ou |ḽa |ivh|umi|ulo|adz|a a| ur|wah|fun|khe|a ṱ|isw|le |i v|ayo|she|e y|kon|hen|hul|o u|o w|ule|zit|anḓ|thi| ny|hun|hel|ung|i ḓ|uvh|a f|u d|bve|kat|hal|hav|ura|u w|nyi|pfu|lay| ho|iwa|tel|u h| ṱh|oni| o | ko|mbe|mus|hin|alu| th|san|u ḓ|zwo|huk| fa|u i| ṱa|zhi|du |o z|hit|udz| yo|usi|a w| ḽi|pha|lev|mir|eli|i i|u ṱ| iṅ|hoṱ|win|hed|so |ira|hir|ṱho|mur|ala| li',srr:'na | a |aa | o | mb| wa|ke | na| ke|war| ka|mba|a w|a a|a n|and| no| re|no |ref|baa|ax |at |aat|en |fna|e n|in |a j|waa|a f| te|kaa|jeg|een|a o|uu |am |aax| fa|um |nd | je|efn| ne| sa|ara|o k|a t|el |u r|too|aag|iin|oor| um|a k| fo|mbo| ta|saa|ne |a m|le | ni| le|te |e m|ni |or |e w| an| ox|oxu|ta |xuu|kam|o ñ|ng | nd|oo |fa |a d|rna| de| ng|ra |a p|ee |gna|ñoo|e a|eg |tee|o n|n n|oow| ño|aan|g o| ye| ca| ma|a c|ang|maa| to|una|oox|nda| ki|t o|it |oon|kii|ga |eng|nee| nj|den| ña|n a|ato|kat|m a|m n|len|t n|yee|op |dna| fi|raa|boo| bo|gee|o l|o a|oka|a s| la|arn|ow |r n| da|o m|naa| ja|o j|a b|fi |nga|gaa|egn|ef |a y|uun|aga|eer|a l|fop|bug| ya|bok|an | we|o t| al|eeg|a r| mu|are| jo|e f|ox |bod|aak|t k|ir |ñaa|i m|a ñ|x l|m o|o x|ndi|we |n o| fe|bar|ala|t a|l n|e t|laa|ena|ak | pi| i |gen|ay | xa|m m|n f|adn|pi |gni|ake| ak|f a|nan|ale|g w|eet|ona|nit|d n|d o|i k|jof|o y|e x|du |koo|fog| aa|iid|ern|il |u n| yi|yii|r k|iif|taa| ad|ag |a x|nde|aru|lay|i a|et | xo|xoo|e y|kee|p m|x a|noo| nu|paa| pa|aam|g n|og |ate| ge|can|if |fee|nge|wii|yaa| bu|ugn|e k|dax|re |o s|daa|ene|a ɓ|jal|ap |doo| do| xe|ina|n k| mo|nuu|xe |aar|ako|luw|uwa|u t|ɓis|aay|d u|all|as |moƴ| ga|e o|x o|l k|p a|odu',kha:' ka|ka |a k| ba| ki|ing| ji|ki |jin|ng |ei | ïa|an |ong|ad |a j|ba |ïa |ban|bad|i k|ha | la|wei| ha| py|ne |ok |pyn| sh|hok| ho|ang|ah |don|sha|lon|a b|a l| do|g k|on |la |a h|n k|i b|ew | pa|iew|i d|d k|rie| ne|i p|iñ |a s|am |da |oh |kaw|awe|k b| lo|ait| kh|i h|ar |uwe| uw|e k|aiñ|kan|id |lan| ma| ri| jo|jon|ai |lui|lai|d b| ky|na |uid|ri |ngï|itl|tlu|a ï|pa |h ï|n ï|kum|ynt|m k| sa|bri|ngl|m b|h k|hah|no | da| ku|ngs|at |eh |uh |kam|gïa|n p|kyn|o k| ai|dei|ynr|ano|or |h b|ngp|a r|i l|em |i n|a d| de|i j|kha|ngb|n l|ngk|yns|man|ïoh| by|aba|a m|r b|a p|byn| na|kab|um |kat|shi|t k|g b|d j|sah|pyr|ïad|i s|mar|m d|ym |hla|gpy| ïo|leh|rai|g s|it |ada|syn|ane|a n|r k|yng| hi|gla|ta |om |non|ngt|m j|im |h p|ynb|w b| sy|sho|k k| ym|har|n b| im|i r|n s|hei|mla|a i|a t|hon|ahl|yll|nsh|iml| u |nra|nge|khl|anb|gka|ap |ynj|g h|n j|ryn|e b|h h|lem|bar|the|t h|a a|uk |nia|d h|t b|iba| no|kib|nta| ni|aid|en | be|eng|tre|m ï|glo|nbr|aw |gbr|ot |hi |alo|rei|i u|be |hap|ti | le|ngn|d p|ra |un |bah|ynï| tr|w m|e a|khe| bu|ngi|thu|lah|ïar|bor| ja|huh|n u|nri|him|ngm| br|ian| se|nth|yrs|pat|tyn|bna|nbn|kyr|dan|lad| ty| ta| pu|gsh|rsh|g j|e j|rim|h s|bha|m s|ngd|ñ k|yrd|k l|w k|hle|h n|g u|roh|aro|bym',hea:'it |ix |ib |aix|ang|ong|aib|if | la|id |lai| li| do|ot |ef |f l| no|ait|non| ye| ba| da|ol |t d|of | di|aif|t y|dol|et |uai|nx |ngb|gb |lit| qu|mai| ma|ax | ja| go|gf |ngf|enx|b d|qua|hai|ngd|gd |il |f j|ail| ai| ha| hu|t n|x d|dai|t h|ban| se| na| zi| ax|nen|ab | ne| de|d n| gh|t l|x l|nai|ul |nt |t g|x q| xi|nf |ngt|gt | ni|x m|yef|dio|l n|gof|eet|zit|b z|ian|x b| ji| za|gid|ent|t z| gi|f d|ut |yen| id|b g|ns |eef|ngx| xe|gx |hul|nia|ens|d d| je|jab|iee|is |f g|ox | fa|x n|nb |b n|s d|l d|enb|t j| ho|gha|d g|dei|dot|aot|b h|ud | ze|xid|gl |ngl|t a|af |b j|f h|x s|uit| vu|zen| pi|el |eix|f b|f z|x j|t x|uf |t b|eis|x g|as |d h|bao|b l|os |iot| ju|l h| xa| si|xen|aox|d a|f n| ga|t s|f s| mo|s h|f x|inf|l g|ob |ios|l x|enf|gon|xan| zo|x h|x z|x x|gs |ngs|mon|ux |faf|gai| yi|jao|die|ad |hof| bi|d l|ghe|b b|b f|x a|l a|at |zas| du|xit|b s|see| hv|l j| be|t f|hui|d m|f y| fu|b x| ya|zai|t v|l z|sei|iao|jib| sa|x y|zon|sen|lif|s n|b a|sai|iel|eb |aob|aid|x p|set|jee|xee| lo|nd |jan|f q|jef|ub | gu|s g|hot|cai| ca|pin|s l|ben| zu|f a|end|den|ex |hei| wi|jif| hf|fut|lie|yit|lol| ve|d b|dad|us |jus|t i|x f|f m| ib| su| ge|l q|jub|es |b y|sit|lix|x i|s a|yan|f t|vut| ti|t c|fud|jit| hx|t m',gkp:'aa | ma|a k|maa| a | nu| ə | kɛ|i h| di|kɛ | hu|la |a n|le |ei |ala| hw|li | lɔ|di |ɔi | ka|ɛli|i k|an |ɔn | yi|ele| da|kaa|da |hu |ɛi |ɓa |aal| mɛ|ɛni|mɛn|pɛl|laa|i l| la|ni |ə k|kel| kp| yɛ|nuk|i ə|a h|a p| ye|ɔɔ |a l|ə m| pɛ|lɔi|lə |nɛ |ti |ii |ɓo |i a|i y|a m|yii|ai |ələ|a y|hwə|nu |yei|ɔlɔ| ŋɔ|a d|gbɔ|aan|i d|kpɔ|ma |ɛnɛ|i m|pəl| ɲe|u m|n n|hwa|wə |ɛ a|e y| ga|lɛ |a t| ti| pə| ɲɛ|ili| gɛ| ɓa|n m|gaa|i g|yɛ |ɛ ə|uke|ɲɛi| ke|olo|ɲei|ulo|ɓə |a ɲ|u y| tɔ|ŋɔɔ|bɔɔ| ɓə|i n|lon|aak|yi |yɛn|ɛ l|wa |a ə|ɔpe| lɛ|ɔ l|uka|i ɲ|lo |anɛ|a ɓ|ŋaa|lɔp|kan|naa|u d|u k| ɲa|i t|ee | lo|kol|əlɛ|ɔɓo|n d|ɔ k|ə g|ju | gb|ə p| kɔ| əl| ni| dɔ|iə |nua|ə l| ko|kpɛ|a a|lɔɓ|nii|ɛ y|ɔɔi|ui |na |ɔɓa| ŋa| ta|woo|n g|lɔ |ɛn |i ŋ|ɛgb|iiɓ|ə h|i ɓ|ɛ m|tɔɔ| ju|mak|ɔɔɓ|a ŋ|iɓa|ɔma|kul|ɛlɛ|un | nɔ|ɛ k|ɛ d|pɔn|n ɲ| ya|mɛi|kɛn|wai|ɔŋɔ|a g|ŋɔ |ta |wɛl| ɓo|nui|akɛ| ki|gɛ |ɲaa|nna|wɔ |nɔi| gu|oo |ɔwɔ|ɛ n| na|lɛg|lan| li|wal|kɛi|nut| ku| jɔ|yil|tɔn|e d|lu |ɔnɔ|pe |onn|akw|ə n|əla|a w|e h|kɛm| hɔ|əle|n ŋ|owa|ɛ g| mə|pee|aam|ila|uan| nɛ|ə d|pɔ |o m|mu | tɛ|pɔm|kil|oi | ge|akp| he|uta|tɔ |ɛna|ɛti|ɔ t|n y| ho|diə|ɔ g|awo|əli|mun|u h|ɛyi|kɔŋ|ɔ m|low|e l|dɔn|kəl| kə|liɲ|iɲa|ɲah|ə t|nɔn|ilə|ulu|ahi|hɔl|ama|on |lɔn|a j|e ɓ|lok| ŋu',hni:'aq |ol |iq |il |ei |eil|nei| e |aol|al |oq |uq |sol|vq |aoq|l l| ss| ma|q m| la|mei|yuq|liq| li|l m| me|hha|maq| aq|eiq|sso|q s|q b|col|lne| co|l e|q l|q a|pyu| ne| qi| hh| bi| yo|q h|bi |oln| mi| ha|yoq|haq|q e|iei|lei|av |q y|aqs| le|qso|ovq|qiq|goq| ng|nga|hal| za|uv | xi|miq|l n|oqj|laq|qhh|ivq|saq|ul |l h|q q| mo|ha |yul| go|oqh|q n| ao|xil|l a|olp|avq|lpy|gao|lal| al| da|lao| ya|jal| hu| ta|qja|i h|ssa|nie|zao|aqn|hao|mee|l q|mov| bo|q x| ba| ei|duv|bo |doq|ma |zaq|l y|eeq|v l|e c|eiv|q c|a l|ild|yao|q d| na|aln|qni|i z|jol| ka|l d|duq|zei|l z|dei| lo|iqn|a b|ev | de| sa|hho|uvq|l s|q k|q z|v n|if |gee|kao|ldu|a m|so |lav|e n|i n|i y| ce|i s|qla|i m|qiv|taq| py|ga |eq | zo|zol| du|huv|l b|i l|qa |i c|iv | ni|hyu|aql|qli|el |l k| ga|o m|mia|oqp|lme|qo |qpy|q p|v m|oqg| qa| si|ldo|e m|nyu|lha| ze|qle|q t|ya |a g|cei|q g| qo|faq|i a|mil|dal|jav|eel|ov |vql|l t|i d|qnu| ko|nu | pa|aqh|qdu|hov|l c|nee|o q|lo |olq|hoq|qho| so|loq|o l| jo|siq| do|iao|a s|zyu|alm| ja|lee|bal|oql|yu |old| fa|a n|hu |i g|e g|olk|dav|hav|qha|dao|aqy|iqz|gal|kov|nao|l p|nia|iqh|qji|hol|yo |yil|soq|e s|lja|eev|lka|lla|l x|v s|tao|v d|ilm|aqm|e d|e z|nge|lss|u n|ao |dyu|e q|i q|mol|ilh|mav| gu|l g|qgo|q j',yua:' u |al |aʼa|l u|ʼal| tu|áak|il |oʼo|u k|ak |el | ka| ye|yet|ete|tel|an |ik |máa|tiʼ|l m|ʼob| ku| be|k u|l t|ob | má|aj |láa|kaa|naj|u t|tal| ti|u n|kal|aka|eʼ |n u|eʼe| kʼ|l y| wa| na|wa |tul|u b|ulá| le|baʼ|l w|iʼ |aan| je|maʼ|aaj|jal|l k|jeʼ|le |ajm|ala|jma|nal|ʼ u| si| ma|en |kʼa| dz| ba|tik|maj|jil|bee|ali|taʼ|aja|ʼan|kaʼ| ch|u y|uch|ijn|tu |loʼ|kux|lil|aji|jna| ya|sij|xta|uxt|ʼa |u c|een|aʼ |laʼ|ku |ume|tum|mee|ʼ t|k y|saʼ|ʼaa|ʼe |tʼa|eet|bey|ini|u m|wíi|nik|l b|íin|uʼu| wí| mi|bes|iʼa|sik|ʼaʼ|u d|mal|kbe|j t|dzo|nil|alo|ich| tʼ| ja|táa| tá|leʼ|chi|ʼab|mix|oʼ |ant|eti|ax |chʼ|zoʼ|bal|b t|una|hil|ol |k t|alm|x k|eya|j u|iʼi|áan|ʼok|koʼ|ach|ili|boʼ|l l|x u|u p|yóo| yó|ʼol|n t|lma|u j|e b| me|yaj|esa| un|ʼ m|xan|ani|et |mat|olt|l j|noʼ|uun|k k|nta|e n|tma|atm|ʼ k|a u|mey|yaa|ey |ajt|kul|tzi|áax|okb| no|lti| xa|lal| nu|u l| ju|cha|ʼat|lak| ic|lta|aba|iku|tuʼ|áat|ch |xak|okʼ|zil|kʼo|kil|akʼ|ʼux| aʼ|teʼ|k s|óok|áaj|chí|híi|n k|b y|íim|e m|ʼax|uku|a m|l s| uc|jta|t u|naʼ|beʼ|páa|ʼáa|joʼ|iko| pá|hak|kuu|imp|ʼ b|mpo|pol|úuc|abe|eyt|ul |kub|uba|óol|kʼá|a t|ana|y j|n j|ex |ixm|ix |xmá|ʼac|tan| pa|ajo| bo|jaʼ|uns|akp|kpa|paj|bet|l x|ata|a j|kʼi|ux |ʼ l|aab|chk|pʼé|ʼée|éel| ke|ʼ y|ʼex|ab ',fij:'na |aka|a n| na|ni | va| ni|vak|ata| me|a v| ke|me |a k|i n|ua |ena|a e| e | ta|ra | en|mat| do|onu|ka |nu |don|ala|ta |odo|dod|a m|i v|e v|ai |ei |ina| se| ga|u n| no|ama|ki |la |kei|se |aki|ga |tak|a s|vei|ale|i t|a d|a t| ve| ca|e d|tam| vu|anu|a l|tik|i m|ce |e m|kec|ece| ma| le|ara|iko|cak|i k| ki|dua|van|tu |i e|le |nua|wa |a g| qa|awa|e n|lew|kin|ona|non|a i|tau| sa|qai| du|e k|dra|era| ya|tal|uta|e t|e s|ita|nod|ko |kat|ani| it|iva|i d|odr|itu|u m|ura|lal|nak|aca|gal|aut|ula|bul|law|kai|uva|au |e g| ra|vin|a q| ku|kad|ewe|kac| la|o e|mer|avu|va |u k| vi|oqo|ava|kua|tan|uku|vur|kav|li | ti|e e|adu|aga|i s|vat|e l| ka|qo |ma |ito|a y|oka| oq|nit|oma|iti|a o|uli|e c|avi|aba|ewa|ega|dui|asa|a r|seg|a c|vuk|vul|oti|rav|ken|vu |sau|u e|kot|ya |cal|vi |i c|auv|e b|kas|i b|utu|oya|i l|rar|eni|sa |eit|kam|ke |ait| bu|u v| tu|kab|dok|rau|val|o n|o k|tab|ku |taq|qom|ri |we | so|ila|ima|aqo|i i|igi|dig|tov|lai|ti |evu|lev|o v|ovo|wen|niv| ko|yal|eiv|abu|lat|e r|uri| er|abo|bos|ado|vo |cav|tuk|ose|u s|una|mak|kar|koy|mur|ira| be|uit|ci |rai|ba | lo|tav|sag|ali|vuv|gi |oli|yad|ola|rab|lit|idu|uke|wat| di|kil|gau|aun|iki|aqa|ia |uid|eim| vo|yag|e i|kaw|mai|iya|num|oto|oni|nan|lot|otu|idi',fur:' di| de| e |di | in|al |ion| la| ch|rit|eri|e d|zio|is |che|tât| a |la |de |der|ât |on |t d|ts |ndi|ne | al|gni| co| pa|ind|te |i i|ui |azi|he |ogn|ni | li|it |ssi|i a|e p|âl |si | un|i d|e i| da|in |ivi|e c| og| cu|nt |e l| à |div|à d|s d|par|idu|vid|dui|e s|i p| si|s e|i c| pr|un |t c|e e|a l|l à|ce | i |une| o | so|lib|ess|ent|ns |ar |i s|e a|tri|con|int|a s|itâ|ai |naz|ibe|n c|nce|n d| je|il |ber|pro|its|l d|t a| il|ste|rtâ|ris| st|dal|ons|ign|ert|dis| na|es | du|s l|ût | no| ri|com|ri |ant| sô|son|ers|ont|enc|res| ma|est|hes|sô |e o|ie | pe|per|soc|s n|men| po|i g|cj | an|s a|nis|e n|dai|i v|cla|sun|âts|uni|je |iss|s o|e t|an |ins|ich| ta|oci|anc|s c| ti|no |ssu| fa|n p|ate| ni|t e|l o|tig|i l|jes|nâl|re |duc|e j|fat|e u|a a|sti| vi|ame|ter|n e| gj|des|ch’|s p|uzi|din|sis|l s|tis|me |ond|str|iet|n a|ôr |tra|rso|idi|gje| se|ntr|ran|sie|ucj|art|nst|ara| re|nit|uin|a c|lis|ei |n o|nte|n s|l e|ntâ| om|i f|o s| te|vit|onâ|e m|ltr|n i|alt|a i|a d|h’a|pò |ade| pò|ist|imp|l p|man| ju|ome|e r| pu|gjo| cj|ari|tru| me|i o|ric|se |oss|ite|i r|dec|raz|lit|ass|s t|nde|t p| ce|sta|r d| fo|om |cul|ali|cen|vôr|l c|t o|stâ|bar|one|fon|nda|tan|tal|ruz|cja|fin|e f|ciâ|ern|t l|e b| le|iâl|i n|etâ',tet:'tu | ho| ha|ia |ha | ih|iha|a h|ma |an |nia| ni| di|ema| em|eit|itu|ho |un |ire|dir|a d|rei| ba|ida| at|ba |otu|hot|ade|a n|aun|atu|dad|u h|de |sau|asa| li| ka|u i| la|ka |la |hal| ne|a i|alu|tan|han|a s| mo|lu |al | se|ir |ne |os |esa| tu|san|e e|n h|da |tui| id|ane|u a|uir|a l|e h| ra|ai | sa|us | te|u b|n i|a t|rai|i h| e |e n|nes|in | ta|ak |lib|nas|ten|a e|ibe|ber|rda|erd|a k|nal|u n| no|sia| na|ki |mos|s h|ens|aso| hu| pr|ara|ras|ebe|bel|be | de|n n| si|a r|u t|ele|enk|nki|n t|tus|u s|nte|n e|le |a f|nid|asi|o l|o m|neb|ona| ma|no |ori| in|sos|ran|uk |ter|ent|ra |hat| be|ei |u e|a b|sa |du | re|a m|usi|as |uni|ira|ali|lei| so|osi|hus| es|abe|n b|sio|a a| fo|luk|men|mor|ion|ata|res|des|s l|at |nsi|rbi|is |iu |e a|lia|es |ate|has|ik | ko|u k|mak|ru |eta|a o|te |s n| he|lar|int|ama|ari| le|ala|sor|si |n l|ris|lab|n s|iku|i n|su |o h|hah|e b|k h|u r|oin|r l|re |soe| me|oen|ser|a p|ns |pro|rim|i s|erb|ili|liu|sal|man|ese|isu| fa|ial|ura|n a| fi|oru|ina|e i|cas|i e|bis|het|n k|u m| lo| ed| to|e t|lid|edu|duc|uca|elu|e k|imi|sir| un|tam|e d|sie|ano|har|en |ku |s b|s e|aha|mun|esp|est|rik|r h|are|era|ral|o d|pri|hir|ime|n d|u p| bu|uma|ern|iar|ar |a u|fo |mu |se |imu|ati|rel|sim|kri',wln:' l |ès | dè| qu|t d|èt | d | di|ou |eût| po| èt|s d| a |on |es |reû|dè |qu |nt |ût |e d| dr|dre| to|me |ns |di |t l|min|po |tot| on| s |te | ès|lès|s l|dès|er | lè|ot |s è|sse|ins|ion| co|qui|se | ou|int| ch|i s| mi| i |ui |ts |n a|cha|e è|a l|cio|ont|l d| pr|de |ome|u q|té |i l|s p|nde|ne |le |è l|u i|çou| ço|s c|èss|e p|vin|e q|in |ske|keu|re | in|ce |l m|s q| lî|ye |has|ask|nme|un |eun|inm|e o| li|ant| so|s o| si|st |i p| ma|e l| no|s s| sè|èst| n |s n| pa| av|e s|ond|n d|åci| èn|ind|out| vi|ut |e m|ûts|li |is | mè|ons|com| mo|eûr|t a|és |t s|mèt|lîb|us |u d|div|con|e c|e t|rin| om| ni| de|pou|t c|pay|ôte|sès| r |é d|îre|i d|l a|s m|t p|vou|ayi|yis|e a| ri|deû|leû|i t| ne|ole| vo| ôt|ine|fé |pro| fé|d i|èye|man|u è|dje| ra|n è|mon|bin|n p|rté|s a|ûr | le|tch|r d|ènn|tes|ète|si | bi|ité|je |ivi| bo|è p|s t|l o|nte|tés|nce|l p| il|nîr|dis|s r|îbe|d è|bon|lu |os |n l|sin|djî|u l| fo|anî|rès|u b| rè|nn |wè | dj|il |ote|o l|t f|nin|n c|l s|pôr|and|ber|r l|e r|t è| ci|t t|sco| è |ale|k n|u o|t m|jî |pri|tos|ni |î d|les|èdj|ert|vol|o ç|r p|eû | pô|n n|n m|rt |r è|ice|mes|nol|t n|i v|wèr|è t| tc|t q|noh|t o|tin| pu|i n|ous|avo|d l| å | nå|a d|son|i r|d v|n s| se|n o|l c|o d|s i|êye|cis',eus:'ko |eta|en |ta | et|eko|ide|a e|an |bid| es|o e|esk|sku|iza|n e| ba|ubi| be|kub|tze|ea |era|ber|na |dea| du|rri|art| ez|asu|ak |sun|ren|tas| er|tek|ako|zek|arr|ald|ntz|ik | iz|a b|ere|atu|n a|tza|ate| da|ez |k e|a a|giz| gi|ask|rte| or|ra |abe|are|a i|ert|n b|ria|oro|de | he| as|du |e e|te | ed|edo|a d|nor|a o|za |re |k d|egi|koa|err|rre|zat| de|zar|oa |o b|ean|ri |o d|kat|una|ona|go |rts|ek |do | pe|zko|o a|rok|tso|rra|ari|ezk| di|rik| au|a g| eg|kon|son|tu |u e|lde|per|zan|est|orr|her|atz| al| ja|bes|n d| na| ga|ska|ngo| ar|n h|ten|z e|ok |ita|bat|ata| ha| no| la| in| bi|itz|dut|lan|ezi|aur|int|ien|uzt|ia |da |a h|rak|azi|ont|la |unt|a n|tat| ho|io |ino|k g|tan|ste|bai|ute|rta|har|e h|n i|tik|tea|tua|eri|ite|une|ela|itu|a p|tak|a l|rat|nar|iar|gin| ko|gab|kun|ika|tzi|i e|in |zio|den|izk| gu|rtz|raz|un |hor|ema|eza|k b| za| em|ait|ori|ina|pen|urr|e b|a j|rbe|zti|guz|zin|uan|naz|ago|dez|ker|zen|nah|nta|be |leg|ter|iak|rit|ial|kar|ahi|ara|nik|ang|ioa|zai|ena| le|dar|dee|ege|ira|git|aku|ket|iko|aio|din|dir|lda|dag|ati|nak|kor|rka|nez|orb|uen|del|u b|n o|adi|ske|lak|o l|ani|zia|hau|uru|a z|tar|or |urk|aki|die|ene|aso|oin|bak| oi|i d|ndu|e g|ing|ear|o g|beh|agu|a k|z g|ana|tuz|ort|iz ',nbl:' lo|lo |nge|oku|mun|elo|o l|ung|nye|lok|ye |lel|ntu|tu |la |lun|e l|gel| ku|we |e u|akh|nga| le|aba|ule|khe|ban|unt|uny|wa | um|omu| la|he |a l|yo |ama| ng| uk|uku|uth|ele|ni |le |elw|zwe|a u|lwa|ath|umu|pha| ul|a k|elu|wen|eni|i l|kut|ezi|e a|kum|hi |kho|ela|ho |ba |ulu|ume|mel|na |ke | ab|onk| ba|nke|thi|lul|tsh|lom|eng|eyo|e i|ana|the|enz|a n|o e|o k|eth|zi |any|ala|a a|kwa|lob|a i| am|iph|e n|ant|a e| kw|izw|ane|e k|o a|ndl|het|eli|kul|mal|ang| om|ukh|lwe|alu|tha|hul|o o|kel|ha |kub|uhl|kwe|aka|o u|isa|hat| nj|len|ise|kuz|tho|kuh|thu|ben|wan|hla|alo| ez|and| yi|hwe|liz|i k|man|i a| wo|lek|oba|u u|khu|kun|won|lab|lan|i u|sa |be |hol|uba|li |izi|hlo| ak|nku| in| im|ko |und|thw|lak|ze |isi|ebe|bo |shw|sek|eke|ngo| em|mth|ayo|seb|so |ahl|hlu|fun|gan|mbe|ndo|do |vum|aph|ase|phi| ub|ley|oni|esi|mba|lem|yan|a y|nzi|azi|e e|cal|nja|kuk|o y| ka|nza|iso|ots|lon|eko|ngi|za |aku|enk|kus|kat|ga | ya|azw|zim|i y|ubu|umb|wak|hwa|e b|u o|ing|uma|jal|abe|e o|dle|yak|akw|lin| ol|o z| iz|nda|ney|gen|uli|ind|ham|u b| ye|ale|lez|u l|ziz|uph|luk|nje|ali| yo|uze|ano| ok|hon|no |zak|hen|han|wab| en|les|ili| is|okw|kup|ekh|yis|fan|maz|bal|nya|hel|nel|e w|bak|abo|e y|eze|hak|gab|dla|o b|hle|ilo|end| ph',cym:' i | a | y |ol |yn |dd |au |an |ydd| ha| ga|gan|awl|haw| yn|th |eth|aet| cy|eu |edd| gy|ddi|rhy|ith| rh| un|l a| ma|y m|l i|mae|ad |wl |wb |awb|ae | ba|n b|nol| ne|e g|iau|baw|iad| dd|hyd|ddy|wn |eit|n a|d y| eu|lia| r |yw | gw|id |od | ac|d a|n y|u h|ac |oed|edi|n g|l y|u a|neu|wyd| ym| o |b h|nrh|rwy|tha|ddo|nia|ll |dyl|wli|i d| dy| na|hyw|iae|yd |red| sy|a r|ymd|unr|cyf|r h|i a| ch|ni |fre|fyn|u c|d g|dei| ar|edl|gyf| me|ned|ewn|ch |eb |nt |d h|add|a c|has|lad|ynn|u d| am| ll|idd|mde| hy|on |dau| he| di|rai|as |i g|wla|fod|u g|mew|ir |di |ait|hau|ysg|dda|h y| u |rha| ni|dol|n f|d c|d n| da|ani|gae|yli|chy|rei|wy |l n|dyn|yr |did|ai |ys |b y|hol| ad|n d|d d|hyn|el | ce|ffy|fyd|thr|yfr|lae|loe|cen|all| fe|i r|wed| bo|adw|lid|h g|yng| an|sg |i w|mdd|y g| dr| we|wei|fra|ed |io |cym|dra| fo|rdd|int|c i|sol|rio|ryd|tia| yr|amd|a u|dia|ael|g y|al | ge| te|n e| po|yno|s a|neb|odd|na |bod|ail|gwl|awn|hed|ddf|gen|ill|hre|u s|ref|dir|lli|d i|ig | go|dig|nti|yni|ein|dfr|ene|n o|ann|do |d r|dif|dat| pa|wch|dys| wa|ar |nhe|efy|lai|syl|oli| pe|lla| hw|wys|gyn| â |hwn|gyd|y n|n i|n u|h a|pob|yff|gu |eid|dlo|oda|rad|l g|n r|ant|u r|w g|nig|iol|aen|yla|r r| er|ian|in | de|dwy|ria|han|ddu|dio|rth',pov:' di|di | ku|ku |du | ka| na|tu |i k|itu| te|i d|adu|u d|adi|na |dir|son|i p|rit|iri|a k|on | pa|dad|ten| si|kad|a p| i |n d|u k|si |i t|al |ta |us |pa |nti|en |i n|ti | pe| pu|a d|is |s k|u p|udu| o |ra |aso|tud|i s| pr| tu|eka|pek|ent|ka | ko|da |u n|a s|dur|ur |ida| ta|u t| li|ma |in |u s|bi |int|n k|sa |a t| ki|asi|kon|pro|dis|s d|tus| un|nas|ki | ri|a n|pud|sin|i i|ber|udi|ion|lib|men|era|iku|ru | fa|r t|ia |uma|i o|ons|isi|u i| so|ibe|ter|un |nin|rda|idu| se| ji|erd|ada| ni|i r|tru| su|jin|u j|ont|u l|nal|as |sta|u o| st|tra|kum|l k|nta|ris|n s|ona|ns |ntu|kas|utr|ras|ndi|ibi|tam|kal|er |sia|osi| le|sos|ne | ut|mbi|tad|ntr|ene|amb| e |a i|i a| ju|ame|asa|alk|igu|i l|for|i u|a o|gua|s p| al|lei|e d|und|edu|su |nsi|ker|sio|lke| me|ual|ora|mi | ig|l d|a u|gin| ma|i f|i m|a m|tis|u m|a r| at|ili|a e|ial|a l|nid|imi|fas| in|a f|eso| no|nu |rot| de|nte|ote|aju|ind|pri|sie|sum|nsa|ali|dib|u a|s i|orm|ri |ant|kla| or|art|ens|dik|el |uni|ing|rti|n o|bri|rim|min|sid|ati|n p| mu|ei |e t|es |tes|s n|emb|i e|i b| to| mi|vid|ura|ini|lid|s t|iso|sis|mit| vi|se |eda|ied|kri|lda|unt|l i|ans|r s|ral|e k|ime|tal|lik|rsi|ju |uda|opi|dia|ota|a j|not| pi| vo|ita|sib| ra|jun|rat|tik|ika|ran|n i|lvi',lus:' a |na |an | ch|ng | th| le|eh |leh|ang| mi|a n| ni|te |in | tu|ah |ni |am |a t|awh|nga|chu|cha| an|hna|han|haw| hi|hua|a l|awn|h a|a h|chh|anv| za|nvo| ka| in|ih | te|a c|h t|tur|wh |n t|vo | ta|wng|eih|n a|paw| di|hi |uan| hr|i t|hu |a a|hei|i a|mi | lo|the|al |thi|nna| da|van|aw |maw|ak |ur |hun|hia|tha|ung|g t|hhu| ra| pa|kan|ga |n h|o a|kna| hm|h c|int|dan|ram|ei |ian|dik|i m|hra|nei| sa|ava|ikn|ran|n n| ne|n c|ema| av|hri| em|e h|thl|uah|h l|h h|pui|mna|thu|ihn|sak|nih|hma| ti|kaw|a m| hn|hin|h m|l t|ing|r a|tin| ng| nu|tak|tan|a i|un |rin|mah|awi|awm|kha| la|l a|lan|nun|ui |hil|g l|iam|k t|a k| kh|hla|zal|i l|k a| hu|zaw|alê| pu|n l|n m|lên|nte|iti|ngt|nch|mal|ima|lam|m t|upa|lo | ve|daw| re|man|mit| he|mih|n r|ata|ihr|u a|a p|h d| na|awl|rem|a r|el |n d|a d| at| ma|mim|gah|il |tla| hl|e c|ka |h z|h s|ek |gte| va|g h|m h|i h| tl|h k|ha |ia |eng|ana|en |g a| si|tih|h p|âng|i z|ênn|h n| zi|tup|tlâ|wm |din|n k|m c|aih|g d|nan|wk |awk|ntl|pua|g z|una|gai|e t|i r|ual|whi|aka|hum|hle|him|lov|len|uma|n p| du|he |zir|vek|tum|a s|ann|ahn|t t|sia|loh|at |m a|rna|i k|k l|lh |zah|lna|duh|nam| ph|taw|m l|va |uh | aw|sua|wn |awt| ba|iat|saw| ro|lân|iah|ama|emn|l d|baw|i c|phu|a z|ant|zâw',dag:'ni | ni|li | ka| di|ka | o | za|ali|i n| so|i k|di |i d| la|din|am | sh|shɛ|i b|a n|an |kam|i s| be| n |zal| yi| ti|im | ma| bɛ|i o|gu |in |a d|i y| bi|igu|uɣu|bɛ | kp|ɣu |la |aŋ |i t|a s|i z|ɛli|a b| ny|ŋa |zuɣ|oli| da|ee |a z|hi |aa |a k|ya |al |oka|be | zu|ma | su|ani|n n|sok|gba|lan|ili|lig|u n|hɛl|o d|ir |sol| ŋa|uni|maa|n b|yɛl|a ŋ| li|l s|bu |iri|iŋg| yɛ|ɛŋa|hɛŋ|mal|ri | ta|tiŋ|ti |i l| tu| sa|ŋɔ |ŋan|nyɛ|i ŋ|taa|bee| ba|ɔŋ | gb|nim|ari| ŋɔ|uun| na|ŋ n|so |a t| pa|ini|u b|n k|bi |si |zaa|m n| ch|ŋsi|ŋgb| yu|mi |aɣi|uhi|ita| wu|i p|ama|o s|o y|lit|aaf|ɔ n|aŋs|ban|ko |i m|m m|fi |afi|tum|o n|zaŋ|yik|suh|kpa|iko|m s|nya|a y|e l|iŋ |mdi|aan|na |o k|iya|uhu|dam|kpe|u k| bɔ|o t|wuh|ia |e n|bil|paŋ|nir|ɛhi|yɛ |yaa|a o|yi |m k|u s|a l|u l| do|uli|daa|ahi| mi|nzu|n w|aal| pu|haŋ|m z|lim|sim|rig|e s|inz|too| to|ooi|oi |ala|u d|i g|m b|o m|o b|niŋ|kan|maŋ|yub|ubu|ɛ n|chi|m t|abi|lli|m l|ba |cha|bɔŋ|aai|n y|n z|ima|n c|igi|n m| ku|baa|puu|ins|r o|e k|n t|ŋ o|ɣsi|ihi| du|ɛ s|e o|ana|ɛm |gbɔ| kɔ|ɣi |aha|eni| ga|hig|laɣ|ŋ z|aad|ibu| ya| bu|bɛh|n s|yu |u t|u m|nka|un |baŋ|i a|da |aas|sɔŋ| sɔ| mu|paɣ|sir|ɣiŋ|aaŋ|ŋgu|u z|hu |kar| ve|iin|ɛll|ɔli|ndi|pe |oma|min| wa| ŋu|n d|rim|ŋun|ŋ k| al|ash',dga:'ng |aa | a | ka| o | na|ang|ka |a n|eng|a t|ba |ne | ba| ne|nan|zaa|a b|a s| ta| so|a o| la|la | te|a k|ri | be|taa|na |a a| za|ten| po|nga|neɛ|lɛ |ga |poɔ|e k|oɔ |ong|a z|e n|ee |e a|ɛlɛ|a l| yɛ|ori|a y|men|g n|sor| to|yɛl|g b|bee|ane| me| ye|e o|o n|o t|yel|yɛ | an|ɛza|ma |eɛz| ky| no| bo|a p|e b|ie |ɛrɛ|rɛ | ny|eɛ |be |oba|i k|ngɛ|aal|ɔ a|nob|g k|re |a d|bo |ɛɛ |ɛ n|li | se|a m|kyɛ|ɛ a|nen|eli|ɛ b|nne|sen|saa|ɛ l|iri|nyɛ|o a|o y|o k|i a|o s|g t| wa|eɛr| ma|oma| ga|g a|rɔ |soo| dɔ|oɔr|erɛ|fer|ge |zie|obo|oob|ɛ k|i n|waa|ɔ n| fe|rɛɛ|o p|a f|o b| ng| lɛ|e z|ala| bi|ron| zi|sob|tom|a e|ebe|ton|gɛ |a g|ta |o m|a w|ro |lan|ɔrɔ|obi| e |ann| kp|ɔ̃ |ɔge|boɔ|ɔ b|oɔ̃|ɛ s|gsa|ɔ k|ngs|daa|nda|dɔg|ban|ɔɔ |nɔ |end| zu|kan|e t|ɛso|g l| sa| da|uor|bie|zu | ko|ɛ z|e p|e y| k | di|bon|peɛ|o l|sãã|aar|one|uur|ngn|le |puo| pu|alo|ru | de|g s|ana| sɛ|da |ama|ɛ p|sɛr|gan|maa|son|kpe|mo |nno|beb|gaa| sã|enn|san|mmo|ɔgr|g y|man|gne|o o|toɔ|ben|g d|pɔg|teɛ| pɔ|so |u k|bin|ing|aba|aab|e l| am|ãã |g p| tɔ| tu|yɛr|ɛ t|te | ir|min|ɛ d|ine|i m|g o|aan|uo |k a|ɔ o|oru|lon|ɛ e| yi|i o|g m|gro|eɛl|ara|ra |de |gɛɛ|nee|ene|o z|i b| en| yo|bal|no |lɛs|ɛng|ɛ o|uro|ale|lo |kye|yeb|di |zan|iir|ɔre|bib|gɛs|g w|nsa|oo ',bre:'en |et | ha| de|ar |où |zh |ezh| di| da| ar|añ | pe|n d|da | gw|an |wir| an|ha |gwi| e |enn| en| ga|el |c’h| ma|den|ir |nt | a |ant|us |ioù|a g|ez |n e|eus|ep |r d|ll |vez|t e|ur |ag |t d|hag|deu|n h|a d|eze|pe | be|gan| d’| ve|gez|t a|lez|rez|pep| ke|oll|a v| re|net|eza|e v|s g|nn |r g|ut |ade|out|oad|zañ|eo |roa| ho|iri|rio| eo|ell|dig|hol|hel| fr|h a|del| ne|ran|ere|red| vo|g a|’he|fra| c’|e a|ank|nki|kiz|aou|dur|re | o |ù h|adu|eve|h e|uzh|evr|t g|ouz| he|doù|vo | ge|bet|er | le|edi|gao|ele|o d|are|dio|iz |t h|ige|z e| al|ne |nne|vro|hin|’h |d’a|e d| ev|ni |ber|ado| em|ini|n a| hi|zio|p d|ù a|all|war|vre|r s|a z|ege| br|ed |l a|l d|mañ| pa|h d|p h| la| ur|l h| st|l l|ñ d| vr|iñ |h h|oue|bro|h p|r b|vit|nno|skl|r m|dis| zo|z d|r f|eme|l p|bou|z a|al |ven|evi| se|l e|e e|ñ a|isk|ab | dr| wa|ñ e|r e|ure|e b|obe|r a|vel| ou|it |mab|r p| zi|i e|lle|n o|aze|our|zen|dez|ñ m|nna| un|a s|izi|zet|o b|ebe|t p|at |rc’|n p|rel|r r|nan|’ar|zel|rzh|r v| do|die|zha| eb|dre|ann|ù d|ù p|tañ|ane|iou|ù m|g e|abo|lab|ad |o e|hañ|êri|ask| sk| ob|izh|eiz|o a|o g|ma’|a’z|ent|’z |klê|lêr|sev|b d|noù|ren|esk|gwa|bez|gel|eli|ave|iez| na|gev|ud |n u|zeg| ko|erz|ver|una|ñ h|ken|kad|ria|dia|fe |sta|t n|zo ',kek:' li|li | ch|aq |chi| na|il |al |ru |nam|jun|b a|l l|ch |i x| a | sa|ila|naq|sa | ut|k a| te|am |ab |ut | ta|kil|an |nki|ana|i p|poy| ru|oya| il|yan| po|lal| an|nil|ten|aan|hij|i t|uni|iju| ma|ami|ank|ena|aru|wi | re|mit|ak |wan| al|laq|nar| k | aa|hi |b i|eb |re |nq |maa|q r|ala|it | ju| wi| wa|h o|q t|l c|q a|cha|u l| ra| in|hir|q c| xk|a l|ik |a a|a r|iru|aak| ri| ti| us|u t|a x|l x|i k|xb | xw|xwa|oq |xk |och| xb|l r| xt|anq|i r|l u|i c|e x|tix| xy|xch|te |q x|ib |in | xc|ink|loq| jo|aal|k i|mal|jo | ka|lb |b e|kol|n l|l n|la | aj|m n|om |u n|nk |hic|uch|xlo|ob |t l|haq|ruc|ich| ee|q l|q e|e n|xte| b | ko|jel|h u| aq|taq|l t|a n|aj |b l|rab|q s|anu| oc|aab|i j| xj|el |t t|waa|aqa| ar|a u|anj| xl|ajw|rib|sil|hom|a t|i l|nje|a i|k c|een|k u|olo|ta |eet|l a|yaa|olb|nta|uq |raj|uuq|usi|ruu|jwi|q w|kan|unt|e r|us |ok |xya|leb|t s|ani|enq|awa|nak|o k|ni |iq |i n|l w|sik|q k|uta| tz|unk|iiq|b s|ix |una|n s|tz |i u|ar | ej|xma|k e| q |b c|na |z a|a c|xju|xye|man|hil|i i|nax|taa|h i|tar|n n|ol | ol|xaq|l m|ul |rix|m l|u x| xm|esi| xn|u c| le|b u| e |paa|ama|n a| uu|tik|ent|t x|wak|i m|n c| am|b x|nto|q i|et |tee|ub |akl|q u|lob| ro|toj|s t|e c|k s|tam|e q|to |i w| xp|n t|aje|xko|a j|ara',pcd:'ès | d | l | qu| dè|nt |es |èt |s d|t d| èt| di| s | lè|eût|on |lès|e d| a |qu |t l|er |s l|reû| to| po| co| on|di |int|ou |ût | dr|ion|min|dre|ns |me |cio|i s|tot| pr|te |ts | lî|s c|ant|té |e a|ont|le |dès|s è| ès|ins|sse|con|ne |ome|ot |se |nde|åci| so|lîb|ye |ons|dè |s p| in|leû|t a|po |i l|de |re |e l|s m|e s|st |s q| li|ond|t p| si| pa| ch|s o|t s| mo|li | ou|e è|èye|és | i | ma|cha|èl |ûts|s s|l d|eûr|si |pou|i d|in |u i|qui| no| le|èss|out|ce |eun|ut |èst|ui |l m|a s| sè|ske|t è|s n| vi|n d|n a| al|ûre|has|dèl|un |e p|ité| om|e c|keu|t q|ask| rè|al |vin|i p|r d|tes|l s| de| è |ole|ter|tés|rès|ind|com|e t|deû| mi|e o|eû |d l| se|mon|e q|e°t|rin|nte|l a|d v| dj| mè|îbe|n è|mèt|l o|ass|ôte|s a|seû|rté|il |k n| il| ni|cla|r l|dje|n p|inm| av| st|n s|be |ète|é d|ine|u o|wèr|o l|so | ôt|nce|os |sès|ni | n |djî|çou|ran| ço|r c|man|tos|e m|yes|l è|s r|èrt|bèr|îbè|ûr |par| as|nme|a l|s f|t t|emi|vou|u l|î d|is | èl|d c|u d| sa|nsi|pay|r è|l p|pré|wè | ne|bin| bi| ri| na|d a|e i|ote|one|fé | fé|je |ûye|eûy| nå| fe|a t|t i|lwè| lw|ssi|re°|îs |t c|è m|u a|è s|u è|s t|u q|èdj| èn|nts|îre|tan|prô|adj|fåt|inc| å |n n|spè|èsp|dèy| et| få|n o|us |nål|dis|que| r |sin|van|nou|pro|avo|eûs|èri',roh:' da|da |a l|la |iun| la|ha | in|as |cha|ziu|un |a p| e |ts |ret| dr| il|na |dre|s d|per| pe|a d|ain|azi|er |ls |et |a i|il | pr|in | cu|una|sch|s e| ch|l d|ing|ers| ha| li|inc|an | a |tà |za |min| l |ir |üna| mi|man|nch|a c|pro|a e|a s|las|sun|lib|mai| qu|ns |nza|ta |e d|ter| ün|int|t d|ibe|ber|ala|era|is |al | o | ed|s p|ia |ar | co|uma|s l|res| um|als|ent|rsu|a t|nta|ama|s m| re|ed |ran|n s|uns|ess|tra|naz|ets|ats|ün |ant|s i|gni|nal| gn|ert|ad |chi|cun| sa|n c|hi |sta|ur |nt |anz|ist|uot|s c|ng | na|s s| d |ità|ra |nte|cum| me| po| de|con|a m|el |tuo|a h|uis|ras|qui| se|nir|czi| di|nu | su|t a|r i|ual| tu|d a| nu| sc| pa| ma| fa|d e|dal| ad|ss |n d|a a|l e|ica| el|n i|a r|r l|rs |d ü|ngü|s n|gua|a f|a q|a v|ote|han| es| si|gün|à d|r a|lit|ari|and|d i|r p|u p|aja|rta|a g|ons|ali|r s|lla|n e|dis|sia|e l|tta|que|s a| pu|a u|nda|tan|tat| tr|sa | ar|eis|sei|n n|nd |s o|egu|a o|tsc|a n|und|ver|r d|der|ils|uni|l i|ump|cia|o g|ca |r e|n l|gna| as|es |rtà| ot|bli|nts|lic|che| te| ac|lur|lia|ern|ais|unt| st|soc|oci|ial| fu|air|l s|l u|ami|giu|ot |po |men|ch |e c|art|s u|pri|n p|rar|ara|ide|els|ita|paj|rot| eg|vit|dad|t i|n a| un|ria|das|pre|par|l a|enz|ati| vi|rat|n m|r ü|tal| lu|n h|isc',bfa:' ko| na|ko |na |i k| ka| i |et | ŋu|ŋut| ti|a k|ti |gwo| to|en |on |si |esi|won| kö| gw|are|it |yö |dyö| lo|utu|tu |de |köd|ödy|o k|t k|ode|kod|i t|e k|t n| ki| ‘b|n k|ya |o t|ki |kar|any|to |n n|uto| a | ďe|n ŋ|jur|ren| ju|lo |ďek|ele|liŋ|iri|nye|ta |eke|di |bul|ndy|u k|adi|ri | sa| ad| bu| ku|ja |kin|lö |ulö|kan| kw|sar|kwe|yen|kes|i n|kon|a n|in |‘ba|ita|dya|t l|i ŋ|ö t|ak |a a|ret|yit|ur |ö k|iŋ |nyi| le|kit|a t| li|nag|o l|iŋi|o a|se |ŋit|i l|an |ogw|ne |agw|iki| an|e t|u l|a i|bak|ö g|öki| ga|ene|ojo|e ŋ|le |n a|n t| ye|a ď|o ŋ|tol|lel|kaď|log|we |gay|ŋet|t i|a m|ine|o n|ye |ŋ k|ŋo | ďu|oli|i i|toď|wej|i g|eja|a ŋ| mo|ien|nes|aďe|kat|den|aki| lu|lie|ase|i b|gi |o s|oro| la|i j| jo|yet|a g|ind| ny|ön |ubu|bub|‘bu|gwe|jo |n l|ili|ju |urö|laŋ| te|i p|ruk|kul|ari|e g|res| ag|agi|ata|rön|a l|oďi|eŋ |aka|rik|tod|o g|kas|yes|mor|joj|i ď|o j|ďir|ďur|wil|tor|omo|a j| mi|odi|gel| pi|ony|gwi|din|kak|aŋe| ri|e i|a y|eye|tet|orj|i m|aya|ďe |ona|a ‘|k k|eka|pet|mir|i s|rit| tö|tök|ni |n i|r k| yu|uka|ond|ö n|ulu|jö | mu|oko| ke|o ‘|e ď|nyu| de|leŋ|urj| ge|du |net|un |o i|aye|yey|ani|rjö|e l| di|diŋ|tok|uru|luŋ|kor|ron|e a|mom|pir| se|nen|e n| ne|kun|u n|aŋo|bur|rja|mug| ŋo|kaŋ|ugu|ore|ute',kri:'ɛn | fɔ|di |fɔ |in | di| ɛn| dɛ| we|dɛn|ɛt |gɛt| gɛ|we | in| nɔ|ayt|n d|ɔdi| i |an |bɔd|ray| na|na | ra|yt |t f|ri | kɔ|i w|n w|ɔn |t d|n f|i f|nɔ | de|de |i g| se|ɛni|ibɔ| ɔ |n ɛ|ul |ɔ g|n i| go|a d|da |ɔ d|go |tin|tri| ɛv| pi| pa|n k|man|wan|e d| wa|i n|vri|ntr|shɔ|ek |ɛvr|ay |ɔ f|rib|kɔn|ɔnt|e i|n g|nt |n n|mek| me| fr|am |t ɛ|ɛf |say| am| bi|hɔn|ɔ m|is |at | da|se | ɔl| du|du |ɔl |l d|n r| pɔ| ti|on |sin|n y|t r|i s| wi|i d|ɔda|sɛf| ma|yon| yo|ant|t i|a p| ɔd|ɔbɔ|n s|esh|ɔsi|i k|n p| wo|wok|it |ɔm |wet|fri|ɛnt|pɔs|nɔb|ɔt |i p|eti|ɔ s|ɔ t|mɛn|t n|n ɔ|pul|ipu|pip|e f|bul|ok |ni |dis| yu|liv|i ɛ|ɛkt|iv |rɛs| bɔ| fi|n b| wɔ|iŋ |kt | pr|sem|ap |bi |ns |tiŋ| lɛ|pan|ɔ b|spɛ|as | eb| ko|em |kin|a i|t ɔ|al |if |so |ebu|il | if|fil|ba |i l|wit|dat|i ɔ| rɛ|wɔl|tap| gr|k d|e g| jɔ| tr|kɔm|rid|t p|ins| sɛ|ili|nes|pɛk| ne|s ɛ|ɛd | li|yun|ɔ p|lɛk|ɛm |i m|ɔ i|s d| so| lɔ|t w| ka| tɛ|i i|ti |en |s i|n m| dɔ|l i| la|l f|ɛsp|e w|yn |n a|p d|bɔt|nay|pik|tɛd|nsɛ|jɔy|k w|mar|ati| gɔ|pat|i r|o d|e ɔ|ɛp |ytɛ| sh|idɔ|k s|dɔm|m ɛ|ɛk | ch|a w|e n|dɔn|mɔt|gen| ba|una|d n|iki|ɔ a|uma|frɔ|m w|rɔm| sa|i y|aw |a ɔ|lma| as|ɔmɔ|ayn|t a|are| si|ta |red|k ɛ| to|tmɛ|etm|ste| st|lat|ɔ l|ola|kol|m n|ot | ta|nta|pas',cnh:'ak |nak|kha|hna|ah | a |mi | kh|ng |in |an | th| le|le | si| mi|haw|awh|ih |whn| ni|ai | ca|h a| ng|i t|gei| hn| te|nge| ti|thi|am |ang|at |ha |tei|a s|ein|hat| na|na |ei |ung|nih|nga|k a|ing| cu|ram|si | ah| za|k n|a h|k l| an|cu | in| lo|seh|tha|ong| pa|tua|eh |awl| ra|g t|eih|i l|sis| ch|lai|ise|mna|hun|wl |n n|naw|uah| ka|nna|caa|n a| hm|h m|i k| di|i a|te | tu|lo |a t| la|zal|lon|k t|alo|akh|h s|pak|n t|hil| um|ial|chu|uan|a c|hma|k k| ai|i m|hmi|h k|k c|kip|ip |din| ru|lte|a k|man|alt|a n| ki|n k| i |via|i c|tin|gah| up|un |upa|aah| vi|kan|rua|k h|awn|h c| da|tik|l a|ilt| ma|mah|lti|dan|i v|tla|i h|i r|e h|vo |h r|h t|ter|ian|nvo|i z| bi|m k|ihm|k i| hr|n s|o t|a u|i n|lei|han|ria|hmu| pe|e a|ngt| ci|g a|h u|anh|inv|ant|ikh|nh |bia|phu|h n|ann| ri|hia|pi |wh |hle|iah|io |e p|the| he|cio|um |p n|hra|rna|kna| zo|uh |nun| zu|awm|hng| nu|iak|h l|hei|chi|caw| tl|i d|ahn|n m|ntu|umn|h h|e z|nin|awk|him|h p|hte|amn|aih|pad|e t|lna|duh|m l|adi|mhn|i p|n c|di | ph| du|l k|ihn|tia|thl|h d| aw|h z|ern|muh|a a| ba|tel|ti |aln|iam|pat|e n|n h| su|a z|o l|k r|hua|u m|n l| un|aza|dih|he |ngk|wk |a r|eid|wng|k z|t l|wmh|nch|er |u a|n u|ina|eht|iht|a l|aan|ga |zei|pia|api|min|zon|sua|el |m a',lob:' dɩ| a | wʋ|wʋ | ha| th|kɛ |nɩ |na |dɩ | sɩ|han| kɛ|sɩ | ti|bil|aʔ |tib|ibi|aa |ana|a n| na| rà| hʋ|nan|rà |il |ʋɔ |ɔɔ |thɩ|a d|ɩ d| n |a t|ha |kha|a h|ra |anɩ|yaa|hʋɔ|ar |ɩ t| ná|dɩɩ|aan|ɩɩ | do| ra|ni | nà|nɛ |ɛ h|nà |ná |ɩ a| gb|do | cʋ|cʋʋ|anɛ|oo |ɩ w|ɩ s|ɛʋ |ɔ k| ya| fɛ|l w|fɛʋ| ɔɔ| tɩ| kp|o t|a f|a w| wo|nɔ |a k|ɩn | wa|ʋʋ | pu|r r|hɩɛ|rɩ |ɛ d|ɩ n|ʋnɔ|uur|ɛɛ |la | ɩn|ʋ n|an |ɛɛn|nn | tɛ|ɩr |ɛ w|ɛn |tɩb|tɛɛ|ɩɛn|ɛna| le|ʋ t|woo|ɛr |aar|ɩbɩ|ɔ a| sʋ|ɛ a|mɔ | mɔ|n k|sʋn|pun| fɩ|bɩl|a m|unu| yɛ|ɩla| ʔl|ʋ k|par|ɩ r|ɩɩr|ur |oni| nɩ|ɛ t| jɔ|fɩr|ɔ d| da|ɔ t| jɩ|ɛ n|ɔ n|nak|ʔ t|jɔf|a s|hii|n n| ʔy|r w|a c| bɔ|le |gbɛ|n d|ɩ k| ca| kh|a g|a a|hɩn| tu|rɛ |haa|l h|ɩɛr|ɛ r|hɔm|thɔ|ɔma|ʔ d|r s| so|ii |a b|wa |the|ɔr |ʋʋr|n t|akɛ| cɛ|uni|ɩkh| bɩ|er |a j|pɩɛ|hʋ |uu |ɩnt|ʋ h|r n| ɛ |ɩ h|duu|bul|ɩrɔ| ka|rnɩ|kpa|ʋnɩ|ɔ s|bɛʋ|bɔɔ|nɩr|a ʔ| wɔ|waa|al |nu |ɔ w|her|i t|pa |fɩ |aal|a y|iin|wɔr| dʋ|ɩnɩ|i n| ɛɛ|don|caa|ma |ʋ ʔ|rpa|ʋaʔ|ɛ k|à n|inn| ma| de|ado|gbe|rɔr|dee|yɛ |à t|too|a p|ɔaʔ| pɛ|dɩk|n g|kpɩ|n p|ʔ y|ɩrɩ|ʋʋn|ɩ l|r a|ʋ p|ʔya| ba|eed|ɔfɩ|da |ʋ d|a ɩ|thɛ|ʔli|jɩ |li |ɛ s|á f| to|ntɛ|tee|tɛ |nun|i d|à ɛ|wʋa|à d|n h|l n|guu|n a|akh|o d|arɔ| bu|puu|fa |n c|ʋ c|len|naa|mak| kɔ| te|ɩ g|à h|ɛ y|cɛɛ|ɩ c',arn:'ñi | ce|pu |ka |ew |ce |el | ta| me|mew| ñi|vle|me | ka| ki|ey | pu| mv| fe| ko|ael|ci |i k|mvl| kv|añi|tañ|kom|om |e m|kiñ|en |gea| ru|ume|rum|eae|u c|ay |ley|m p|am |gu |vn |gvn| zu|ele|e k|le |tvf| tv|ugu|zug|n k| wi|elu|pi |lu |cem|fey|e c| pe|vme|kvm|em |nie|u k|aci|y ñ|ke |a k|fel| xo|vfa|xok|oki|gen|gel|oge|iñe|len|ñe | we|l k|kim|gka| mo| ma|ta |u m| pi|mog|igk|apu|map|fac|fij|ñma| ci|age|ijk|w k|epi|pep|a w|i p| eg|iñ |mag|nor| no|m k|wig|lel|isu|lea|kis|a m|y t|e r|vza|i z|i n|e f|ntu|ege| fi|kvl|i m|lay|zaw|ela|l t|kvz|fem|wen|i t|w m|ñ c|eam|eay|m c|aya|n m|ij |e e|or |y k|tun|mue|a c| fv|jka|e p|u x| cu|cij|mge|e t|epu| ep|y c|eci|egv|a f|u f|a p| ge|iel|yam|vne| ya| xv| ni|uam|xvr| ku|ole|y r|nay|un |emu|eno|w r|a t|i w|e ñ|u t|kon|eke|y m|zua|wvn| ke|cum|mu |i f|eju| nv|uec|kej|ayg|n t|afi|vfe|mvn|vr |fvx|vxa|nol|i g|m x|w f|new|uni|u ñ|aw | ra|i r|i x|eyc|r f| in|yci| az|tua|xa |ygv|w t|uae|iea|u w|ent|az |fie|mel|ule|ake|yay|j m|tuk|n n|uñm|u p| gv|wez|eza|way|nvw|ona|su |eye|ine|may|a n|ida|u r|wae| zo|ime|z m|mni|e n|uku| lo|log|ogk|umu|sug| wv|e z|iri|wir|gko|l c|la |ewe|wkv|nmu|ayt|wel|ugv|m m|ney| na|nac|mek|cio|iñk|ion|vla|kam|vna| re| xa|e w|amv|uji|awv|ñke',bba:' ka|ka | ba|bu |u k|ru |a k|ia | tɔ|ba | n | sa|a t| ko| mɔ| wi| kp|ari|a m|nu | bu| u |aa |a n|a s| te|tɔn|sar|re |a y| sɔ|a b|ɔnu| mɛ|ii |u s|mɔ |ria|ere| ù |un |ra |in |a w|u b| ti|oo |na |em | ku| wa|baa| yi|win|tem|ɔɔ |ko |u t|waa|aru|koo| ga|n k|sɔɔ|wa |kpa|i m|mɛ | ye|u w|n b|nɛ | ya|o k|ma |ǹ |tii| ma| ǹ|n t|aaw|ɔ b| be|u m| ta|ɔmb|i t|wer|awe|am |ina| nɔ|i b|si |i k|n w|mbu|asa|ɛ b|a d|era|n s|kpu|mi |u g|ya | mi|asi|ri |pur|ro | yè| da|i s|pa |u n|sia| bi|kun|a g|u d|uro|en | as|aar|e k|ana| go|goo|yè |sɔm|wi | bw|saa|wii| ke| tu|tɔm| di|e m|u y|i n| sw|e u|wee| se| si|n m|iru|ser|ɔ k|nde|de |ki |e y|ua |te |n n| do| wu|an | de|nɔɔ|ɔsi|ni | nd| we|a ù|nun| mu| ki|een|be |ɔ n|n a|yer|o t| su|mɛ̀|ɔ ù|ɛ̀ |m t|ibu|e s|ee |n y|su |enɛ|isi|o b|o n|yen|m m|uru|bur| du|m k|yin|ɛ t|da |gbɛ|igb| gi|yig|sin|aan|maa|ta | nɛ|e t|e b|n g|ye |ɔ t|eru|ù w|n d|swa|i d|ɔra|i y|ɛru|iri| na|dok|ɔm |gir| ge|abu|ras|rɔ |urɔ|oke| to|eu |keu|ɛ u|̀ g|ɔɔs|gia|i w|a u|m g|bun|naa|tir|ɔru|ora|aka|ima|ù g|dee|̀ k| yɛ|aas|san|tor|gar|mɔ̀|yii|ɔ̀ |̀ b|una|aye|nam|mɔr|kpi|ku |ara|ber|ɔ s|di |nɔ |anu|i ù|à n|rim|ɔn |wun|wes|sa |ira|ker|ke |bwe|o m|nan| so|ugi|bi |i u|m b|gaa|tur|kua|ɛ s|pi |awa|rɛ |ese',kea:'di | di|do |to |em | na|on | e |o d| qu|çon| po| co|na | te|tem|udo|tud| tu|er |i t|qui|êto|ent|ui | pa|dad| dr|rêt|drê|al |i d|m d|aço| se|el | ca|ta |i s|adi|a t| ta|i p| li|o p|a s|o e|men|i n| sê|ser|pod|i c|pa |que|o n|con|i e| ô |e d|dê |a d|ês |um |ti |ida|por|nti| be|a c|a p| el|odê| si|ado|sso|nto|co |bem|ra | in|lib|si |a e|sê | nu|ion|ido|o t|ndi|n d|ame|und|ça |s d| de|ber|l d|uel| ê |nu | cu|sa | es| re| fa|ê s|ibe| ni|nal|erd|m p| mu| um|e e|ia |rda|omi|ess|pâ | ês|êm |a q|uêm|guê|de | pr|oa |nac|nin|o s|dis|soa|io |m t| pâ|ca |éss|i ê|o m|tra| pé|pés|com|nça| ho|igu|a b|i b|i f|ê p| tr|oci|ôto|soc| so|hom|or |raç|naç| ma|mi |e n|i q| sa|tâ |a n|ona|ngu|res|nte|cia|i m|uer|m s|râ |ter|i l|o q|aci| ar|i r|man|ing| un|nid|rab|lqu|o c|pri|alq|ual|l e|cal|faz|usa|gua|azê|no |cio|m c|ort|art|ont|par|sês| me| ig|bê |nda|l p| ôt|ara|mud|nta|int|ons|â d|ntr|zê |djo| fu|rio|ssi|lic|e p|cas|cus|l t|l q|lei| st|cla|ial|u t|da |so |ade|ê d|s t|sem|r p| fi|ind|â n|ê n|n p|ura|o ô|rte|aba| sc|fun|uni|sta|uma|udj|dje|jer|ê c|dam|ê t|ime|i ô|son|rgu|arg|â s|o a|bad|a f|jo |i a|imi|sti|n e| ri|igi|ô d|iço|l s|l c|r e|i h|lid|adj|câ |ma |stâ|orc|gue|lar|ran|n ô|o g|fic|tad|â c|ali|era',smo:' ta|ata| o |ga |aga| le| ma| fa|le |faa|a t|ma |na | e |ia | i |ai | ai|tau|a a|a o|a e|gat|a f|e t|au |a m|ta |i l|tag|o l|a l| tu|tat|a i|se |e f|e a|ona|aia|si |iga|ua |uma| se|o t|o o|oga| la|i a|asi|a s|alo| um|ula|tas|oto| so|ina|a u|tul|atu| on|ea |i o|lag|ala|o a|tai|fai|u o|ana|ait|mal| at|aig| sa|i t|toa|aat|lo |e i|e m|e l|e s|ama|olo|o s| lo|i m|i s|ito|aua|i u|oat|lot| au| ua|ava|sao|i i|tog|aap|no |o m|aol|fua|po | po|laf|nuu| ia|u i|ino|ei |uu |aal|lea|u m|aam|pea|tu | ao|ato|ape|mai| a |tin|lon|lan|uai|ele|oif|soi|ifu|oa |ain| to|unu|aut|ono| mo|pui|alu| ga|tal|fon|afo|tus|o i|a p|i f|usa|afa|u e|so |ese|usi| pu|i e|tun|isi|maf|va |ali|sa |ati|tut|utu|ega|ton|onu|u p|gai| ag|aas|la | al|loa|asa|ave|anu|e o|nu |ufa|man|fia|aus|gal| av|ale|aai|mo |u t|lia|tot|o f| pe|oli|aog|nog|oai|u a|pul|uga|mau|ola|ou |tou|len|lat|ofi|noa|ae |aav|nei|lei|aa |eag|aoa|lau|lue|ene|uti|i p|fea|o e|itu|sia|e p|ita|lel|lal|auf|pe |a n|lav|ni |uia|tap|apu|uip|tia|ipo|aun|tel|oao|eai|lol| ni|vae|ipu|sol|uin|uag|uig|ao |ueg|tua| va|gi |vea|u f| it|aof|log| no|to |iti| na|vaa|ofo|ule|ili|pot|sag|ilo|tuu| si|afe|ual|i n|ees| fe|nof|iai| is|opo| te|gav|fo | fi|ute|tam|pua| es|lig| fo|poi| ae',koo:'eri| er|a e|ya | om|a o|ho |obu|mo | ob|ith|omo|olh| ne|e e|o e|wa |ndu|and|e o|re |hol|bya|a n| ek|tho|du |we |o k|o b|the|iri|ira|ere|ner|lha|uth|ndi|ath| ki|nga|lho|ind|iwe|kan|ban|di |lhu|but|ulh| bu|osi|han|ugh|ang|si |aba|uts|eki|ebi| eb|uli|ra |li |eky| mu|ha |ko |bul|aka|he |kya| ku|ole|yo |und|ihu|kut|ire|se |rir|omu|tse| ey|ngi|i e|mun|ali|a a|ika|buh|uho|ler|ana|gho|nda|o n|iha|rib|hok|ery|rya|no |e k|ene|hug|i o|bwa|ne |e n|a i|ing|ki |oki|wit|ani| bw|ma |nge| ka|aby|yan|i n|gir|ga |o o|thu|gha|kol|mul|awi| in|anz|i k|ngo|alh|imu|bih|tha| ba| ok|ima|i a|kih|ama|rik|a b|kit|kir|na |ako|a k|nya|i m| aw|rit|oko|awa|ung|iby|ilh| ng|ibw|o m| ky| no|abu| ni|iki| si| ab|wiw|hun|ber|rih|wab|i b|mbi|da |its|ran|yab|bi |amu|iba|yim|tsu|bo |thi|nia|umb|nde|iry|hal|obw|kyo|hir|hwa|ia |agh|wos|hab|e b| na|iyi|bwi|lhw| by|rim|bir|eng|iso|amo|eke|ril|ibe|igh|hek|mib|riy|e a|abo|sib|bal|era|eyo| ol| en|mub| wo|ano| ha|hin|ris|isa|kiw|eby|nza|u b|hu |o a|aha| ak|kul|za |yam|yos|uyi|kin|go |eka|lya|usi|ihi|emb|ka |bwe|u w|emi| at|kat|wan|lin|kwa|sum|ham|iko|ubi|be |sya|ahi| ih|aya|ri |nab|end|ubu|eny|uka|wam|esy|hen|muk|ayi|nob|yak| em|bw |nzi|hul|dek|wak|e s|muy|kis| am|ong|rer|iku|zir',nzi:'la |lɛ |le |nle| ne| mɔ|enl|ɛ n|ne |kɛ | bɛ| an|maa|nwo|e a|ɔɔ |mɔɔ|e m| bi| kɛ|ala|a n|a b|ye |ade| ad|den|ial|bia|anl| ma|wɔ | ye|a a|ɛ a|ee |wo | la|nee|e n|nu |yia|nla|a m|ie |aa | nw|a ɔ|ɛ m|aan|e k|nyi|onl|anz|ɔ m|e b|li |ɛɛ |son|nzɛ|zɛɛ| so|ɛ b|nli|ia | wɔ| me|ɛ ɔ| ɔn|ian|anw| nu|alɛ|a l|ɔ n|yɛ |ɛlɛ|len|o n|men|yɛl| gy|nlɛ|ɔ ɔ|ane|ɔlɛ|a s| ɔ | ny|bɛ |o a|mɔ |a y|ile|ɔ k| ɔk| na|eny|e ɔ|ɛla| lɛ|na |ɔwɔ| ɔw|gyi|ɔ b|eɛ |ilɛ|wol|ma |ua | aw|a ɛ|e l|e y|lil|olɛ|ɛ k|bie| ng|ɛ ɛ|awi|wie|elɛ| a |di |e ɛ|ɔ a|mɛl| mɛ|ɔnl|ko |tia|zo |anu|i n|ima|e s| no|yim|i a|o b|a k| kp| ko| ek|za |any| ba|unl| ɔd|ɛkɛ|ekɛ|bɔ |mek| sa|ɛ w| ez| di|o ɔ|ɛle|saa|nyɛ| at|ɛhy|ulo|ati| ɛh|ɛma|ra |i m| ɔl|oa |ɛne|deɛ|u a|e d|a e|oli|pal|hye|kul|bɛk|ɛyɛ| am|kpa|ɛnl|die|u n|oma|ɛ g| ɛn|o l|eza| de|inl|ti |gya|ɛ l|ɔ s| fa|bɔl|u l|wom| yɛ|ban|uko| ti| al|yɛn|eku| zo|koa|nde|dwe|ɔ y|ɛ e|ole|oko|ɛ s|i ɔ|wen|fa |a w|mra|mgb|e g|nok|ama| mr|bɛb| ag|abe|bel|bɛn|ɔ w|pɛ |aam| bɔ|ola|azo|ka | ɔf| az|ale|ɛ y|lab|agy|u ɔ|lo | ɛm|ɔny| bo| nd|deb|u m|ɛ d|ebi|u b|yel|olo|e e| su|bɛl|ɔkɛ| kɔ| ɛl|oal|yin|ɔdi|nol|ɛpɛ|ngi|bo |enu|nyu|yea|adw|bɛt|ba |ku |kɔ |nya|ɔyɛ| ɔy|nga|kye|nye|bɛm|zon|ɔma| pɛ|pɛp|bɛa| o | ɔt|ɔti| ɔm|u k|nrɛ',maz:'u̸ |ra | ra|ji |yo | nu| u̸|k u| o |a n| yo|o n| k | kj|nu |o o| te|a m|i n| so|e̱ |kja| nr|nrr|tex| ma|̸ji|u̸j|na | ng|ja |a j|mu̸|dya|a k|o r| dy|̸ r|ma |o k|a r|̸ n|exe|oo | b |soo|zo |jo | ne|imi|b e| na|xe | xi|mi |nge| ez|e n|o s|ru̸| in|ezo|ang| pj|ya |xo |ixo| a |rix|e b|rri| mb| jñ|ts |su̸|ye |te̱|i k|in | e̱|̱ e|osu|a x|je |a t|jan|ñi |jua|a p|ngo| jo|eje|kjo|oji| ye| ja|ri |̸ y|nte| ts|i y|ta | ri|iñi|ñiñ| ga| nt|jñi|ga |e y|mbo|xim|amu| xo|nes|est|sta|mam| ch|go |o y|ua |̸ k|i t| mi|i r| ua|tr |pjo| e |o t|a d|a s|o j|ngu|ana| ñe|a y|ama|gek|mim|ek |s a|uyo|nuy|ñej|omu|jom|uam|rra|bos| pa|iji|aji|o d|chj|nee|jos|u x|nu̸|u r| ju| nz|s i|o p|i m|eji|sku| an|kju|pji|chi|kua|anr|so |i j|o m|xis|umu|e k|isk|e t|rjo|jña|ee |trj|pje|a a|pan|epj|xoñ|nru|o i|uan|gum|a̸ |joj|hje|i p|oñi|oru| pe|hi |gez|a g|ara|u n|eze|to |r u|etr|xto|ext|̸ t|gej|n j|ze |e j|i x|i i|̸ a|anu|o g|a c|e e|nza|̱ n|ña |e r|i ñ|aba|akj|i s|ba |jek| i |̸ m|man|jab|ekj|mbe|̸ d|ra̸| zo|r a|i d| jm|u m|jmu| d |se |o b|pep|u j| jy|ont|xor|io |n n|aja|u i|te |i o|esi|jet|ntr|ñij|ijo|zak|zho|si |ich|goj|hij|d a|̸ x|i a| tr|yaj|its|roj|uaj|ne |gon|ajn|jnu|uar|̸ o|mba|a e|a i|a o|pu̸|u k|k i|inc|a z|xes|ju̸|ya̸',pis:'ta | ol|eta|ket|lke|olk| en|em |en |lo | fo|fo |an |im |wan| lo| sa| he| wa|are| ga|gar|hem| ev|rem| bl|blo| ka|mi |evr|vri| ra|eni|emi|o o|ait|rai| we|ing|ea | ma|tin|ol |ni |m o|wea|ng |m e| no|iwa| di| me| na|a e|n f|s f|man|o e| ba|i w| or|riw| fr|it |or |n o|no |ae |re |m r|a g| pi|bae|tre|ri |avv|ve |vve|ntr|sav|os | st|is | i |o g|o l|dis|rii|fri|pos|ara| gu|tim|sap|ant|la |ala|a o|kan| lu|apo|fal|pol|a p|n s|n e|luk|sem|a s| pr|gud|ud |i s|mas|t f| fa|a h|ipo|pip|a d|a b|uk |as |ts |iti|o d|k s|its|kem|a m|oa |i g|o s|wak|a l|sam|om | da|amt|m f|ek |aen|at |ed |sta|a i|o m|a f|mek|n n|o h|eke|nit|i k|s e|aka|mti|e h|m s|i f|ra |kae|iid|ido|dom|nar| se|ti | ta|a n|ka |m w|n b|i b|i e|m d|s w|ya |hel|o b|ati|a w|dat|s o|ini|o k|pro|ao |loa|elp|i m|n l|uni|i l|n i|pim| te|o t|uma|n h| ha|m t|on |n w| ya|n m| in| la|ase| un|ei |gti|ngt| ti|a r| go|dim|go |a k|i o|lem|nao|am |e l|ele|uim|sen|nem|tek|nom|m u|ane|tae|ap |o w| du|tap| de|n p| si|rit|m k|ion|ii |ote|m n| tr|up |sim|n r|aed|dui|sae|tio|res|ba |aso|m p|lae|n g|p f|tti|l s|ons|i i|emb|d n|o n| wi|uil| up|ren|fre|son| tu|n k|aem|s b|ins|t l|aot|kas|ns |ami|itt|e s|wei|l e|g o| sk|d f|e o|aek|si |t e|vim|ten|mpo|imp| im',ctd:'na |ng |in | in| th| le|leh|eh |ang|ah | ki| a | ah|ing| hi|thu|hi |ak |h a|din| mi| kh|hei|the|eih|a t|ei |hna| ta|am |te |n a|nei|a l|awh|ung|at |ihn|h k|gam|a a|kim|wh |tak|kha| na|im |ahi| di| ga|g i|h t|kna| su|taw|an | ci|adi|sak|m i|ih |i h|hun|ama|uh |hih|lo |cia|h l|iki|a n|akn|i m|mik|euh|peu| ne|han|g h| ak|g a|h n| la| ha|ban| sa|n k|awl|hat|ong|nga|ian|sua|i a| am|aki|iat|mah|n h| ba|n l|tna|khe|a k|i t| pi|ite|une|uak| za| pa|lna|nad|ngt| tu|zon|n m| ma|tun|itu| hu|pi |pia|hua|a h|tan|n t|nna|en | om| pe|h s|uah|g t|a p|kip|gah|ai |ia |maw|hu |tua|dan|inn|n s|eit|uam|mna|kit|eil|sun|e a|awn| ng|un | nu|i k|ngi|k l|lei| lu|paw|a m|i i|ate|m t|uan|a g| up|g k|ua |h i|sin| va|ngk|bul|pil|k i|a s|ihi|atn|nat|iam|izo|ipa|a i|hta|a b|kua|hem|kik|emp|gin|h b| lo|k t|aht|h m|wln|awm| te| si|hin|m k|mih|mpe|i l|sia|sep|lun|ida|gte|akt|h d|ilo| zo|oh |kta|khi|ila|pna|e t|kil|ina|om |zaw|m a|upa|h z|el |awk|n n|ita|tee|h p|kin|dei|ann| se|tat|loh|g l|iak|hia|khu|kis|hiz|pan|hma|ile|isa|ma |i p|au |a d|ek |di |n i|t t|ngs|unt|pit|hup|ipi|upi|pad|ihk|g g|a o|lam|i s|i n|mi |ikh|i c|ta |hen|n p|san|n z|g n| uh| ii|ii |ep |zia|asa|hke|aih|nta|kei|hut|ihm|nun|ulp|lsi|tha| uk|o i|vai',cos:' di|di |ni |li |tu | à |ti | è |i d| i | pa|ell| ch|i p| a |par|itt|rit|i s|oni| in| si|tà |iri|na |dir|tti|’el|ali|ion|i c|si |i i|a s|u d|ttu|nu | un| l’| cu|zio|a d| u |à d|h’e|ch’| li|la |azi|i è| so|una|u s|ia | pr|du |a p|a c|i l|ri |so |u à|ità| o |gni|i a|lu | ri|lla|in |ess|lib|ars|i u|i m|ru |sa |ghj|ogn|da |u p|u i|ssa|hà | hà| na|à a|icu|ta |nal| og|ona|son|rso|iss|naz|lli|à i|a a|chì|a l|u c|à u| ni|hì | da|ari|cun| tu|pri|int|tut|ndu|u o|ssi|i n| hè|tat|hè | mo|llu|u è|l’a|gli|cu |pru|un |za |a h|ent|anu|utt| pu|i f|ind|è i|sia|mu |u u| st|n l|atu|i o|mod| ma|u l|à c|a à|ert|rtà|nta|imu|a i| ca|ibe|ber|lit|ar | d’|odu|a v|inu|cia|aru|end|su | el|sta| es|are|i à|iu |sci|nza| cù|cù |bar|ett|u n|ili|enz|hju|con|ami|iun|ara|ra |pà |à s| su|ùn | ùn| sc|suc|cum|ati|nit|qua|i t|pò |nsi|u t|ci | ci|man| gh|ren|a u|rim|ial|l’o| pò|è d|ich|dic|uci|dar|tar|ca |ziu|n c|iba| de|ris|’om|i h|tic|è c| tr|rà |ini|ign|ric|ntu|à p| pi| qu| co|nda|ntr| fà|tru|ii |uni|igl|nis|lia|hja|a o|fà |ust|sce|ssu|tri|ida|men|ura|chi|evi|ndi|uli|min|è à|ici|sti|ont| la|iti|ist|ria|nti|esi|ita|unu|u a|u h|a è|o d| sp|i r|dev|und|sic|i v|alt|o i| an|ica| fa|ivi| is|uri|bli| vo|ran|vit|o p| va|rut|nni',ltz:'en |er |ech|n d|cht| de| an|sch|n a|an | d |ch | re|rec|un | vu|ll |t a|et |ht |ng | al|der|t d|all|che| ge| a | en|ere|eng| më|oun|nsc|ir |nge| op|ëns|tio|mën|éi |op |ter|fir|de |vun|r a| hu|ati|hte| fi|dde|uer| dé|ent|em |iou|déi|in |r d|d r| fr|t o| sé| ze|hue|ver|ren| se|frä|ner|uet|ze |räi|e g|e s|éng|ong|eet|lec|at |sén|ier|n o|éie| ve|e v|l m|nne|ten|men|gem|dee|nat|ger|esc|due| du| ma|r s|den|t f| si|lle|n e| be|odd|h h|hee|téi|vu |nen|t g| od|ges|h d|ers| hi|len|her|une|nt |een|gen|hen|n z|ale|e m|rt |ert|ell|gin| na| gi| gr|e r|n n|ich|äih|n h|ët | as|sel|ënn|ihe|it |le |aus|as | au|mat| da|äi |int|ele|éit| am|cha|p d|dat|sse|and|kee|hir|éin|nte|sec|idd|am |t s|i a|t v|ss |ion|r g|ité|e f|rch|rf |erf|res|g v| un| dë|tt |dës|ona|te | st|d g|m g|pro|nal|ken|u s|oll|elw|tle|l d|ree|i d|ann|lwe|um |a f|re | pr|eme| ke|a s|he |tz |kla|erc|est|s a|ese|wer|aft| në|ond|al |n u|och|t e|p e|ft |ire|ee |arb|nd |s d|e w|sou|géi|eg |wec| ko|sin|se |wel|het|mme| we|éch|d f|lt | sc|eem|ete|e k| e | gé|ou |ran|r f|oss|sen|g a|vol| zo|méi|enz|d e|nët|éck|bes|säi|str| pe|d m|haf|g d|r p|per|ge |r z|nze|etz| wa|ara|uss|ber|réc| gl|elt|ene|ane|akt|jid| ji|eso| et| wi|vum| sä|l a|sta|aar| fa',lia:' ba|ba | ka|ka |iŋ |a k| ma| wɔ| th|a b|ma |yo |a t|o w| wu|iya|ɔ k| iŋ|ŋ b|o k|niy|ya |o b| ni|aŋ |ho |ɔɔ | ki|a m|a w|a n|ŋ k|na |ndɛ|dɛ |nam|thi| ku|ama|wɔɔ| yo|wɔ |ŋ m|ɔ y|wun|de |und|and| ko|nde|thɔ| mɛ| bi|oho|ko | na| hu|kiŋ|ɛ b|mal|tha|mɛn|loh|ɛŋ |ana|kan|iyɔ|e k| kɛ|iyo|ali|alo|ɛn |ɔkɔ|a d| wo|ŋ i|a h|kɔ | kɔ|kɛn|nɛ |ina| be|ŋ t|ɛnɛ|maŋ|yɔ |nka|wo |li |be |biy|ɔŋ | wa|yan|ɛkɛ|a f|ɛti| e |i b|kɛk|mɛt|the|ɛ k|ki |mo |ɔ b|e w|oma|ɛ w|ti |ank|nth|he | si|uŋ |o m|unk|ta |e b|amɛ|wal|a p|ŋ w|thu|ɔ m|ath|oom| ɔ |ant|i k|baŋ| fo|a s| pa|ɔ w|hii|a y|aka|foo| fa|in | ho|han|i w|kaŋ|mas|nku|ha | bɛ| yi|kam|kut|asi|kul|him|do |bɛŋ|hɔŋ| bo|iki|man|bɛ |imo|no |kun|iiy|kiy|fɛɛ|hu |ayd| dɔ|ydo|aa |n k|fay|uth|i m|ɛ i|ani|ɛ n|mak|ɛnk|kuy|ŋ h|uya|kin|e m|n n|e t|hit|si |niŋ|pam| sɛ|ɔy | fɛ|boh| fu|ɔma|hiy|huŋ|ɛna|lan|o f|o n|una|o t|hun| yɛ|wuŋ|nki|o i|kaa|eŋ |gbɔ|yɛ |sis| kp|mat|yik|uta|tet|oŋ |nkɛ|alɔ|lɔk|kɔy|oo | te|e n|kas|ban|ra |uno|hut|sɛm|ute|ɛmb| du|u k|hɔn|te |ulo|ŋan|kɔs|ni |amo|ɛnt|eth|thɛ| de|o d|y k|to | in|n b|mɔk|bal|ŋ s|dɔŋ| ne|kɔm|iyɛ|oŋk| nk|nan| dɛ|siŋ|ind|min|ɔ i|deŋ|ɔmɛ|dɔm| bɔ|ohi|ɛth| gb|wɔm|nt |ku |ɔmi|tan|isa|ɔn |ɛra|ɛɛr|ŋin|n m|mɛŋ|ɔsi|e i|ŋ n|mbɛ|huk|i n|hɔ |haŋ',mlt:'għa| għ|li | li| ta| l | je| u |il |al |dd |ħan|and|u l|ħal|jon|l j|edd|jed|ll | ji|tal|ali| ku|du |et |jie|iet| mi|zjo| il|i j|kul|ħad|zzj|ndu|add|d g|i t|ni |oni|ja |tà |iji| fi| bi|l i|l l|a’ |ew | ko|a t|azz|l p| ti|lħa|ulħ|ha |ddi|ħu |jew|i l|hom|għu|om |agħ|ta’|ist|ieg|n i|egħ|tie|oll|kun|ra | ma| pr|mil|a l|all|u j|kol|min|l g|i u|a k|ent| in|ill|t t|ber|pro|la | jk|ma |un |em |ibe|ert| ħa|in |lib|nal|a j|a g|kon|dij|l ħ|l b|l f|l k|ija|ndh|da |ien|en |a u|m i| da|jn |u g| is|fil|ona|jis|bil|sta| me|din|a m|liġ|ità|i m|t u|ett|i k|u m|ull|r r|ir |ezz| m’|jku|a b|el |u f|ied|nda|men|l ġ|ont|ejn|jal|u t|t i|naz|n l|per|i g|jit|ajj|ta |d l| di|ħaj|ers|ura|ti |as |int|tag|l m|iġi|’għ|s s|mm |u k|an |i f|m’g|rtà| pe|dem| bn|jiż|l e|ri |lli| f’| so|soċ|qud|nt | hu|uni|sie|lha|oċj|taj|at |ieħ| ir|d m|nij| im|bni|nie|ede|nti|u u|à t|emm|inj|ġi |rta|ar |l o|ħar|ame|w i|a f|rij|wie|iel|ess|aji|arr| fo| na|u s|d d|llh|xej|id |għh|lu |inn|ntr|tra|dha|ħti| bħ|bħa|iss|ter|na |ħra|i s|ċja|ex |ote|tez|edu|bie|i p|za |oħr|gur| b’| ke| fa|nta|dho|ż ż|ħaż|ss |ind|n m|kem|kaz|ond|tij|rri|xi | ħi|u i|uma| ki|rot|ssi|jin| ri| ik|tat| iż|aqs|una|l u|ata|dan|ngħ|ing|uka|duk|n t|ral|x j|ħho|iex|nn ',hna:'be |mɛ |wo |amɛ| am| le|le | ɖo| be|la | la| ke|gbe|e a| nɛ|ɖo |kpe|e n|nɛ |e l|ekp|nyi|yi | al|ke | ny| wo| a | ɖe| ku|o a|ɛ a| ye|ewo| mɛ|o l|a n|ɖe |ɛ ɖ|ku |lo | e |o k|pe |alo|ye |ɖek|e j| sɔ| gb|na | ji|a k|ji |a l|e m| do|ogb|e e|pek|e w|o n| wɔ|i a|e k|e b|ɖog| kp|a a|nɔ |eŋu|kpa| du|i b| ag|e g|e ɖ|kpɔ|a w|b a|a ɖ|e d|agb|ea |sɔ | ŋt|o m|oɖo| o | na|a b|an |yeb|eye|ŋti|ba | ey|ti |awo|ɔ a|kew|a d| nu|ɛ l|oe |e s|ɛ e|u ɖ| je|sew|i k|uwo|woa|o b|a s|ebe| vo|oa | mu|eɖe|do |mu |tɔ | b |gba|ɛn |a y|ɔnɔ|ŋu |osi|n a| ma|nɔn|ɛa |mɛɖ|si |e v|ɛ b| nɔ|ɛɖe|nya|o s|ia |vos|wɔ |se |o ɖ|ɔ k|a g|ɛ n|nmɛ|ɔn |acɛ|e ŋ| bl|uku|ɔ̀ |nu |woe|use|omɛ|sin| ka| ac|o e|e h|a m|umɛ|ɛnɛ|u k|e y|ɖoɖ|nɛn|bus|mɛa|pɔ |ta |ma |ɛbu| go|n b|ɔnm| ha|nɖe| ŋk| te|ɛ k|mɛb|ɔna|i n|ɔ b|o g|gɔn|sia|teŋ|etɔ|ŋuk|a t|n k| dɔ|fyɔ|wɔn|ɔkp|du |gbɔ|e t|mɛs|ɖeɖ|enu|u a|ɔ́ |kan|ɔ n|o ŋ|je |zin| ba|a e| ak|iny|ŋut|sɛn|goɖ|inɔ|i l|tɔ̀|mɛh|ɛha| si|bet| so| se|iji|ɛ ŋ|mɛt|akp|o v|bɔ |ɔ w|ɔwo|bli|lib|a ŋ|kea|mɛj|ibo|o w|ɛsi|nú | tɔ|a z|ɛ w|kuɖ|esi|ata|pat|ɔ l|kum|ese|eka|yɔ |ɛ̀n|jis|ise|sɛ̀|nsɛ| gɔ|uɖo|ɔɛ |u s|o y|ɔ ɖ|so |a j|in |ŋkɔ|ɔnu|emɛ|anɖ|u n|ka |cɛ |igb|yin|vi |a v|ɔa |aŋu|kɔn|srɔ|ɛkp| ga|u v|o j|ale|ha |jij|jea| va|va ',guc:'in | sü| na|ana|a s|üin|a n|a i| wa|na |ua |aa |aka|üla|pül|a a|ain|yuu|süp| tü|tüü|la |shi|üü |ka |inj|ayu|üpü|nja|a w|ma | in|atü|naa|way|kan|hi |pa |ipa|u u| ip|uka|jat|kua| ka|nai|lu |uuk|n n|n s|a t|tüi|kat| ak|wan|a e|ata|nak| an|awa|i s|nüi|sül|at | u |sa |üna|apü|chi| su|ia |aku|jan|o u| ee|aja|n a|ülu|a m|nap|ira| mü|asa| a | sa|ane|ala|ya |ü a|taa|hik|esh|ees|ajü|üsü|ojo|uu |kas|mma|noj|rua|ach|tü |ünü|aya|a k|wat| sh|üsh|sün|nno|a u|ü n|iki|uma|ne |sü |püs|hua|shu|müi|uwa|waa| nn|jün| mm| uw|üya|lia|laj|naw|müs|a j|n w|u s|ü s|jut|iru|ash|ta |süy|eer|nam|nay| ma|atu|lee|ott|ü k|e n|inm|lüi|n t|i n|u w|aap|alu|eka| at| ac|che|t a| no|maj|ush|aji|jüi|üma|una|sük|no | uj|jot|sal|tum|üch| je|nma| ek|amü|tta|ee |iir|apu| al|je |e m|ü m|u n|wa |apa|aju|ki |raa|jir| aa|ule|ula|yat|suk| un|pus|hia|süm| pü|eru|le |jol|tch| ot|olü|mak|u t|üku|ita|aas|uje|üle|ika|jee|ama|uli|püt|süc|eki|kii|anü|raj|tai|aaj|n k|ütc|kaj| ko|süs|jaa| ne|ü p|lo |lau|a o|aak|e i|aul|i a|jül| ut|era|ülü|nas|n e|pün|jaw|nee|üjü|uni|ion|e a|hii|sio|tsü| e |jun| um|uku|uja| ta|re |saa| jü|nat|tak|sum|kot|ral|as |lüj|u a|e w|uta|e s|asi|tir|ale|kir|ñaj|pia|üli|üpu|tka|epi|mün|tu |lay|aan|üsa| nü|utu|t t|ots',quc:'ri | ri|ik | ch| ta| ka|al |b a|aq |ch |aj |ach|ina|ya |a t|pa | al| pa|che|ech| wi|tal| we|we | ku| ya| ut|jel|i u|ab |el |oje|noj|ono|naq|ta |jun| ju|a r|chi|q a| ma| an|k a|win|an |l c| k |xik|nik| ro|mal|i k| xu|ron|xuq|nam|k u|hec|uq |e k|wac|laj|uk |k k|ani|ij |taq|l r|kak| ja|aji|man|am |are|ala| ar|uch|cho|l w|re |ib | ru|e r|hi | uw|h k|e u|cha|il |axi| uc|tzi|a j| at|uwa|uma|utz|un |una|j k|i r| ki|tin|he | e |a k|l u|k x| q |k r|taj|q y|ami|wa |chk| xa|ak |zij|ub |wi |it |mit|k o|maj| ke|l k|b e|j r|ke |kab|q k|ob |e t|ne |q r| ni|qe |a w|aki|i q|jac|uqe|ata| wa|hke|h r|tb | ne| je|raj|j c|awa|e n| o |nim| u |a n|ltz|alt| uk|b i|hom|i w|a m|ali|l t|rum|je |lik|chu|xa |ama|oma|atb|isa|kay|j j|i j| na|sax| ra|lew|ule| ti|ima|sle|asl| as|kar|ax |ruk|jaw|lem|ema|aja|jis|uti|n k|na |tz |e c|a c|l p|ew |k p|kat|j t|wax|eta|aya| il|kaj|n w| tz|hul|n r|i n|awi|q t|kub|j w|aqa|chw|apa|riq|n c| ub|hik|a u|m r|uj |le |eri|hak|e j|i e|kac|oq |j u| am| qa|a i| aj| ik|hwa|kec| a |q j|e m|ich|e a|tob|m k|ela|ari| ko| uq|jas|uto|kib| re|saj|m u|e w|k j|q w|b r|n t|tzu|kon|a a|o j|jer|ma |k c|kic|kuk|i y|j x| ap|i m|ita|ano| ib|kaq|e p|ato| b |uku|kum| ol| oj|om |sam|ha |toj| ab|paw|uya',qwh:'una|man|an |kun| ka|apa|ana| nu|nun|na |aku|nma|pis|is |anm|paq| ma|aq |nap|ow |nan|ta |qan|kan|anp|cho|how|npa|n n|qa |nak|yan|nqa|nin|a k|mi |nku|lla| de|der|am |now|ant|erë|chu|yon|ëch|rëc|a m|pan| na| ll|ata|syo|lap|pa | i |ey |asy| ts|hun|key|nam|ach|nas|api| ke|tsu|nch| ni|mey|n k|eyn|i k|nts|anq|all|aya|su |shq|tse|hqa|a n|sey| me| ju|ura|nat| ru|ash| pi|rur|tsa|nmi|yno| al| ya|n m|tsi|in |ima| im| mu|eyk|ats|w k|eyq|nta|yqa|kur|mun|a p|rni|awa|onk|kay| wa|kuy|q n|inm|iku|lli|npi|nac|ni |äna|cha|a r|ush|sik|kaw|juk|ran|ark|i m|a a|iya|wan|i n|anc|unk|a d|aqp|qpi|apt|li |mar|ina|ama|n i|a t| o |kaq|owp|arn|wak|ley|yän|kap|q i|owm|a j|wmi|s m|yar|a i|uya|aqa|yku| le|ida|ayi|yta|rka|ink|inp|yoq|kin|oq |i t|yac|ipi|war|tin|ur |rqa|ish|yin|aki|pip|a w| wi|kiy| pa|n l|unm|arq|uk |may|uku|ita|sya|s i|ayä|s d|m k| pu|iki|q m|llq|enq|ury| ur|q l|a y|kar|pti|u k|kas|qmi|ann|nno|y n| sh|shu|n p|kik|k n|wpi|y d|onc|q k|pap|s k|uri|pit|pte|ten|w n|inq|eyt| ja|a l|onn|nni|aqm|uts|a o|i p|ras|koq|pur|hak|i l|tap|mat|u n|ari|way|un |huk|i a|uma|hpa|shp| ki|s l|yni|yka|m j|sti|apä|es |i i|pi |rwa| aw|jut|awt|wto|äya|int|tor|ori|rid|hum|aka| qo|ray|kus|s u|yak|ano|ma |rik| qe|shk|lqo|qot|ya ',isl:'um |og | og| að|ver|að |ann|er | sk|ar |étt|rét| ma|ur | þe|til|ða |ir | ti|ing|nn |il | í | er| ve|ra | vi| hv|ta | me|r s| fr|inn|man|enn|na | ré|ska|hve|eða| ha| ei| eð|r m|tti|nda| se|nna|a s|sem|ið |em |sin| á |ein|ind|þjó|al |men|tin|jóð|kal|num|jál|ndi|a o| þj|leg| he|i s|di |ngu|lag|ga |nar|eim|gu |is |sam|an |þei|ður|ess|þes|a e|a a|ði |a h| sa|nga|gi |tt |við|da |and|a v|ð e|m o|eig|rjá|éla|frj|ags|nnu| be|lu | al|fél|n s|ber|áls|ns |gum| ge|rir| st|nni|ern|l þ| en|með|han|r e|aðu|lan|ni |nin| þa|era|fyr|afn| um|u þ|rík|all|ski|und|i m| fy|yri|m s|a m|rði|i h| má|ka |ss |tta|r þ| tr|m h|tak| la|r a|r h|erj|ins|im |a í|m e|lli|s a|tur|st |sku|haf|i e|sta|rju|lög|i v|kul|u f| rí|mað| ef|s o|má | gr|t a|vir|m m|jum|rra|ri |nré|óða|ð s|æði|i þ|a t|jaf|rnd|gar| lö| ja|r o|rið|átt|l h|ulu|r t|s e|inu|n e|rt | at|yfi|fir|íki|rum|ki |m a|hei|li |g f|rin|la |erð| va|eð |n m|a þ|ð l| si|egn|n h| mi|arr| yf|a r|irð|dar|óta|jót| þá| sé|iga|r b|vin|m v|ti | fé|nnr|nu |fa | ta|dum|ndu|ögu|els|lsi|i o|því|eng|lýs|kil|ví |ðan|afa|in |ð a|njó|ldu|ð þ|trú|val|eru|ru |g s|a f|mil| af| þv| sí|fre|un |g r|ðum|gan|ð f|t s|var| ko|fni|ja |efn|g h|eir|irr|ér |sín|ygg|ryg| nj|eg |bor|sky|óðf|fna',kqn:'a k|wa |la |a m| ku|a b| mu| na|na | ba|ji |a n|lo |ne |amb|ila|nse|se |tu |kya| kw| by|kal| ky|ntu|o k|ya | wa|fwa| ye|wai|ika|ala| ka|ang|afw|bo |kwi| ne| ya|lwa|kwa|e k|ens|nan|yen|e b|bya|i n|alo|ain|nwa|inw|iji|ba |wik|aka| pa| ki|o b|wak|ula|ulu|o m|ngw|nji|ka |uka|ons|gwa|mbu|ha |mun|ana|ban|o n|a l|yal|sha|ako| ns|bak| mi|abo|mba|o y|nsa|unt|ilo|sam|bu |anj|muk|u y|hi |chi|bul|mo |yan|i b| lw|mbi| bu|izh| lu|aku| bw|a y|u b|kub|ko |u k|bil|i k|ngi|abi|ing|no |waf| mb|bij|uji| ma|ish|win|luk|e m|ma |a p|ho | bi|mu |kul|e w| uj|kab|ant| mw|e n|u m|wab|akw|ye |amo|ata|kam|nde|e u|usa|ama|mwa|wan|zha|kaf|ngo|pam|eka|kij|byo|kas|a u|any|o l|zhi|ubu|bwa|bwi|uko| ke|hil|kan|ta |nem|zho|ong|ilw|biz|lum|kuk| in| bo|sem|ine|mbo|sak|kus|sa |e y|imb|a w|end|kum|shi|nsh|kec|a a|ech|vim|mam|gil|i w|o a|lan|ail|ela|pak|ane|kut|kil|uba|jis|yak|tam|ale|ikw|le |bon|asa|i m|o p|eke|abu|wam|nda| un|da |je |ije|lon|mi |kis|ano|ise|nyi|aji|uki|uno|sul|ngu|gul|let|umu|eta|fun|ufu|und|ino|asu|wil|nga|ulo|esh|mvw|lam|uzh|miz|tan|u n|kup|kik|gol|lak|olo|kok|avi|umv|ena|vwa|e p|mwi|kon| nt|uky|ule|yo |mut|emi|sho|me |ite|bun|jil|mik|de | a |ume|esa|aki|aye|pil|ful|yaf|kek| po|uta|umo|gij|ubi|yik|kak',dyo:'an |di | di| an|ool|ati|ti | ka| ma|baj|en |uwa| ku|noo|ak |aba|ana|waa|san|mi |aj |ano|i k|kaa|man|oos| si|ay |osa|aay|uka|aan|ruw| na| ba|dru|i m|i a|ole|n a|ŋoo| bu|as | wa|la |ut |af |n m|i s|kan|mba|aas| mo|ola|aju|k k|ba |am | mb|len|n n|umi|oor|bab|aaf| mu|aka|aam|ol |s s|nen|uum| sa|poo| bú|mat|n k|i d|nak|ni |oo |juu|om |aat| fa|m m|awa|buk| dr| fu|moo|wa |war|eba|um |n u|nab|rom|uba|ne | ya|y y| eb|koo|yoo|sid|úro|idr|búr|i b|j d|ar | nu|ban|aja|lak|nau|kay|au | ká|e e|ara|kat|jaa|sen| ja|uŋo|luw|mof|eni|a e|jut|naa| yo|ank|ila|ene|j k|i f|raa|uma|i e|waw|aŋa|re |ani|k b|o k|sat|f f|n s|ooy|a k|rok|n b|at |or |uju|je |n d|een|ey |kar|a m|soo|ab |suk| ko|ko |num|t a| ak|aak|ama| so|fat|e a|muk| sí|ako|laa|r k|n l| le|uro|o d|e d|ken|yat| lu|foo|iya|jak|aw |l m|m b|f m|of |o b|ula|a n|bur|iiy|ere|ya |nia|o a|eno|let|nan|anu|i w|oop|kur|leŋ|imi|era|i j|iil| be|eŋo|aje|to |e b| yí|kak|m d|k a|yab|kul|ake|dún|íne|ane|afa|kuw|yín| dú|omi| ta|maj| fo|ok |raŋ|aŋ | ek|kin|u d|aal|yii|ul |jaw|bee|y e| po|nku|faŋ|amp|ŋar|ŋaa|iaa|aŋo|úni|op |m k|uto|caa|a a|mii|a d|sof|t m|amb| ne| kú|baa|aki|o m|uja|mak|ise|nub|ulo|e k|amm|kas|kaj|aañ|sil|tak|ñii|mmi|úum|ee |súu|y m| sú|boo|ísu|sís',gle:'ach| ag| ch|an | a | an|agu|us |gus|ar |ch |ear|na |le |ne |ine|art|n a|ta |chu|e a|ile|cht|hun|uin|n c|a a|rt |ith|dh |un | dh| ga|in |h a|cea|e d| le|is |aoi|r a|as |aon|uil|a c| bh|omh|air| ce|on | na|nta| ar|s a| ui|ir |hai| do| sa|tá |a n|hui|gac| go|eac|go | i |ag | ná|hea|sao|dhu|t a|á a|h u|cha|il | ao|n d|tha|hta| tá|n t|cho|oir| de|isi|the|g g|t c|adh|och|ann|a b|do |ion|ha |mha|dea|irs|tea|ht |amh| in|a t|a d| gc| is|th |idh|siú|s c| ai|nái| nó| co|nó |ean|nn |áis|s d|mh | du|íoc|s i| th|s g| ní|se |oin|eid|n s|iún|rta|ní |h n| sh|a s|he | ma|nna|e c|ain|tac|lac|dui|hao|far|h d|nea|che|rth|i g|r d| dl|únt|rse|dlí|í d|inn|ais|l a|ná |ide|hái|lea|int|irt|éan| ph| d |iri|ana|hoi|bha|hom|com|sa |ona|aid|áir|rea|h g|eam|s n|n n|hio|h c|idi|lí |n i|abh|eag|eal|hla|eit|áil|e n|sin|a i|í a|ait|lei|ant|de | bi|rí | si| gh|héa|r c|onn|eas|ead|aig| io|e t|coi|dir| at|s s| ea|d a|im |aío|a l| ré|nt | oi|hei|río|h i| te| mh|sí |r b|ire|n p|ora|h t|ina|a g|eil|e g|gco|nac|t d| da|lta|h s|ath|óir|ge |ige|ont|gan|gha|arb| se|mar|seo| ei| bu|bit| ne| fé|hch|bai|o s| fa|nío|nfa| fh|ó a| tr|r l|mai|la |ada|réi| ac|e s|e b|al |eo |nas|iú |n g|thi|o c|nai|uai|nan|hin|r n|ite|pho|igh|agh|aí ',gjn:'nɛ | nɛ|be | be| ka|e k| ku|so | ke|eŋ |o n|a k| so|ash|a n|shi| mo| ek|ɛ k|to |ɛ e| e | to|aŋ |kas|ŋ n|teŋ|ɔ k|ko |hin|obe|mob|ama|ga |nte|int|a b|na |kam|ma | kɔ|ɛ b|mo | na|li |kpa|eka| bu|kum| ba|e e|a s|sa | nk|o b| a | da|kɔ |mu |pa |dag|ful| ma|o e|uli|aga|efu|ra | ef| wɔ|aa |o k|la |a e|uŋ |she| ki|e n|nko|heŋ|i k| n |umu| as|keb|baa|a m|e b|i n|bu |nya| la|a a|ɛ m|maŋ|e a|kɛ |ikɛ|kik|hi |ɛ n|shu|u s|i b|ana|ekp|tɔ | ji|re |ŋ t|o m|wɔ |e m|ya |ku |a d|ken| sa|ɛ a| fo|umo|wɔt|eba|le |ŋ e|ŋ k|kus|asa|huŋ|ere|n n| ko|ɔtɔ|fo |e t| an| sh| er|esh|naŋ|a w|ŋ d|ŋ b| mb|ŋɛ |bee|o a|ŋ m|ɔ e|i s|ili|ush|yil|aŋɛ|bra|ni |anɛ|bar|a l|a t|yaŋ|edi|med|ii |ime|aas|mbr|ule|kuŋ|di |wul| di|dim| fa| nn|nna| ny|i a| eb| ti|u b|o s|i m|maa|ŋ w|ɛ s|ta |eŋi|ka |ŋi |eni|oŋw|koŋ|kan|ɔ n| ey|ebɔ|kɔn|u k|kek|ŋwu|kes| gb|eny|ɔ m|ɛ f|eko|ar |eeŋ| kp|o t|eyi|ji |i e|kak|iga|awu|jig|ala|baw| am|e s| yi|ebi|gbe| du|mal|awɔ|naa|nkp|po |o d|fan|rɔ |bɔr|ee |yɛl|kur| yɛ|ba |ge |ɔrɛ|saŋ| es|al |bal|wɔr|uso|aba|in |ɛ d|nan|ɔ b|yɛ |ɛla|ri |ɔrɔ|chɛ|a y| ta|bum| ns|shɛ|any|rɛ |bii|we |dur|ars|kil|il |hɛr|u j|ark|o j|ena|par|kap|kpr|laŋ| nt|u m|pra|lga|alg|u d| tu|ini|lik|ikp|e w|iŋ |tiŋ|u t| ab|nɔ |ura|a f|oŋ |esa',njo:'tsü|ng |tem|ung| te|sü |ang|a a|ba |shi| me|er |ten|en | ka| as| ma|nun|ase|a t|ser|ete| aj|met|a m|aja|eme|ma | nu|ka |ji |ate|iba| ta|a k|ak |ali| pe|ong|nga|tet| sh|g a|jak|ema|üng|its| al|la | ni|sun|nis|isu|ei |pei|ia |i a|ü a|zük|ok |i t|kts|em | ki| li|sa | an|sür| at|chi|üts|hia|ite|ir |a n|ra |dak|dan|küm|lok|r t|a s|mes|n k|okt|hi | kü| nü|r a|asa|süt|üra|akt| ib|ga |zün|lit|esü|ech|uts|ar |n a| in|kar|a i|ngd|ako|kok| sa|kec|üka| ke| ak|apa|jan|a l|lem|map|g s|i m|ti | lo|kti|i l|ü m|aka|lir|kas|ash|ala|üla|ama|a p|sül|i n|r k|yak|iny|pa |nya|ayu|ing|sen|g n| ag|g m|man|mak|g k| it|r n|hir| ya|g t| th|ü t|aji|m a| ti|tas|gi |ngt|rte|the|ent|r i|azü|ozü|don|ngb|in |i k|kda|üji|yut|mzü|mei|lim|yim|ati| oz| am|ai |m t| na|ü n|a y|ens|ed |ja |ted|ren|baj|nit|nüj|k a| ay|ima|k n|uni|ta |hin|ion|k k|tio|eim|nem|et | un|süb|üba|im |i s|ngi|nda|ele|kin|mch|imc|san|ons|sün|mte|ngs|gda|d n|ümz|tep|nat|ns |ane|a o|k t| se|gba|ats|ben|he |lib|bon|etb|agi|tba|nok|gdo|ur |kib|ibo|i i|mer|g l|end|sat|agü|tel|bur|emt| da|nd | be|emb|den|ias|uba|akü|tim| ts| ri|tan|bal|cha|ter|ere|r p|or |mal|ngj| yi| to|mas|kba| je|mel|eta|ür |hit|jun|okd|emj|nte|and|ets|ha |teb|ket|ulu|lun|mji|len|ein',ote:'nu | nu|da | da|ni |a n|ro |i n| ro| i |ti |u r| ku|tho|ja |ho | ni|kja|i d|o n|i k|oth| kj|cht|a k|uch|kuc|hti|u k| ka|ka | go|got| ra|i i|yu |o k| yu|te |ra |i g| ji|a m| zo| mu|e n|oo |zoo|di |ini|o d|a z|o m|tsi|a r|̱i | a |a d| ko| ma|a j| pa|si |pa |i r|ñin| yo| te|jin|a g|mu̱| xi|i j|yo | xo|e d|a t|u a| jñ|ne |u y|i p| ne|jñi| fö|ki |xo |i y|u̱i|o y|u n| ju|jte|maa|aa |nda|i t|gi |ing|fi |kua|i a|ua |o j|nth|o t|a x|u j| bi|de |a b|ju |a i|jmo| de|moj|ojo|u x| nd| tz|i x|ijm|i b|xij|o̱i| ge|a y|jo̱|i m| bu|a f|kot|ko | o | nz|ödi|a p| mi|bi | aj|u i|ajt| me|ngu|ngi|a ñ|na |o r|iki|ent|ind|nts|ati|ui |mi |u t|e i|o i|xik|ya |ma |e j| tu|o b|nde| nt|e̱ |te̱|ji |bu | na|u m|o p|e̱f| ñi|tu | ts|e k|u d| nk| an|bin|̱fi|gen|jie|ujt|ri |ña |jti|nkj| ga|nzo| uj|de̱|o g|öts|föt|o u|hat|e̱j|̱jt|zoy|oya|tha|tzu|föd|pi | ja|mu |ank| ng|o f|min|nka|i o|ege| be| pe| kñ|kñi| to|ngú|geg|u̱ |gú | ri|ge |e g|ädi|hte|u b|tze|ee |e m|ku |ete|föc|u g|zu̱| je|öch|ze | pä|päd|gu |o a|be̱|ifi| bä|u̱n|̱nt|iet| fi| ña|me |̱ n|a a|to |api|áki|uti|gua|ñi |e p|mui|tee|oni|a o|udi| nf|̱ku|u̱k|nan|ana|tzo|zo | gi|o ñ|se |nzá|e̱t|e f|jua|fin|me̱|äts|bät|i f| ño|uni|ga |e r|ina|je |zák|e y| ki|ke |nja|ño ',qxn:'una| ka|an |kun|man|ana| ru|is |apa|run|pis| ma|aku|paq|na |nan|npa|kan|nma|aq |ta |aw |qan|anp|nin|yan|cha|nap|anm| y |nqa| di|a k|yun|nak|haw|mi |kay|syu|qa |aya|n r|api|dir|pa |ant|ich|asy|nku|naw|n k|iri|ric|chu|lla| na|tsa|ima|nas|may|a m|rni|anq|hun|pan|ay |ata|in | im| ts|say| hu|yqa|ayq| ll|nts|nch|lap|tin|huk| ni|nmi|a r|pti|nat|tsu|unk| pa|ura|nta|apt|i k|npi|am |w k|rur|inq|un |su |nam|ach| wa|pap|q y|kuy|n y|arn|kap|a p|inp|n m|ayn|ita|unm|ni | mu|inm|yna| ya|a i| li|ran|a d|pit|y t|a n|ayk|s d|irn|tsi|iku|u k|all|sik|unc|liy|uku| ku|uk |uri|awp|kas|uya|ada|uq |ras|sya|a a|a y|qpi|ink|da |q r|i p|awa| ri|wan|q k| pi|s m|aqp| u | al|uni|yku|yka|hqa|asa|y m|ida|kaq|yuq|shq|ash|wpi|y d|s u|qmi|aqa|a l|s i|s k|as |a h|kar|unp|kad|aqm| ar|mun|s y|aru|ara|iya|kla|tap| iw|urn|iyi|wal|y r|kin|iwa|a u| si|yta|n n|kur|u m|sak|lli|riy|dik|ika|yar|yap|rnu|yir|unt|iki|tan|n i|m k|nni|yin|war|unn|ma |i r|ris|n a|shu|kri|ats| kr|nac|yac|byi|uby|gub| gu|kaw| is| pu|nna|ann|nis|ish|usy|pip| ra|pay|ank|sti|iyk|k r|rmi| ul|siy|kik|ipi|ama|ili| sh|igu|uta|isp|s r|q m|i l|mus|ray|int|ahi|ikl|a t|lar|stu|w n|w r|naq|y i|arm|lig|dan| ch|s l|awm|adu|ruy|y k|ayt|way|rik| ki|ist|asu|pas|hin|spi',xsm:' o | ba| na|na |ne |ba |e o| de| se|aa | wo|a n| ma|se |ge |a w|de |ŋa |e n|ma | ye| ko|e b|ɔɔn|o n|aam|maa| nɔ|ama|a t| wa|nɔɔ|no |o m| to|ane| te| ta|o t| ch|e t|ɔno|a k|ko |to |o b|e k|ye |ra |oŋa|a b|o d|a s|e w|lo | je|o w|taa|aan|e s|ege|a l|a y| ne|a j|a d|o k|woŋ|e d| ŋw| la|naa|jeg|wol|em |eo |o y|ae |i o|we |ri |ni | ke|wo | ka|aŋa|iin|o s|won| mo|mo |ei |olo|wad|re |a m| da|dɛ | we|ɔge|tei| pa|daa|wae|ora|a c|a o|chw|ga |i t|hwo|log| lo|li |te | ti|teo|ina|o o|im |age|nab|ke |oŋ |o j|ŋwe|eir|adɛ|bii|abi|am |toŋ|i n|go |ogo| ni| fe|oli|baa|waa|iri| tɔ| bo|aar|baŋ|e y|wor|ta |oto|tot|boŋ| ya|onn|e c|ŋwa|are|ee | ja|pa |lag|i d|ɛ s|o c|uri|ein|maŋ| dw|che|fee| ku|ura|wan| si|o p|wea|m d|ea |era|a ŋ|obo|wi |hɔg|pwo|dwo|chɔ|kur| sɛ|bob|e m|tɔg|o ŋ|sem|ini|yer|iku|ia |zur|e l|ezu|yez|m t| be| vo|ran|dem|a p|m n|wop| zo|dwi|opw|one|om |sik|kuu|heg|ega|uul|tig|elo|sɛ |o v|ene|m w|ja |i s| di|ŋe |yaa|ka |o z|ɛ w|sei|ete|tet|igi|kol|a z|i w|een|e p|aŋe|oo | ze|e f|lan| sa|oor| kɔ|la |kei|uli|ent|gis|isi|sim| kw|nto|ywo|nno|aŋ | po|tii|ded|ore|del|m ŋ|nna|vo |o l|a f|ada| yw| wɛ|edw|ŋ o|i b|bia|i l|i m|nte|men|ɔme|gɔm| gɔ|ɔna|jei|ere|tɔn|tee|i k|di | ve| jw|jwo|ana|ŋ d|lim|zoo|kom',gag:' he|hem|em |lar|bir|an | ha|ın |arı|erb|hak|akı| ya|n h|in | in|ar |ir |san|kla|nsa|da |ins|sın|ası|rın| ka| bi|ara|na |aa | ol|ım | va|lan|her|maa|anı|eri|nın|kı |akl| se|var|un |rbi|lma|ler|nna|a h|r i|r h|est|bes|ser|rbe|lik|nda| ba|n k|ala|stl|tli|n v|ına|ada|n b|ak |let|nä |rin|nan| de|ını|zım| bu|mas|alı|inä|nma| sa| lä|a b| on| an|ama|al |oru|lää|ääz|ı h|äzı| ku|ä h|lä |sin|nar|ard|nı |än |ınd|etl|m h| ko|är |lär|esi| di| ay|olm|n y|sı |a a|bu | ki|irl|evl| al|lı |rı |ka |ndi|ya |yar|kım|ayı|yad|end|ulu|m o|a g|kor|kle|kar|içi|si |vle| iç|ää | ke|ken|n s|rle|ekl|ni |ı o|ıla|rak|çin| cü|r s|di |irt|rla|rdı| da|aba|ann|baş|r k|ık |ik |ana|ırı|ı k|iş |rta|n o|onu|i i|uru|aya|m k|m d| ta|mää|ili|er |dım|a o|ola|ini|a y|tin|kab|a s|nun|ona| do|a d| sı|tak|kan|bil|mal|ä k| na|eti|k h| gi|m a|baa|a k|anm|ısı|eme|m s|lık|ikl|lun|rıl|and|r a|dev|leş|ä b| üü|ölä| yo|ver|kur|rul|sun|run|mäk|cüm| ge|li |ril|üml|ı i|ile|n t|dek|mak|ınn|yır|nmä|aat| mi|i b|m e|ı b|tlä|aal|alk|rma|äk |n e|dan|enm|ntı|iya|ren|lii|m b|mes|yap|i h|a i|r b|aţi|aşa|yaş|dä |nin|ano|ä d|üre|üür|k a|ek |lıı|hal|n a|lsı|aşk|şka|rli|tan| te|işi|lem|ani|sıl| so|ıl |non|n i| gö|say|ıı |ndä|ind| es|u h|ı d|aşl|din|miş',shk:' ki|ki | bë|hø | a |i k| ge|ø k|en | dh|dha|nhø|han|anh|i b| yi|bën|yi |i g| me|ng |bëë|gen|ëëd| mø|ri |ni |e k|mi |i d|ne |i p|ø b|øg |e d|ø m|gø |ge |ëne| wa|ödh|a d| pö|pöd|ny |la |ala|wal| ny| yï|i j| ke|møg|dyë|ji |dø | dy|n k|g a| kö|me |yër|i y|gi |e b|di |dhø| bo| ko|bon| dw|rø |ong|ipe|kip| ji| e |nyi|hi |da |köm|dwa| da| gï|a k|n a| o |i m|pe |ömi|bur| bu|men|nni| gw|inn|kin|dhi| ka|gg |i c|g k|yïe|ër |ïe |i w|e y|a n|kor|ii |ani| ci|y k|ënn|ëdø|ø d|i t| kì|nyw|a m|nn |ka | bä|wad|iny|g g|kì |ërø|eny|a b|pin|i r|ø y|ään|ëd |add| pi|yij|äng|e g|uri|igg|r k|gïn|cig|a c|öög|n d| mï|i n|ïn |rum|mø | á |cïb| ce|ïb |dhh|ij |g d|a g|kel| kw|li |yïë|e o| ng|per|gan| te|wøb|ïdh|cug|eki|gek|gwø|ko | en|ngi| gö|o g|e p|mïd|n g|g m|th | kí|wøg|kí | cu|ø w|ggi| ba|a á|kwø|øgø|y a|de | ja|ddi|ugg|ywø|göö|ang|g b|elø| ru| ty| gø| di|e m|løg|ì k|a a|e w|ø g|kye|lø |ø e| kø|bi |i l|ngø|re |bø |ga | kä| ác|e c|ácï|l k|ögg|yø |le |ken|h k|eth|ggø|cet|r m| mi|yii| wø|är |ïëy|wat|ori|b k|i e| ri|egø|bän|än |kà |øøg| kà|n c|bää|wør|eg |tyë| mä| pä|yën|ëde|gwe|an |gïg|øbb|bbi|g n|a y|tee|ing| ga|wed| cï|hhi| wä|ëny|e r|ëng|er |iri|kir|h a|dïd| dï|jam|ëdi|lli|wøl|yï | më|ban|ed |m y|ëy |d a|wöm',nba:' ku|a k|a v|na | vu| na|wa | mu|a m| vw|vwa|mu |u v|nga|ku |ya | ka|ka |la |ga |oxe|e v|o v|xe |co |kul|a c|a n|ang|vul| co|o n|ndi|uli| va| li|ti | vi| vy|di | ci|sa |ung|emu| ca|kwa|mo |lem|ing|nu |pan|ule|ca |and|mbu|lin|u m|i k|e k|umo|o c| kw|i n|a l|vya| ya|end|i v|lo |nde|o k| wa|uti|li |mun|fut|uka|aka|esa|unu|vuk|ali|ko |ngi|je |u k|wox|muk|u c|we |van|ma | ma|kut|nda|e c|ane|ind|ngo|kum|kus|ika|lik|kat|nge|kal|ula|ela|amb|de | ly|man|ong|uje|vun|le |zan|ama|anu|ngu|lya|apa|i c| wo| in|go | al|pwa|aku| mb| vo|lif|ipa|gul|ala|u w|u l|lim|vox| ng|ulu|ati|wan|ifu|o m|so |nen|umu|vo |ita|ulo|kam|i a|utw|imb|iko|bun|ana|o w|ngw|upw|ilo|isa|bu |ima|kuk|ene|kup|wen| mw|eso|eka|nap|gi |ili|e a|apw|yen|vip|e m|u n|yox|ukw|a i|gwe|gan|kuv|ond|a y|sin|vak|und|vyo|uku|sim| ak|maf|wam|vum|afu|ayi|e n|avo|any|lon|yi |kan|mes|ena|ame|o l|a w|asi|imo|uxo|nyo|ele|ne |twa|si |nek|ges|elo|mwa|kun|eke|uta|ton|tan|use|lul|uki|amo|wak|da |una| um|yak|wal|wav|yo |ale|lil|sem|mum|wet|iza|ike|key|vuv|a u|vus|vux|i m|wis|bul|tu |i l|vwo|wo |o y|i i|tav|vwe|o a|pwi|utu|was|wat|ina|asa|ije|pwe|uvw|a a|ato|usi|kil|eye|dam|i y|mol|oli|kay|vut|ciz|ye |awa|ola|eng|va |vuj|mwo|ivu|upa|xok|oko|uvi|lye|uma',miq:' ba|ia |ka |a b|ra | ka|aia|kai|ani|a k|ara|ni |la |a a|ba |a s| na| ai|kan|sa |aka|nan|a n| si|an |in | ku|ika| up|upl| la|pla|i b|n k|sin|a l|a u| ta|tka|bri|ira| br|nka|a p|ait| wa|bak|lak|aik|bar|isa|ban|rai| ma|ank|aku|ku | sa|itk|kul|a d|ulk|lka|a w|a t|ris|air| pa|a m|kab|ki |kum|aba|uki| ap|bia| su| di|wal|sut|na |kar|abi|dia|api|ri |pia|ala|i s|uka|ut | pr|tak|ias|bai|ain| ra|asa|mai|ais|rik|duk|kak| lu|i k|i a|aha|pri|as |ya |luk|ha |asb|kra|sba|n s|tas| bu|kia|wai|iba| du|sip|apa|n a|ras| iw|bui|wan|ui |at |ska|um |i l|n b|ila|t b|iku|aya|lkr|kat|i n|aur|bam|nah| ya|ant|ntr|ip | da|i t|u s|i p| ga|awa|a y|ink| an|umi|u m|sau|mun|atk|lik|pan|a r|a i| mu|nir|alk|ana| as|asl|iar|tri|i m|sla|auk|yar|nat|lar|ai |ak | bi| wi|war|dau|iwa|bil|nib|isk|ark|rin|mi |ura|kuk|n u|ari|rka|ta |una|k k|i r|pli| ti|ata|ame| py|men|man|nt |pai|isi|pa |n n|lah|kir|m b|ent|sap|p k|t k| mi|iwi|ma | ri|hma|ahm|gab| al|pyu|pya|ilk|t l|nra|til|iki|u k|tab|aki| ki|bah|amn|mar|li |ita|n p|yua|utb|tba|mik|iti|san|a g|pas|yab|bay|urk| pl|al |paw|u a|nsa|ans|sik|bap|i w|anr|ik |is |mna|maw|yak|lba|apu|lki|rk |ina| sm|sma|mal|tai|pra|aib|upy|tan|ima|kni|n l|aid|may|n w|uya|n t|t t| ni|s k|ria|tik|tar',mam:' tu| ky|b i|il |n t| n |al |l t|u n| il|tu |aal| b |tuj|uj |jaa|ti |iil| ti|xja| xj|j t|an | ix|kya| j |i j|ix | ju|qii|yaq|x t|aqi|een|l k|b a|en |j k|aj |tza|un |lee| mi|n k| tz|tz |ib |jun|nam|l x|a t|am |ok |tna| te| aj|l b|aq |at |okl|qa |kle|ax |eet| tn|l a|n x|tee|a n| to| at|t t|uun| ma|kyo|aan| tw|q i|qe | ta| an|ool|twi| ii|yok|zan|juu| tk| qa|x k| aa|chi|ma |laa|kyx|ol | ch|ab |anq| ya|tii|nq |itz|tok| tx|taa| ee|kye|et |q t|iin|naq|mit|iti|n b|k t|e x| ja|ana|wit| ib|j j|tb |ala|ob | tb|l j|nx |kyt|noq| no|m t|wi |kub|ook|oq |l q| ni|ub |kyi|t k|yoo|q u|e t|j a|l m|x m|nb |mal| ko|i y|iky| ok|anm| q |i t|ik |k u|te |aay|yee|xii|j x|nma|u j|ila|o n|kyj| tj|txi| a |xi |iib|n a|tx | wi| xi|m k|ina|yax|ja |iya|tja|k b|aaw|lqe|n m|l n| oo|etz|jb |unx|yja|yii|za | xa|i x|tl |ntl| t |el | u |yxo|xoo|b e|imo|tku|mil|ixq|ee |him|t x|a b|too|tan|ilq|naa|unt|nan|lab|ky |u m| ik|pan|ipa|ama|n j|maa|z t|b t|a k|ex |sla|xqa|a j| qe|pib|e k|ay | al|yan|inb|una|z a|aax|nin| ka|aaj|ntz|xan|kop|opi|yal|yta|ant|tko|j m|y t| nt|int|ntn| un| nx|q a|xna|eex|n n|uma|miy|ya |ye | yo|mob| xn|z o|kyc|ych| xt|l i|a a|ajb|e w|win|i n|kyu|l o|x i|xax|oks|cha|hik|kol|tum|ksl|yaa|x a|aw |x o|yb |oon',hus:' an|al |an |in |tal|ab |laa| ch|l a|ka | ka|aab| in|ala|ani|ni |aba|at |bal|k a| ya| k |aja| ab|ik |tsi|chu| ki|sik| ej|xta|kin|ejt|ch |n k| xi| al|n t|l k|n i|jat| aj| ti|nik|hu |h k| ju|k i|ech| wa|jta|n c|ini|dh | bi|yaj|t k| kw|n b|its|ikt|w a|tso|i k|bit|t a|xi | t |ti |cha|b a|n e|kts|e e|yab|b x| ne| ta|a k|axt|sow| ja|n a| ts|kw |k n| ul|i a| ec| ij|a a|wa |a t|ne |n j|jun|ij |a c|tsu|sub|tin|bax|u c|unk|i t|uba|u u|nku|aal|wal|xin|ulu|udh|aa | ux| i |h a|un |m a| xa|uum|adh|ow |am |jto|l i|naa|ee |lud|a j|o k|to |o o| ko|uun| to|iil|jay|huu|lom|uxt|juu|j a| ba|ta |dha| ni|il |awa| na|ach|wts|ax |owt| ex|lwa| je|a i|i j|n u|l t|tam|idh|aaj|ban|aj |ilt|om |ixt|ak |kun| ma|l x| ol|jee|ol |t o|i c|alk|a y|tsa|max|i y|umt|kwe| oj|aam|l y| ak|ko |kul|b y|ek |alw|te |e a|chi|hal|nts|jal|nal|ita|exo|nti|tee|t t|xit| u |wet|ja |haa|hin|ant|nta| pi|alb|na |l w|waa|waw| be|bel| ku|lbi|u t|ay |ete|l j|mta|b k|k y|mte|jba|um |aac|unt|xob|eem|bla|ata|yee|ulo|wat|jaa|aye|obl|lmi|olm|ich|tol|chk|ojl|jla|hk |n w|ajb|l e| oo|a w|i u|lts|uw |ap | te|baa|aka|k u|em |nee|a e|eec|n y|alp|awi|che|yat|tom|hab| ee|hee|a p| pu|lpa|a n|uts|a u|omt|tec| la|ba |lka|i w|nin|b i|elo|xaw|iya|b u|taa|lk ',tah:'a a| te| a |te |ra | i |i t|e t|i a|a i|a t| e | at|ta |to | ma|ti |o t|au | ti|ara|fa | fa|a e| ta| am|e m|mau|na |ia |ata|ana|e h| o |e f|man|a o|ama| to|o a|re | na|i i|ira| ai|a n|nar|hia| ar|e i| ha| ra|u t|ai |ha |e a|ato| no|ore| ro|no | or| tu|a m|o i|atu| ē |ora|o n| hō|ō ē|hō |e r|tur| ao|oto| ia|ahi|apa|rot|e p|aor|u i|pa |amā|a r|ura| ap|tu |tei|i r|ma | pa|va |ro |par| va|mā |ito|ua |e o|ait|ie |eie|uru|o o|u f| ir|o e|u a|ohi|e e| ei| ih|oa | it|hi | hi| av|ri |ita|rur|aha|afa|fai|a h|u e| ah|aif|era|ifa|i e|a f|tah|āra| oh|iho| au|hip|ipa|rar|ā ā| fe|e n|fau|ei |tau|iti|ure| āt|ni |auf|ufa|utu| tā|mār|u m|hau|rir| pā|upu|iri|tir|ari|rav| af|pu |ave|vir|i m|āto|pū |are|uhi|roa|mai|ere| ni|ru |u o| an|pap|avi|aro|u v|api|tā |tup|nua|enu|a p|pi |ho |fen|ui |i f| mā|ā i|ehi|iah|eia|aho|mui|amu|e v|ae |rer|u h|ve |mu |o r|umu|tum|hin|ou |nah|oro|i o|reh|ava|tat|ihi|a u|ati|ū i|aut|rau|por|hor|ruh| hu|oia| oi|āpū|ate|pāp|ā o|aur|ter|aru|tua|e u| ut|hap|ipo|pe |rat|i n|u n|ina|una| me|u p|ē h|pār|āru|po |tam|pae|tor|tou|i p|far| po|oti|ā e|ē t|ē m|top| nu|ero|mer| er| ho|mua|opū| mu|tit|rah|noa|ota|imi|u r|hui|uir| im| rā|ino|ne |rit|rā |tae|uit|ea |mar|uri|ite|ē a|aup|uaf',nav:'doo|go |íí |ee | be|bee|tʼá| tʼ|ʼáá|ígí|gíí|óó | bi|dóó| do|oo |áá | ha|ah |e h|o b| dó|haz|í b|á a|í d| há|níg|łts|dah|tso|ii |ool|hgo|į́į|o d| éí|éí |nii|iʼ |tʼé|azʼ| da|aʼ | ah| ni| na|ood|ʼ a|hoo|́į́|oh |ʼą́|bin|ą́ą|da |soh|h d|h b|ʼé |áád|laʼ|aji|ani| áá|yah|o t|ádó|á h|íní|aa |eeł|din| aj| ał|naa|éya|kéy| ba|iin|dzi|ʼíg|ą́ |jił|yee| ye|į́ | di|ego|oot|o á| dí|á á|o h|iłt|í t| ho|ʼii|nah| ké|kʼe|há |é b|ina|zin|ini|otʼ|ʼ b|tʼi|díí|ʼį́|lį́|ó b|zʼą|ahó|ʼ d|ʼaa|éeg|iní|ʼiʼ|ʼeh|ahj| áł|ání|aah|iné|baa|aan|ado|i b|ido|ash|ʼée|ʼah|eeh| hó|e b|ʼáa|ó n|ʼ á|ish|híg|ótʼ| bá|aha|zhd|ees|jį́|nis| bí|hjį|átʼ| ad|h n|ehg|ó d|chʼ|ájí|aʼi|e a|dla|shd|hee|oda|ooʼ|ʼ h|haa|né |aho|́ʼ |iná|ole| as|ní |tah| áj|ahe|́ t|níí|hdo|įʼ |ó h|lee|į́g|áha|áán|łgo|o a|hdl|í y|tʼį|iiʼ|eʼé|́go|hwi|áad|bá |azą|į́ʼ|izh|hak|haʼ|́ą́|zą́|aʼa|ił |iid|ikʼ|azh|kee|ada|h t|hod|í h|bik|itʼ|bił|o n|íʼ |á b|chį|áan|sdz|wii| yá|odz|eł | át|ałt|ł d|háh|łtʼ|in |n d|ind|ing|́ d|tsí|aaʼ| ní|h a|sh |ʼoo|its|ngo|neʼ|nih|a d|íla| hw|ó t|eha|óch| az|hóc|ída|bíl| ts|áʼa|ítʼ|zín|zih|á n|e n|did|h h|jįʼ| ła|ełt|has|łaʼ|ooł| ná|łch| ii|a t|náá|nit|h é|naʼ|tʼa|oní|łda|oon|daʼ|tʼe|hóó|dai|í é|ʼdi|hįʼ|niʼ|kót|daa|had|áás|ida|óót|ʼ t|hin',lot:'o a| ik|iko|de |ng |hod|ode|ko |to | ho| to|i a|ang|ti |o e|ri |i i|o i|e h| on| ob|re |e i|nyi| ah|ati|aat|i o|ni |ana|aho|ani|yo |ere|ier|bo | hu|won|wo |any| ab|man|na | aa|dan| da|ya |owo|jyo|ngi|n o| el|yi | bw| an| ow|lo |bwo|ve | ve|isi|no | jy|eng|oni|ben|o o|hun|i d|yya| ne|obe|ari|o n|o v|i h|tul|ung|obo|ulu|nya| am|un |si |e a|han| ih|a a|nie|ono|ulo|g o|ita|lul|on |lun| it|awa|a i|mij|iji|ong|osi|ara|ony|ama|abo|an | ar|io | aw| at|a o|au |hos|hon|ji |aba|i t|hi |iti|ami|emi|ik |elu|g a|a b|e e| or| ad|atu|fau|ihi|gi |ori| et|iny|rri|ian|gan|e o| in|g i|iyy|kuy|mis|sih|nga| ku|elo|i e|wan|bab|ta |o t| is|adi|a e| mi|ra |ngo|uyy| wa|ma | em|waa|yit|di |uk |a t|iha|aha| fa|iam| ir|a h|yan|ida|k a|yyi|i b|ak |eti|uma|k h|k i|gia|it |oi |uni| ek|ner|ie |iho|iri|abi|rem|wah|ema|bia|ing|ore|ek |uto|igi|gid|eyy|hut|uno|rij|aga|i j|orr|o j|rum|mir| ha| im|tek|n a|kaf| al| ma|kia|iru|otu|o h|ahi|rre|n i|wa |egi|bis| na|jan|ija|da |e t|ia | om|olo|mik| eh|nit|imi|ihw|jor|umi|oji|koi| eg|oti|wat|err|tik|o f|i l| er| lo|ijo|uri|tan| iy|kum|ata|eki|gem|ruk|obi|aka|u d|yiy|lot|ria|eko|afi| ey|g m|a j| ok|dur|k t|jin|ai |um |nar|uba|nob|bwa|o b|sie|nun|anu|ban|bot|eru|eha|oro|ro |kik',cak:' ri|ri | ru| ch|a r| ju|jun| ta|chi| wi|i r|an |un |ch |chu|n r|win|el |l r|qa |ik |huq|b a| ni|hi |uqa| ki|k a|ruw|äq |näq| k |b ä|j r|en |inä|ta |tzi|ij |taq| xa|i k|n j|in |ach| pa| al| re|len| ma|aq |xa |pa |äl |man|q a|al |noj| xt|ib |i n| a |jel| äl|oje|uk |ïk | oj| ul|ono|ule|a c|uch|re |n w|i w|h u|aj |uwa| ro|a x| nu|ina|ew |a k|wac|lew|aji|wi |q r| at|ruk|äj |k r|aqi| as|uq | an|n k|ama|zij|naq|n c|oji|ich|xti|k o|l c| ko| ti|i t|sle|asl|ab |iki|ub |tz |äch|a t|sam|il |l t|qi |wäc|maj|ala|itz|i c|n t|ruc|tik|utz|ob | aj|nim|ima|i x|h o| tz|e r|nik|j c|läj|ron|k i|h r|kik|l w|rik|än |i m|k u| q |hin| in|rut|ütz| üt|ma |j t|uwä|laj|kon|l k|ya |l n|ruq|q i|nel| än|iq |una|jib|xik|j k| o |ïl | sa|nïk| ij|isa|kit|jin| b |zil|oj | ut| ra|ijo|qal|oma|ajo|cha|iri|l j|chï|hïk|ke |pan|n x|ejq|jqa|h a|ric|nan|ale|a j|raj|q c|uwi|q k| ka|i a|rej|ira|nir|uj |k c|rom|olo|ilä|i q|ine|ris|mal|o c|alä|haj|j p|b e| ja|xtu|onï| x |u x| u |to |nib|a o|n n|tb |aqa|hik|kir|ike|atb|ja |kic|z n|zin|atz|i j|tzo|tij|kan|lan| na|k w| wu|upa|w r|rub| ac|zob|ixi|hup|n p|jir|äx |k n|ki |q t|na |wuj|jle|tiq|ojl| ey|axi|nub|iya|jij|j j|jon|ota|ajï|a m|rij|cho|ani|uto|usa|ak |jo |on | et|e c|zel| wa|lot',lns:'dzə| dz| vi| ki| wù| a |zə̀| fó| e | gh|ùn |ìr |wùn|wìr|̀m |ay | wì|ə̀m| à |n à|gha| ké|kér|ér | ke|fó |hay|e k|r d| fo|o w|fo |ìn | ns| ve| á |n w|ə̀ |wun|m k|ə̀n|ví |réŋ|vit| ye| sh|r g|óo |un | kì|fóo| wu|òŋ |kin|ó a| mo|e w| wo|a d|n k|̀n |ke |zəə|a k|mo |ə́ |y f|wír| wí| kf|kfə|í v| ji|wù | rə|kìn|ji |ve | é |éŋ |ír |ŋ w|ita|itu|zə |ee |kit|in |eé |y w| wò|wòŋ|ín |iny|o k|nsə|əə̀|ne |r f|nsa|sər|í w|à v| se|m w|tì |ər |er |n s|taá|aáv|áví|r w| wi| ny| wá|se | ré| yi|tat|n f|a’ |i w|r v|n a|e v|yò’|áa |e n|wáa| là|ŋré|éŋr|tu |ì k|èn |é w|ker| yò| ví|m v|ò’ | li|là |é k|sí |an |’ k|nta|r k|e d|iì |wo |vin|á w|tí |u k|i k| sí|ye | kí|nyo| kù|int|sa’|yo |n v|yiì|o s|ií |r m|atì| ta|say|e s|o’ |ŋ f|mé |e m|a y|itú|yee|ùm |sòŋ|və́|shi| sá|m y|íy | və|éy |n é|r y|m s|n e|íri|ri | lì|iy | bó|rə́|fə̀| ms|à k|msò|sá’| bi|èr |han|im |iíy|kí | sa|ŋ k|sho|vi |oo | si|á’ |ù k|à f|əə |n n|rə̀|en |à n|túm|úm | ko|’ a|’ə̀| ŋg|veé|e g|y k|nya|bó |y e|y a|e l| fè|hií|fə́|o y|o d|kùm|n á|í f| mv|ŋ v|lim|a l|lìm|juŋ|ə̀’|uŋ | yì|e y|si |m r|mó’| vé|e f|èm |’éy|r s|ìm |e á|vij|é v|a s|wiy| wà|ə e| sé|’ w|n d|á k|y s|’ f|o n|um |yin|kiŋ|’ y|kil|yeé|ó w|̀ á|áŋ |́ə |ə́ə|í k|yí |ghv| yé|o v|ki |ŋgè| tà',ton:'nga| e |aka| fa| ‘a|fak| ‘o|a ‘|‘a |i ‘|e t| pe|ha |a e| to|i h|e n|oto| ta| ‘i|o e|ata| ng|ai | ke|ga |u ‘| ko|ke | mo|a k|e f|ang|onu|hi |‘ok|ku |‘i |oku|e k|aha|pe |mo |kot|ki |ahi| ha|e ‘|a p|he |gaa|ton|tot|‘o |ne |nu |au |a f| he|aah|’i | ma| ‘e|ko |tah|i k|tau|a m| ai|ea |oa |pea|oko|i f|ung|e m|ua |tok|o ‘|e’a|toa|i t|u k|a t|a’a|no |ama|i a|i p|ia | ka|u’a|a n| ki|na |mal| fo|aki|kai|o f|ina|i m| ne| ho|au’|pul|u t|kal|tai|’an|ota|’at|ni |e p|ain|ule|ono| tu|gat|hon|kau|‘e |aue|gau|a’e|e l|le’|o h|ika|a’u|u m| pu|ala|ili| me|’a |ta’|kat|‘en|u f|tan|a’i|ei |o t|fon|tu’|kak| la|u’u|’u |‘ik|ako|nau|ue | fe|nua|ui |li |ene|ta |atu|ka’|kam|ali| na|alu|ao |o k|ing| ku|ehe|u’i|e h|’un|ma’|le |tui|tat| ia|kaf| ni|ana|hin|kah|man|uhi| fi|ngo|fil|sia|ong|fua|efi|ale|lao|apa|fai|vah|u p|na’|kuo|fou|ha’|olo|oun|fa’|oni|’ap|ulu|ofu|’ak|ele|uo |a h|e a|uku|alo|mei|mam|ino|lot|keh|o m|e’u|mo’|o’i|tu |’uh| ak|sos|si | ‘u|lu’|ohi|‘ul|gof|lun|la |aan|a a|ani|otu| te|ie |aut|u n|i’i|e’i|kas|afa|ava|lak|ka |tam|mai|u a|kan|o’u|lau|lie|lel|o n|kon|vei|aum|me’|o p| va|tak|itu|nge|ofo| le|nis|koe|oe’|‘ak|’ui|han|to |aau|osi|’e |kap|lo |lei|loa|mak|ito|ngi| hi|afo|eni|tuk|fan|ena|upu|ti |kin|ue’',lad:' de|de |os | la|ion|sio| i |on |la |asi|el |es |en | ko|der|ere|ent|ien|o d|ech| el|as |cho|rec|ra |e l| en|a l| a |a p|kon|s d| ka|al |na |ona|do |ene| es|ad |e d|da |ho |to |tie|ers|per| su|s i|los|e e| pe| ti|nte| un|n d| lo|ada| pr| se|o a|ida|est| li|tad|rso|era| re|son| pa|a d|ke |e s|dad| ke|sia|ado|a t|a k|kad|ar |n k|a e|nsi|te |par| po|ara|nas|s k|no |men|ne |sta|n e|pro| o |a s|lib|o e| di|res|nto|les|dos|rta|s p|su | in| to|s e|l d|mie|kom|ens|ser|ual|er | so|o k|nal|nes|ale|por|ber|a a|ibe|las| na|ert|o i|hos|n l|ras|or |osi|ia |imi|un |ran|i l|ter|l k|man|ami|tod|n p|tra|sen|gun|e a|a u|del|e k|a i|one|sos|din|ika|s n|isi|una|ons|i d|kla|o p|o s|des|kas|igu| ku|uni|d d|s l|uno|ngu|ing|ido|nos|ta |ame|ali|bre|gua| no|re |ial| ak|das|io | as|sid|n i|an |art|se |ade|l i|s o|e r| ig|ndo|ura| ma|i a| dj|and|nta|ntr|ksi|uma|dju|ide|s u| fa| le|odo|avo|a o|e p|ome|dra|tos|i e|vor|s f|lid|tar|mbr|nid|ant| si|s t|ten|ndi| me|zar|esp|kua| um|pre|lav|rot|us |ote|eks|l e|sus|kav|kto|r e|s s|i k|e i|int|end|s a| ot|dis|ono|n o|lar|mo |akt|ria|ont| fu|avz|o l|o t|rse|ars|tan| al|ver|ekt|u p|ka | ni|ori|iza|n s|mas|mun|ste|tis|pod|r l|odr|esi|ias|ey | mo|nda|r a|aza|rar|dek|d i|vid',tbz:'kɛ | kɛ|ti |ɛ ɖ|ɛ k|nkɛ|aa | a |mɛ |o n|ɖo | ɖi| ti|i ɖ|iti| ɖo| nk|i k|nɛ |ɛ n|ɛ t|yi |tɛ |nit| ba|ɛ b| yi| mɛ| bo|oni|ri |mu |i b| on|ba |bo |a k|bɛ |u k|ɛ m| we| ɖɛ| nɖ|ku |o k| bɛ| na|ɛɛ |ɛ y|ɔũ |ɛ o|mɔũ|a ɖ|yɛɛ|i t|i m|a w|we |nnɛ| ku|ɔu |a b|a n| ka|ɛ a|oo | mu|ni | o |yɛ̃| ɖa| yɛ|nni|kaa|omɔ| ny|ɖɛ |ɛ̃ |mmɛ|u o| nɛ|i o|tú | ɖɔ| om|ii |i n| tú|mmu|nku|kó |nti|naa|ɔkɛ|oti|a y|kɛn| kp| ko|na |ɛi |ɔbɛ|tin|ɛ̃n|u n| kó|o ɖ|i y|u y|tɔu|ɖaa|imɔ|nyɛ|rɛ |ɖi | ŋa|e a| kɔ|wɛ̃|i a| yo|otɔ|ari|ati|nyi| ot| mb|e k|ũ y|bot|ɖɛɛ|ɛkɛ|ɛɛ̃|enk|ntɛ|ten|ɛ i|ee |ɔ̃ |a m|u m|kɔɔ| ma|hɛi|kɛy|yoo|ɖɔ |myɛ|maa|ɔ k|kpe| mɔ|ɛ ŋ| nt|kɛp|ɔ̃m| cɛ|tri| ya| nn|aat|ko | tɛ|amu|enn|ɛyɛ|ute|a t|omm|ɛny|kut|itɛ|ɖii|ɛmm|ɖa |ent|tɔb|yɛm|o m|baa|tɔ̃|kpɛ|ɛ c|ŋa |eti|ɔri| sɔ|pat|wee|ɛɛk|koo| ŋo|a o|wuɔ| my|ɖit|o b|rim|̃mm|nɖa|cɛ̃|o o|ant|uɔ |mɔu|ɖak|ɖik|mut|utɔ|a a| ŋm|ú o|̃nt|e n|tim| it|̃ k|ĩnk|nɖɔ|ɛ̃t|̃kɛ|ɔɔr|ɛ̃k|tib|u ɖ|bɛɛ|kɛt|̃nk|yĩn|oku|inn|ɔ n|ɔ̃n|mbɛ| yĩ|kɛk|aan|̃tɛ|i c|uu |ua |o y|kɛw|kot|ɛ f|kpa|ó ɖ|iit|pĩ |byɛ|atr|uku|ihɛ|cyɛ|nɖɛ|ipa|a c|pɛi|ɖip|ɔnn| tu|yie|ɛ w|ou |etɛ| by|u b|o t|a ŋ|imɛ|kɛm|ó m| tɔ|tik|kɛb| ni|nte|ann|pok|anɖ| nf|ɛpa|tip|aku|nɖo|yan|yet|u t|mɔk| mm|kɔb|bɔk|tye|ye |bi |e o|o a|pɛt|ɛtɛ|mɛs',ast:' de|es |os |de | y |la | la| a |e l|rec|ien|ech|ent|en |na |a l|dre| dr| so|ón |n d|les| co|a p|aci| pe|al |los| qu|ona|que|ión|s d| ll| es| to|hu |chu|u a|per|a d|nte|el |ue |ció| na| lo|se |ers|tie| d |u d| en|ion| se|con| ti| pr|cio|a s|rso|res|son|er |s y|cia|a t|tu |nes|lli|te |men|ar | o |lib|pro| in| re|oa |dá |toa|nci| un|ale|so |ia |nac|un |est|e y|one|ici|s n|tra|ra |ber|mie| el|enc|ual|del|a e|s a|y a| ne|s p|ert|ibe|nal|a a|e s| po|hos|e c|a c|cho|man|com| pa|iu |ase|ami|s e|s t|á d| le|idá|una|rá |e n| di| nu|ome|ter|a y|e p| xu|esc|nun| ca|end|ame|ntr|ere| al|dic|ese| vi| fa|aes|tá |y d|n c|ica|l d|da |ndi|col|r d|ntu|n e|e d|y l|ial|cie|era|soc|n s|oci|u y|des|nta|s s|a n|esp| me| cu|y e|l y|sco|tiv| ac|u n|nde|cla|ene|n p|ali|ide|a q|a u|y p| as| ma|hum|uma|ist|d a|n t|ier|a m|s c|ont|vid|ten|qui|s o|sta|tos|ens|ies|s l|rtá|nos| hu|s q|in |ser|e t|gua|bre| l |r e|rta|n l|su |ond|sto| ig|ta |eme|tol|igu|sos|pre|esq|olo|ant|sen|mes|nda|squ|omu|rac|u t|l e| ye|s i|nen|e a|u e|n a|tae|efe|nel|ive|ca |or |ver|s f|ibr|int|tor|eli|áu |imi|rem|xun|tar|re |ind|egu|s m|o q|drá| fu|lle|ndo|ru |und|tal|r l|l p|dis|pen|u o|bli|rot|lid|r a|ote|a v|uie|tic| am|tam|o r|ada|l s|cua',tsz:'kua|ni |ka |ua |arh|rhi| ja|a j|ani|uar|eku| ka| ju|aku|ech|cha|a k|aka|i j|urh|imb|mbe|a i|iku|jur|i k| k |ri |eri|ti |sï |k u| ui| ia|era|iri|him|ats|iam|ini|i i| ma|uir|i e|rip|uec|u j|ngu|ipu|tsi| ji| ua| es|jat|sti|esk|rhe|bek|amb|kue| am|u k|nga|men|eng|end| ir|ndu|ang|che|ksï|rhu| ku|ha |ame| en|ire|du |gua|and|aak|ki |ati|rak|per|ma |uan| im|aŋa|ist|mbo|a u|a e|amu|no |i m|pue|ku |ata|jim|ga | no|par|be |han|uak|jku|i u|hik|her|i n|esi|hu |ski|kun| is|ses|eni| se|jpe|a n|nda|sis|ajk|sku|i a|pu |a m|ajp| o | an|jan|hek|ari|uku|u i|si |nch|iti|uni|rin|jas|uer| er|ura| na|man|aua|a t|iks|sik|ima| ue|uaj|ime|ŋan|ŋaa|aks|ret|hak|ndi|tu |o i|a a|isï|bo |kak|uat|rha|nts|asï|tak|a s|ta | ts|mer|i o|eka|kur| mi| ni|ant|ter|tik|hin|ana|tan|ru |eta|ran| in|mbi|maj|mu |ama|apu|so |kat|tsk|iŋa|ska|ing|jup|nta|rat|aec|upi|ete|anc|ast|mit|ram|u e|eŋa|tin|o n|muk|u a|eru|bik|uae|jin|nap|tse|ï j|ung|hit|ind|ate|apa|tar|na |mar| pa|aat|nia|o j|ara|jtu|taa|oni|nde|jau|sïn|pek|est|int|a o|ŋas| te|uek|iat|gon|pen|o a|i t|ngo|tsï|oka|ipa| ne|rek|ï u|sta|i p|e j| ar|sek|eia|pik|uch|emb|gak| i |oŋa|u u|i s| ch|ngi|ï i|iak|jaŋ|ajt|ŋaŋ|hes|nem|ema|ŋar|kso|raa|tec|hen|ets|kpe| un|dan|jar|isk|meŋ|eua',swb:'na | ya|wa |a m| ha| wa|a u| na|ya | mu|a h|ha |ana|shi|ki | zi|hak|i y|a y|a z|la |aki|a w|si |a n|i m|a s| ma| sh|utr|mwa| mw|tru|har|ula|mut| za|hi |u a|wan|ari|ri |ru |a i|ao |ama|io |a k|tso|ndr|za |au |ma |he | ku|mu |ni | au|tsi|afa|i n|i z|ahe|ili|kul|iha|asi|i u|o w|nu |azi|ada| un|end|awa|i w|ish| ka|i a|ngi|naf|its| am|li |zi |fas|kao|eng|e n|aka|sha|ika|ina| an|ka |iki|o y|amu| ud|u h| ut|ra |lio|aha|dam|ia |ba |mba|ren|zin|usi| ul|mus|amb|ats| uk|a t|dzi|yah|o a|ali| it|nad|a a|ani|udj|imu|dja|uka|ara|o n|dre|ele|zih|eo | ts|una|i i|kin|ing|hus|sa |jam|ots|iwa|i h|ila|u w|ala|u n|vhu| at|o u|o h|e m| ɓi|ang|re |inu|fik|usu|ngu|ndz|ifa| uw|we |wo |ɓil|zit|saw|nga|sok|e h|wi |ini|wah|zim| uv|u u|any|muh|oka|eli|a d|aru|par|mat|ɗe |e w|adh|e u|me |u i|dji|uɓa|rum|dza|u m|o m|fan|dhw|tre|kan|ata| pi|uts|ahi|iya| in|yo |ume|mbe|di |laz|omo| nd|ung| us| ɗe|awo|som|uwa|piy|kaɓ|sin|uku| ur|itr|avh| yo|him|muk|uru|o k|yot|ita|uma| sa|eke|ɓal|u y| ki|upa|ria|udi| mb|uvh|i k|iri|mo |tsa|yum|gi |kav|nyu|tri|no |leo|ja |ian|apa|ash|hik|lwa|men|afi|law|ahu| uɓ|iny|and|are|o z|u z|tse|e a|bel|hwi| tr|mah|ira|ti |wat|lez|ush| mi|nya|waw|uhi|han|sen|rel|ua |hih|aɓa| vh|kir|zia|way|mas',cab:'un | lu|n l|an |i l| la|ai |ti | ha|ia |gia|igi|lun|a l| li|dan|agu|üri|ni | le|gür|bai|rig|u l|uti|uba| gü| yu|aun|lan|le |ida| su|gua|gu |n g|ara|ri | ka|yut|hau| fu|sun|e l|aba|n a|lua|ien|n s|uru|i h|ügü|han|ati| me|n h|fur|gun|run|ra |a g| gi|i g|lid|ari|en |iñe|ani|ada|uag|lig|ira| lú|in |ei |air|du |uri| da|gie| ub|n f|ban|bau|hab|uni|au |me |egu|lub|rüg|aga|ñe | ti| ga|igu|lag|iña|arü|aü |uar|uma|ka |a y|udu|úru| ab|a m|siñ|rag| an|aha|rud|abu|hin|gar|i a|bu |umi|gai|tu |mie|ún |iha| si|gü |kai|lúr|iru|las|ua |awa|rum|i s|i t|n m|nda|n k|amu|n u| tu|tid|ñei|giñ| ta|uai|agü|da |adá|ha | ñe| ma|ieg|a t|ága| ad|u t|ibi|bih|i y|nig|lib|ubá|u s|bús|dun|n t|und|uwa|üni|e a|lab|ü l|u h|ihi|ma |u u|mur|nba|sub|güd|ña |a a|di |a h|adü|lum|cha|yub| úa|ain|sie|ewa|rún| lá| lí|ful|lau|u a|rad|dei|asu|ina|i m|ham|hig|su |ugi|dag|bá |bág|to | to|atu|iwa|düg|and|nha|lad|e y|chi|u g| au|e t|n i|min|nde|dau|ugu|had|u i|ini|rid|wa |mai|ama|agi|á g|wat|gum| ar|ran| sa| am|gir|riñ|n d|gim|ru | ba|ámu|úse| gu|eha|adi|wan|mu |úar|irú|dar|gün|dám|ngu|ní |anh| id|ima|mut| ua|n ú| gá|hag|man|anu|wad|iba|i f| bu|i b|a k|ung|lar|i d|eri|ngi|ang|ibá|ami|gaw|wai|abú|i u|aru|a s|u y|has|idu|ích|ára|end',krl:'en |da | da|ize|ien|ist|evu|oig|kan|gev|ige| oi|anz|on | ku|sti|n o| ri|an |gah| ka|el |eh |nza|lli|ris|liz|ika|tik|väl|uks| vä|us |al |hiz|ua |ttu| on|zal| jo|sie|vus|ahi|zel|oga|l o|n p|ksi|stu|itt|all|jog|n k|tsi|n d| ol|lla|zen|in | va|l r|kse|ah |vuk|per|miz|äll|izi|zie| pe| li|tu |oin|es | yh|n v|a k|loi|yht| pi| ta|oll|tta|val| su|ii |ami|lib|zeh|bo |teh|ih |idä|ibo|n t|as |lly|hte|kud| hä|pid| tä|h k| om|äne|a v|oli| mu| mi|ine|kun| to|uad|s o|dua|nen|ust| ni|unn|h d|ivo| si|hän|ehe|ne |h o|oi |tua|ott|voi|rua|uol|ett|tun|udu|ei |kon|i s|olo|sua|oiz|il |ai |tah|arv|ell|und|toi|ehi|aht|et | ei|ats|a o| ra|is |ald|ytt|äy |tti|iel|a h|n m|eru|sta|tam|ti |se |nda|tet|omi|nan|utt|mat|däy|la |sen|n s|i k|rus|vel|oma|ast|ttä|zes|le | ki|s d|kai|oh |ku |i t|avo|yzi| hu|huo| tu|hto|lis|a a|mie|iä |n l|puo| ru|täm| lu| al| ju|to |aze|äh | us|aik|end|ty | ot| se| pa|a p|est| pu|rvo|s j|du |i o|nna|a t|dä | ar|usk|mis|aha|os |nzu|ta |uo |taj| so|nnu|ual|oit|äyt|aut|s s|hel|hva|i v|oih|n a|ste|pas|izu|s t|ali|lal|h s|sii|opa|uga|mug|zoi|nzo|tty|n r|aza|uat| el|rah|att|ahv|joi|mua|ulo|l k|u k|tul|uma|irj|ala|n y|lin| mo|zet|eks| op|kir|s k|ako|y o|s r| sa|n e| ko|nik|die|ara|moi|man|isk',top:'an |lak|akg|ata|ama|aka| na|ala|kan| ka| ix|ini| la|a t|ni | ta|mak|tam|n n|kat|ch |tla|chu|in | ch|la |kga|ta |lan|lat| ak|h i|ixk| ni| tl|kam|a n|nin|tal|xla|ma |xku|wak|ka | xl|win| wa|awa|uwi|ak |kg |hu |kuw|akc|kch|min|alh|nak|ika|ach|na |n t|tum|ami|wan|tu | tu|n k|ani|nac|ali|nit|pul|man|nka|ask|nat|n l| li| ma|pal|it |i k|ank|una|k i|k a|hun| pu| pa|n c|i n| at|ema|ula|tak| ne|nem|um |ilh|ti |kak|a a|nan|akx|i t|ila|i l|lh |a l|a k|g l|kal|h a|kgs|n x|u n|apa|sin| ti|u k|ana|tat|tap|p a|ap | am|nal|atu|gsi|xta|nil|atl|tun|ina|u t|ats|aya|mat|a p|nik|gal|ku |tsi|uwa|n w|a w|lht|ima| xa|a c|ixt|wa | al|kgt|map| in|hta|at |apu|lim|u l|tay|xtu|law|a m|a x|kas|lit|okg|nu |lhk|hka|taw| an|utu|sk |ixl|lhi|gta| un| k |aku|wal|hi |kil|puw|kgc|lik|xni|unu|p u|gch|n a|i i|t a|chi|uni|kxn|kxt|un |kuj|sku|t n|umi|kgl|glh|si |akl|g a|iti|lip|mal|akn|n i|kgo|sta|kla|ga |axt|pas|ixp| ut|i p|n p|u x|ast|xli|nam|kgk|i a|itu|u p|kap|paw|mas|xpu|gap|aks|gan|tas|i x|t t|put|tan|li |liw|t x|aki|uka|i c|k p|ekg|a i|ita|lha|tka|cha|yak|n m|tik|kni|tac|iwa|lin|gxt|kgx|lam|atk|wek|yaw|lal|iku|u c|gax|xal|gat|ati|k k|ipa|ion|one|nes|es |nid|ida| je|ha |t w|das|cio|huw|lhu|aci|u a|ink|tok|max| ap|s u',zam:'uan| ku|kua|an |n n| xa|xa |en | nd|ndo|ob | na|dob|ti |a n| ye|ak | mb| ch|las| pa|as | di|ar |par|men| me|cho|iti|ts |dit|ho |nla| nl|es |ien|gak|mie|na |ets|yet|mbe|b k|kie| mi| gu|i m| nt| ga|ie |bes|n g|nak|s x|n k|lu |o k| nk|iet| o |a m| ri|rie|ab |gui|n m|nki|ta |s n| lu|dib|o c|n l|nta|n x|ba |et | ti|ol |a k| ng|yen|ui |s k|in |i n|a y|ent| ki|xga|b y| xg| ka|s p|r n|gab|ib |a g|idi|i k|t m|tid| ta|rti|s y| yu|k x|ort|xen|bxe| bx| or|k k|che|mbo| li|b x|ndi|kap|ap | ba|a d|yes|bol|its|jui|kin|u n| ju| la|a x|uin|is |e k|s o|k p|s c| ro|e x|b m|i x|ed |nti|iba|r d|nar|nt |tsi|o n|b n|uit|i y|lis|n y|a j|dix| nx|ino|no |xi |ixi|r k|s t|mbi|nga|o m|i c|eti|a p|uy |yuy|k d|t k|enl|s m|nto|s r|hen|ngu|ted|n o|b p|nte| ts|k n|nda|ró |a b|iki|bik|aró|a l|n b|n t|u x|l k|la |a o|e n|nlu|ana|r m|tim|b d|n d|e t|gua|ad |b c|a r|s b|i t|l x|yuʼ|uʼ |e y|y c|ngo|rue|ue |gol|b t|u g|gux|kab|lin|s g|op |k c|e m|k m|lad|ó k|sin|ey |d n|cru|da |s l|aʼ |i o|he |imi|s d|taʼ|cua| cu|ual| cr|b l|nxa|xab|i r|i b|ux |o r|d x|nag|k t|r x|uʼn|nó |inó|k y|tl |utl|xut| xu|t x|ai |b o| ñu|u r|l y|b g|n r|k r|rop|rol|ek |y p|yi |us |d k|x k|mby|tab|o g|mí |r g|ala|p k|o y|pa |ied|mi |iit|die|bki|mbk',cha:'na |an | i | na| ma| ya|yan| pa|on | de|ion|ha | si|sio|ra |iha|ina|par|o n|cho|man|ho |ara|n i| gi|asi|rec|a i|ere|der|sih|ech|gi |do |i d|ai |a u|al |ao |o p|ent|odo|ad | ni| to|tao|tod| ta|gai|n g| li| in| co|a n|ona|o m|i p|nas|men|a p|a y|a m| ga|a t|i m|nal|ibe|dad|a g|o s|i t|rta|ni | es|lib|at |ert|est|ber|pat|o y|a s|o i|uma|ana|nte| un|te |ida| gu|tad|n p|com|a d| ka|i c|o g|sin|ame|nta| um|n n|n s|as |l n| re| nu|ui |ot |cia|ine| po| pr|tan|mas|a a|i l|omo|ia |to |o t|en |e n|pro|sta|mo |ya | as|n m| ti|i u|ano|i i|ota|nen|pot|no |nui| so|be |lo |so |res|a e|sa | ha|oci|ase|un |are|ebe|soc|i f|aot|deb|ala|ter|ant|i k|per|gin|ta |gui|go | fa|tra|i s|ade|con|ang|de | di|io |et |nih|ksi|asa|ers|nto|tin|afa|nda|min|n e|i a|rio|n c| pe|ste|ras|n t|gua|a l|ini|e y|isa|ten|ntr| la|nid|ari|a k|sti|ro |n l|i e|nan|e u|ma |ti |ale|e g|tal|s n|n y|n d|e d|fan|a h|gur|nga|ali|aya|tay|i h|agu|ena|reh|nam| se| uf|i g|eho|nsi|son|uet|uni|co |ont|ati|lai|bli|era|aba|bal| fu|n k|d y|ela|lan|rso|ico|ago|usa|duc|alo| ch|emp|nat|nci|nde|ura|ufa|maa|ial|int|t i|tek| ku|ote|uat|rot|tro|tku|cla|kue|ral|kas|uca|cas|fa |lin|da |hon|d s|a r|otr|t p|fam|l y| ot|haf|esp|und|eks|fun|ge |ado|del|es ',crs:'an |ann|on |ou |en |yon|syo|nn | la| an|te |n d|n l|wa | ko|n p| po|asy|rwa| ba| dr|drw| ga| en|gan|kon|ban|pou|nny|son| di|ny | so|n k| ki|tou| to|n a|man|nna|dan| le| e |n s| sa| de|yen|er | da|ki | ek|ek |un |nan|oun|dim|mou|imo|ot |bye|n e|al | pe| ob| pa|et | li|oby|ite|u d| pr|ans| re|onn|zot| lo|lib|dev| zo|ali|n o|anm|si |nas| i |e d|pa |enn|i p|san|men|rte|e l| ma|n b|sa |ns | na|per|e e|lit|e p|ert|ret|ras|osi|n g|a d|e k|pro|ant| os|ter|ibe|ber|lal|a e|re |e s| no|fan|ik |nou|az | ok|ksy|i a|ler|ken|nm |vre|nte|ime|k l| ka|el | in|i e|par|n n|ave|n t|nal|evr|oke|ni |tra|ar | tr|rav|e a|ers|kas|ran|ons|onm| im|osy|sos|ote|e o|ika|n z|sya|ir |nma|in |ava|ona|era|ont|res| me| fa|edi|dik|lar|t l|ei |ab |r l|pei|nda|i k| se|ver|fer|n i|y p|n f| ne|lav|ond| fo|y a|lwa|ara|ezo|met|li |rso|rit|n m|l e|ete|eks|kot|u b|pre|led|ent|t g|lan|nne|i d|alw|i g|kla|ese|ide|nt |ini|nsi| av|der|a s|a i|ak |i l|ti |i t|n r|is |apa|i s|las|are|l k|a p|ern|ay |u t|vay|a k|s e|se | fe|sak|rot|rel|bli|a g|pli|nes|r k|azi|ser|ib |lop|yal|van|mar|avi|ort|r e|gal|a t|vek|ega|asi|tan|lik|sid|t d|sye|zir|imi|i b|k b|zon|k p|k s|de |lap|nmi| si|u a|a l|sir|ze |r d|ín |iín|eko|esa|r i|aso|y e|zan|esp',ddn:'na |ma |nna| ka| a |a n|ka |a b| nn|ama| ba|a k|om |ni |a a|yom| ma| bɔ| n | da|a d|i k| ku|daa|aam| go|nɛ |a m|iya|a s|rɔ |ɔrɔ|i n|gon|ya | hi|bɔr| ga|ani| za|iyo|a g|ri |aa |a h|inɛ|ɛi | sa|mɛi|fɔ |ara|kul|yo |ayo|ini| si|ra | bi|ari|ɔŋɔ|lu |bɔŋ|ulu|onn|una|ga |ei |niy| di| ci| fɔ|hin|kun|nɔ | du| kw|a z|ŋɔ |a t|waa|bam| na| nɔ|ii |wei|i g|a c|amɛ|bin|i b|ɔ n|ba |riy|sɛ |si |ɛ b|aar| sɛ|ɛ a|iri| ta|maa|ɛrɛ|uri|kwa|ɔ k|zam|ima|m d|tɛ | mɛ| ya|i s|n m|uur|a f|ɔ b|sar|ɔu | ŋw|u k|rɛ |ono|gwe| de|u n|man|i d| be|duu|u g|sii| gw|u b|ɛ n|i t| tɛ|gan|asi| su|m n|bar| ãd|ɔ f|ɔ s| cɛ|di |ci | hɛ|su |ŋa |i h|ali|no |uni|dun|bu |uyo|ko | ti|eiy|ɛnɛ|ɔ g| ko|ann| mɔ|n b|li |him|ãdu|n s|o b|ɔ m|baa|taa|hɛi|cin|ɛiy|eer|wɛn|ila|til|ɛ d|aan|ɔ d|abu|aal|bei|eri|ŋwɛ|nni|o z|cɛr|las|am |ɛ g|yan|mma| ji|aab|i a|cou| co|o k|oo |o d| wɔ|wɔ | fi|aŋa|isɔ|fis|sɔu|a y| la|i c|a ŋ|ɛɛ |u a|m k|zaa|imm|ɛ k| ɔu|sim| ha|imi|mi |dam|ɛtɛ|o g|m b|i m|tɛr|ŋu |laa|aka|saa|dee|ee |asa| se|zaŋ|yaa|a w|i f|ɛ h|mar|n g|dei|e b|ŋwa|nan|a j|ɛru|mɛɛ|rum|u s|u h|ana|dim| bɛ|uma|wa |sen|enn|jir|je |du |ala|ɔɔr|mɔɔ|u c| ce|i y|kar|rig|la |itɛ|a l|ɛ f|gu |yay| gu| al|u m|cee|eej| an|eji|ɔɔ |inn|nay|aas|ici|ric|i z|aay|bɛr|ɛ y',loz:'a k| ku|ku |na |wa | ka|a m|ni | ba| ni|a n|ya | mu| ya|lo |la |o y|swa|ba |i k|a b|li |wan|elo| li|tu | na|ane| ha|u k|a l|nel|ka |ela| sw|utu|ona|mut|i s|u n| si|ha |i m|a s|za | ko|aha|a y|mwa| mw| tu|ana| ye| i |ng |nah| u | ma| mi|a h|pa |kul|lel|ele|apa|fel|ili|kwa|kon|kap|u b|kau|auf|sa |ufe|a t|ye |pil|a u|mi |ula|ta |isw| za|i b|o k|e k|mul|mel|ang|man| bu|u s|o z|ina|to |a z| kw|ze |lis|uli|ala| a |ae | ze|ume|atu|hae|zo | sa|o m| wa|eza|g i|lik|i n|lat|ata|u f|ali|sin|e m|i y|ki |i l|ila|ile|wi |a f|bal|sil| yo|uto|eng| ki|ulu|bat| fa|lez|ban|tum|o n|nya|una| zw|i i| il|o w|fa |le |uta|iwa|lao|ao |lwa|si |ezo|lin| la|i t|kun|a p|a i|kut|no |uku|i h| pi|but|aba|ebe| fi|u m|wal|ate|e i|u l|seb| wi|u z|u y|ise|ket|u i|mus|ho | wo|e l|g w|zi | lu|ale|ika|bez|isa| ke|tok| bo|ani|alo|kat| ta|zwi|fum|ike|ano|i u|iba|ezi|o b|u p|api|ngo|luh|zwa| it|bon|e s|tut|a a|yon|han|wo |ten|ape|wis|cwa|lan|bo |yal|aza| ny|okw|osi|hal|eli|e n| cw|iny|uma|ena|go |e b|ko |e h|muh|fiw|tal| ez|zwe|uba|bas|kan|mun|tuk|o i|uho|usa| fu|u t|yen|itu|yan|o h|hap|sez|hai|sal| pa|tis|and|ezw|pe |emb|tus|yo |ati|ken|zap|isi|asi| in|lib|nis|u w|e t|u e|asa| ng|uha|bwa|nga| bw|mai|so |u a|siz|ham|ga |ako',hsb:'je |nje| a |pra| sw|raw| pr| wo|swo| na| pł|wo |jen| za|wob|a s| po|a p|awo| je|na | ma|ch |ne | so|owa|anj|wje|ja |enj|e p|o n|ow |a w|dy |kóž|óžd| nj| kó| wu|obo|sta|so |bod|płi|e w|ju |abo|płe| w |ždy|ma |e a| ab|bo |osć|stw|e s|woj| do|nja|y m|ich|ym | st|dźe|će |ić |nym|o s|o w|dźě|ać |nos|ost|a z|jed|jes|eho|ć k|wan|odn|ho |ny |ej | dź|mi |jez|aro|o z|owj|dow|edn|e z|eje|zak| ko|ych|rod|nyc|wać|nju|a a|zje|wa |nar|am |otr|e d|kot|ske|u w|o p|łow|mje|jew|a n|awa| tu|u a| zj|two|ć a|sće|čło|a d|wot|dny|awn|tut|aja| čł|za |oje|smě|u s| wš|dno|ez |adn|ist|ež |kow|u p|a k|raj|eny|a j|pow|o j|jeh|h p|žiw|ako|isk|łis|i s|o d| by|esm|y p|wow|odo|m a|wos|m w| sp|měr|ena|tat| to|man| su|kej|twa| mě|tre|łeć|ćen| dr|ke |źěł|taj|i w|adź|rje|su |mu |a m| šk|ski|mě |ě s|dne|ki |e č|li |dru|emu|o t|i p|a t|iwa|kit|du |dźi|hro|jej|wši|šit|swó|łez|kra| zh|wój|wěd|tow|i a|wól|wšě|ći |sći|sto|słu|bje|zhr|by |els|jic|odu|ran|rom| re|jem|u z|sob|wne|own|and| te|atn|ład|kła|oma|m p|rež|akł|im |run|opr|wop|ški|źe |mad|cho| mj|stu|low|nic|tej|ach|pod|nan|w a|ž j|aln|zna| z |e m|nak|om |imi|aće|soc|la |oci|cia|ial|ko | ja| ta|eć |ori|i z|dok|ce |oke|źěl|kel|tup|jo |elž|ž s|ojo|měn|lž |oda|ami|woz|ozj',mri:'nga| te|ga |te |i t| i | wh|ang|na |a k| ki|ia |wha|ki |a t|hi |ahi|tan|e t|a i| ta| ng|ata|ana|o t|aka|ei |hak|a m|a a| e | me| o | ma|a w|e w| ti|nei| ka|tah|ai |gat|ta |a e|i n|e m|i i|i a| ra|me |eta|ika|tik| an|ran| ko|kia|o i|ua |ka |a r|i k| a |a h| ia|e a|ko |e k|a o|i r|tet| tu|re |rit|ea | mo|no |ite|ona| wa|oa |e n|o n|ra |ane|tu |i o|atu|whi| at|i m| ho|kau|i w|a n| ro|oki|ara|aro| no|ten| he|kat|hok|wi |iwi| iw|tia| to|man|ato|hai|ung|i e|u k|tur|ro |ing|kah|e i|e h|ke |mo |mah|ora| ah|to |i h|eng|hua|aki|oto| ri|aha|ene| ai| ha|kap|toa|tau|rot|ina|han|apa|ati|hei|o k|e o| ru|run|aua|e r|ui |he |au |mea|utu|wa | ne|ere|nui|uru|ake|ton|uri|o r|pu |whe|ru | hu|u a|tut| ak|kan|ein|mei| on|ira| or|a p| na|e p|ao | ao|kar|iwh| ke|hiw|ure|ari|hae|tea|kaa|ako|ore|ahu|awa|anu|aur|hin|ono|pa |aer|pon|hen|ita|nua|kaw|oho|wat|enu|apu|ri |kor|har|o m|rat|o a|iti| pu|ho |noh|pap|opu|wah| pa|tin|rar|mat|aar|upu|ine|ate|aup|upa|u m|noa|mai|pai|tir|ota|oti|tak|kin|kua| ku|kot|ne |rah|uar|kit| po|uta|aho|u i|mar|hia|e e|uat| ar|kei|awh|ano|rop|ter|ino|mau|u o| et|ti |u t|tuk|u w|o o|ahe| pe|o h|nat|apo|hap| en|hor|ae |pua|uak|ong|pur|gar|iak|ma |mon|nau| hi|ura| in|ain|hit|pup|nan|oat',pbb:'a k|we |pa | na|sa | s |na |a n| i |n i| we|te | hi| a |i p|a h|hi |asa|wa |yuu|nas|a w|c a| yu| ma|ya |e s| ki|ma |a s| k |a m| ha|aa | ya| pa| wa|kwe|apa|a e|a y|e w|uu |maa|ec |c h| te|ena| ka| sa|a t|k a| c |kyu|ala|wal|ha | ky|iwe|kiw|la |u h|f i| ne| hu|a p|ewe|yuh|e h|ete| f |sap|en |yu |hab|e n| it|me |wen| üs| ew|una|ewa| u | pt|ab |hu |b w|wet| ze|i z|a ü|uwe| ee|een|s y|nwe| pe|wew|u n|akh|u k| t |i s| pu| ik|a d|k t|ewu| n |naa| ku|isa| üu|a i|uwa|hpa|t h| nw|üus| hw|ta |kah|a c|s k| kw|iya|e p|un |uhp| ip|v i|ite|ime|khe|s p|uun| wë|tey|e k| v |hwe|ekw|ka |yuw|i n|ika| is|pee|e u|wek|uc |nap|ama|t i|weh|ki |hak|e y|kha|hsa| th|tew| pk|kim|d i| h |epa|pta|wes|men|i k| ec| pi|u p|pkh|u y|s a| p |new|sam|wey| im|imy|esa|myu|akw|ate|ac |wec|piy| d |ume| iy|tep|ayu|eec|eh | mh|mhi|ek |thë|a f|e m|yc |uuw| uk|uka|tee|e i|huw|yte|ey |uuc|s h|h u|eyu|su |hn |hk |i y| me|e f|wun| da| ay|eya|c n|e ü|ema|s t|it |a u|eek|ana|huu|k k|wët|iyu|cte|an |ëc |wëc|wep|ehu|swa|uk |u s|pwe|hë |uya|ne |uht|ahn|yaa|a v|kay|awe|san|the|wum|ste|üst|zew|he |i h|hna|k w|s i|e e|yak|hit|uuy|hwa|kuh|aak|ehk|eyc|s m| kh|kac|a a| äh|nee|ase|se |ze | ah|ees|tte|ipa|ame|met|i w|k n|at |hme|hte|ew | hï',mxv:' ku|a a| ña| a | i |ka |ja |a k|nu | ja|ayi| tn|ñay|na |yi |a t|u k|tu |a ñ|ku |ni |ma | ka|ñu | ma|u u|i i|a i|chi|tna|va |aka|i k|a n| u | nu|sa |nde|i t|te | ta|tak|i ñ| te| ñu| na| nd|i n| su| sa|iyo|yo |hi |u n|u i| iy| ch|i j|u j|ini|tnu| ji|ín |iñu| ií|kui| tu|uni|iín|kuk| í |atu|sun|niñ|u t|i s|ñat|e s|a m|utu|o j|eva|ind|dev|u ñ| in|ña |tni|a s|u m|í t| an|atn|e k| va|e e|kue|nda|kun|ech|i m|hin|u s|und|nga|kus|a v|kua|a j| ve|uin| o |uec|ve |n ñ|vi |tut| ni|ya |jin| e |ji |usa|o t|in | ng|uka| ya|a c|uku|xi |u í|ú k|a í|í n|aku|sik|kak|ua |o i|e t|kaj| ñú|de |aí |aji|ava|yiv|iku|and|aja| si| xi|i í|ú t|ani|uch|ñú |ndu|kan|u̱ |ivi| at|a o|e n|uko|n t|í ñ|e i|n i|u c|̱ k|nav|nú |ika|e ñ|an |kot|si |ko |anu|ui |í j| ko|jik|té |kaa| ín|inu| aí| té| kú| ñá|kas|kut|dut| ki|to |oto|o v|ga |mi |i y| nú|ní |kú |da |o o|ndi|u y|nu̱|asi|i c|det|ínu|tat|kuc|saj|nun|tú |tút|aa̱|útu|ai |ndo|a x|do |i x|a̱ |n k|o n|jiy|eña|i v|axi|atú|uí |ú n|iya|sum|dak|deñ|í i|̱ t|n j|su |nan|uat|asa|o k|gan|o̱ |uxi| vi|o ñ|̱ n|uiy|áji|ata|nin|ñát|ang|átu|n n| tú|aa |suc|eí |ama| yu| ká|yu |nka|dat|kat|uva| un| uv|umi| ii|ví |iaj|dia|sam|iñi|una|isa|xis|iví|ate|oo |koo|n v|n s|ñi |ú i|aña|iin|nui|káj',qva:'una|man| ka|ana|an | ma| ru|nan|ta |na |aq |kun|nqa|anp|ach|ch |npa|kan|paq|cha|run|apa|a k| ch|qa |aku|hay|pis|qan|ima|is |anq|a r|ura|pan| im|rur|lap| la|si |a m|ita|h u|nuy|am |sha|n r|uy | u | ya|kay|pit|nch|in |chu|ayn| ju|ash|nam|nta|ha | al|nak|nas| na|hu |chi|ay |syu| ni|asi|ali|yun| pi|nma|asy|npi|mi |nin| wa|i k|ant| mu|ayk|ata|a j|ynu|anc|ama|tin|rak|nap|a a|juk|ur |anm| ja|res| re|api|kin|esp|n m|kur|spe|aru|pet|yta|pti|apä|wan|mun|awa|iku|yar| y |uk |hik|q k|i r|onq|kaq|ipi|kuy|li |pa |eta|pip|y m|arp|yku|a l|päk|nku|h a|mas|n y|u k|n k|apt|ni |a p|kas|may|q r|enq|ran|i m|un |ych|ina|tas|y r|yan|a i| ri|äku| ar|a y|kon|a c|inp|äna|jar|rup| ki|n c|nat|kar|q m|ayt|aqa|aki|ika|wak|anu|yni|a n|ras|tac|kaw|ayc|m p|yac|uch|i i|yka|s a|aka|rik|pas|wal| li|rqa| o |ar |h ü|i y|unp|ako| ak|kik|arq|ank|tuk|raq|tap|kap|and|inc|pän|iki|mat|n n|akä|mac|ark|iwa|kac|mar| qo|naq|ayp|ma | ra|al |upä|n l|ish|a q|kär|rap|q c|ush|uka|qot| ay|otu|ndu|hka|y l|ka |han|äch| ku|rin|uku|q a|ibr|rpa|nsi|lib|hun|a w|unk|n j|bri|nni|maq|aro|n i|u m| am|int|ten|unn|rka|nir|u c|y k|ypa|äri| iw|upt| üs|üsi|i a|ri |pte|rmi| pa|lla|ill| yä|u n|rpi|shu|aqp|ast|q l|ära|yär|kus| ac|sun|asu|tan|m k|q y|qta',gla:'ach|an | a |h a|ch | ai|ir |air|dh | an|n a|eac|tha|hea| th| ch|ean|r a| bh|adh|a c|ha |cha| ag|ann|gus| ne|us |idh|agu|ith|th |hai|a a|òir|nn | na|a b| dh| ga|nea| sa|il |s a|chd|ich| cò|na |a t|aig|gac|h n|eo |bhi|còi|am |aid|che|had| gu|sea|n d|ail|hit|h s|n c|hd |han|ar | fh|ead|on |gha|in | bi|agh|aor|a d|as |m b|ta |is |sao|nan|ig |rsa|nta|h c|iri|le |neo|eil|ise|nna|lea|ile|e a| co| se|ant|hao|n s|bit|a s| ri|n t| do|aic|bha|cho|inn|hla|a g|hei|gu |dhe|ors|gh |ùth|dar|do |rea|dha|uil|eal| le|d a|ric|h t|n n|tea|hoi|te | fo|onn|s s|h g|eas|g g|ana|ear|l a|sa |ain| tr|hòi|nai|mh | dù|rac|aon|nns| e |ire|bhe|chu|ill|h d|ghl|h f|e c|ad |igh|ne | am| ma|rra|dùt| de|sai|o a|lta|n f|ion|dea|ri |mai|arr| ao|alt| dì|eag|h b|ll |r n|s n|omh|rso| nà|nac|rai|chò|amh|fha|hch|thc|son|irs| ea|seo|gai|rt |hda|ona|ogh|sam|aod|r d| is|hui| s | ui|lac|irt| la|n l|nam|dìo| gh| si|co |s c|sin| st|ns | ph|r s|àis|nài|mha| sh|oil|mar|irm|oir|o c|bh |s g| cu|fhe|ho |s t|ìon|all| ei|tro|ara|lai|hte|hac|ada|bhr|nne|san|h e|e d|èan| io|hid|oda|r t|ro |the|rm |cea|ine|ur |uma|m s|hal|asa|uin| bu|obh|ath| mh|oit|a f|itc|har|art| sl|thi|ein|tch|n g|hèa| te|tac|ghe|n b|un |dhè|rid|t s|cht|rìg|o t|ìgh|r b',qvm:'una|kun|nts|tsi| ka|ant|pis|is |an |man|apa|paq|aq |ana|kan|shq|hqa|nap|na |nan| ma|iku|a k|sik|ash|ta |qa |tsa|mi | de|noq|chu|api|lap|sip|der|hun|erë|aku|ëch|rëc|qan|say|ipa| ru|pan| ts| la|anp|si |i k|pa |nku|int|ami|ima|nma|unt|nas|ita|ayn|npa|run|wan|ata|anm|qpi| na|a m| ju|pit| im|ish|nin|yno|oq |nak|asy|kay|yun|kas| y |ay | ni|oqp|awa| ya|ho |cho|a r|nat|syu|n k|q k|ach|ayk|ala|pti|apt|pam|tin|nam|un |n n| al| mu|tsu|i d|juk|ipi|su |may|ank|a a|npi|unk|ali| wa|s m|aqp|mun|ura|in |tap|qku| pi|kin|rur|äku|kap|kaq|a y|s k|hwa|shw|a d|n r|ush|li |ama|naw|q y|a t|nis|yan|ats|n i| ku|apä|päk| re|a i|cha|a p|aqa|q t|aka|a n|kaw|kuy|kik|q l|pip|nta|aqk|iki|uri|ma |res|kri| ki|ano|a l|kus|q m|ink|i p|la |wal|yni| iw|äna|yku|qpa|nmi|ark|unn|yka|ran| ar|n m|mas|iwa|ras|i r| es|esk| aw|a j|yin|rka|mar|lla|chö|nqa|q i|uk |n a|n j|nni|esp|s l|asa|ypa|aru|lay|ayi|n l|n y|pap|y d| pa|mal|ten|ina|ara|s t|unm|nch|all|kar|idä|yar|s a|y k|rid|awt|s d|wtu|tur|tan|yla|aki|wak|ann|rak|skr|yac|rib|ibi|lak|arp| sh|das|höp|shi|öpi|san|o k|sar|inm|s r|q a|spi|ayp|s n|sya|as |n t|y t|nno|ika|rin|ayl|shp|ych|nac|y m|yta|hpa| ta|q n| o | qa|inp|päs|i a|ila|q r|s y|kur|i n|lat|tak|i y|pas|s i|ast|s u| un',fao:'um | og|og |ætt|ræt| at|at |ur |til| ræ| ha| ti|ver| fr| ve| í |il |tt |ing| vi| sk|ri |ndi|erð|ið | ei|nna|ska|ann|va |ar |t t|sam|hav|ava|lig|ein|sum| sa|a s|in |øll|ll |yri|fyr| he| fy| øl|lla|ind|ng |an |di |ða |við|rða|la | su|lag|and|l h| el|si |ra |a r|ell|num| er| al|ræl|tti| av|al |iga|nar|men|av |a f|kal|tin|r s|ir |i s|g h|æls|fræ|na | tr|i o|enn|að | um|tta|m o|g f|g a| va|t v|sin|ga |ela|fel|und| te|m s|t a|lsi|vør|hvø| mi|lan| st|m e|a v|vir|ja |tan|r f|ndu|man|ru |lum| hv|er |l v|a t|a a|var|i h|tar|gin|i a|ni |ðin|ngi|ag |ður|nn | me| ta|eru|rði|ski| ma|alm|g t|r t|ari|g s|dur|i e|fra|l s|rli|i v|ram| la|inn|tjæ| tj|arl|igu|r a|l a|vís|gum|a o|nda|r o|era|ger|ta |nd |n o|m h|n h|hes|i t|lme|a h|ði |ins|t e|g v|stø|ti |eið|mál|m v|n t|vur|mun|t f|dir|ki |gar|nnu| sí|bei|í h|r h|kan|vin|rð |evu|hev|r e|n s|jæð|mfe|amf|sta|ka |nað|t s|nni| un|try|arð|aræ|ags|aka|tøð|u t|trú|læg|ns |har|ðir| ið|esi|r r|llu|ini|han|iði|tur|dum|rt | se|sku|sín|eig|ald|ara|ð s|m a|frí|ryg|øðu| á |ð e|ama|da | so|í f|i ø|ill|ð f|ldu| li|mil|irð|mei|ggj|l f|u o|t í|mis|ast|isk|i r|a m|m f|nan|rin|a e|g e|utt|g u| fe| út|kap|n m| ut|eim|tei|rum|ð t|ðan|ldi|m í| ar|arb|vil| pe|per| an|ers|gd ',kal:'ut |inn|ssa|naa|it |iss|eqa|unn|taa|ati|nni|qar|ik |alu|sin|nna| pi|iit|aat|nng|arn|ner|neq|igi|aan|lu |llu|uun|tit| na|ann|ita|tig|ass|nii|luu|ill| in|t a|mik|nis|umi|rsi|t p|t i|isi|aas|ers|pis|ngi|sum|rni|amm|saa|art| ki|ani|nut|ffi| aa|ssu|rne|inu|ni |its|gii|sam|nal|nik|sut|ine|git|mal|aqa|rtu|mut|aff|aam|mma|ars| il|aaf|gaa|aal|tsi|ler|isa|uti|ina|qat| ta|all|amu|t n|mmi|asu|ima|tut|t t|mi | at|kku|atu|nga|tun|ssi|uss|ama|nne|erm|ala|tsu|uni|rmi|at |rsu| su|aar|ini|ikk|t k|iin|ull|sus|kin|min|tam|isu|ata|oq |ile|sim|sis|t s|k a|nnu|ili|lli|igu|ane| tu|lug|uga|mat|gut|aq |gin|u i|uar|mas|ila|sit|una|san|orn|kut|nia|lla|lun|iaq|gis|aav|sor|imm|tum|rti|eri|sar|aga|ior|saq|eq |iar|kil|nui|mil|k i|ami|u a|uma|voq| im|avo|aap|i a|uus|man|lil|ttu|akk|ris|rlu|utt|ort|k p|rta|i i|nar|app|ari|per|fii|ern|ors|aqq|sug|nun|eqq|lag|seq|sul|use|ert|aru|ugi|sun|qan|uia|ats| pe|q a|uli|nam|iff|ang|tta|teq|qqi|u n|suu| an| al|liu|asi| ak|iis|q i|laq|fig|tar|qas|peq|qqa|gal|u p|laa|oqa|erl|rsa|sig|k n|ali|sia|k t|avi|taq|pin|lua|sat|uts|fin|qut|iga|arl|put|pil|i t| is| nu|rso|ute|aaq|une|ilu|lio|eru|rut|gav|qaa|nil|uin|ppa|q p|i k| ma|anu|tin|gil|gas|ngu|ker| up|qin|ppe|q k|itt|upp|nan|uut|ria',chk:'an | an|on |n a|we |n e| me|pwe|en |epw|un |mon| ar|emo| em| ep|in |n m| wo|or |eni|wor|ni |me | no|nge|non|gen|sin|ei | ra|mei|it |ait| fo|ini|rai|e e|kun|ama| pu| pw|ch |pun| re|ang|n n|r a|n r|och|are|n f|ara| es|ram|as | fa|mas|re |e p| mi|nam|fan|nis|uku|e n|e f|e a|i w|sen|isi| po|ap |wan| ch|t a|fon|n t|n p|onu| to| na|mi |kku|ein|ng |pwa|unu|i p|ese|i a| tu|nap|esa|kin|ung|ren|cho|ten|sap|i e|nu | ng|ich| ne|ar |ana|oun|ong|is |for|ite|fin|ewe|nga|e w|ri | fi|fen| o |n s|nin|gan|pus|rep|nen|r e|i m| ek|ans|ori|n i|e m|sou|che|i n|ina|s m|usi| mu|ton|nso|okk|n u|mu | so|sok|ine| ki|umu|eu | un| a |n c| su|u m|eng|eki|man|ata|n k|p w| ew|mwe| eu|efi|akk|e t|hok|fic|mun|ufi| se|tuf|amw|ngu|ok |ta |iti|er | oc| ni|e s|n o| ka|wes|gun|u n|tum|nuk|tip|suk|se |apa|ifi|o e|pen|r r|ffo|pis|u a|pop|opu|ann|n w| ti|kit|amo| ma|ora|nat|i f|e u|e k|a e|nno|nif|hen|ekk| fe|ti |hch|s r|ape|s e|chc| we|oki|kuk|r m| ei|t m|ka |ika| ik|onn|no |uni|ani|use|chi|pok|wen| mw|u f|fis|ir |nnu|nom|won|a a|r t|ion|e r|i r|win|a f|hon| sa|ien|uk | mo|men|e c|pan|h n| as|nei|a m|sun|mwa| au|k n|iwi|s p|ufe|koc|kap|ati|off|fof|s a|tor|nus|o m|ofe|min|r n|s n| at|aw | pi|ipi| us|nuf|ett|am |mot|usu|uan',cni:'ri |tsa|sat|eet|ame|cam|nca|mee|ets|eit|i a|i i|jei|ati|ite|iri|ti |ari|ant|que|ee |eri|te |tsi|aje| te|ca |oca|e o|onc|ate|shi| ir|pee| on| oc|ro |ita|ter|tee|aro|inc|ica|a a|ats|isa|e a|tej| in|ash|aqu|i t|nta|i o| an|ric|tir|aca| ai|ji |eji|san|aar|ais|nte|iro|nqu|ape|int|ori|ni |ron|ero|qui|tea|its|tim|nti|aco| ma|ata|can|si |oni|maa|ipa|tac|rio| ca|hin|aye|nts|pin|ava| av|e i|taq|avi|caa|eer|coa|ane|e t|ear|ete| at| as| it|car|uer|o a| ac|eta|cat|ior|mpa|anc|sip|ine|ue |ira|pap|a i|aaj| am|ani|emp|nea|vin| ar|ime|tar|anq|ima| ei| pi|ipe|yet|oaj|iti|i c|imp|sar|rit|eje|a o|ina| pa| im|ish|ama|asa|oje|ej |ini|uen|ta |ent|ena|tan|hit|eir|ui | qu|j i|mpi|i m|nin|pat|ror|sha|ara|han|ra |nco| i |tat|a t|ea |inq|iqu| yo|e p|tav|ana|taj|nat|api|uem|mat|cap|i p|equ|era| ti| co|vac|me |i y|roa|ote|uea|yor|yee|ora|ran|tas|naj|ner|ota|pa |ait|man|pai|oaq|par|sir|amp|i e|tem|osh|mpe|uis|eti|mej|ene|rir|ino|e c|maj|ne |a p|tap| ts|non|sam|ris|hir|epe|o c|tay|i q|ije|net|cav|pit| ja|rip|sin|sa |uee|eac|coj|cha|ean|a m|saa|aoc|o i|imo|ano|vam|o t|eim|ato|een|coi|a c| os|nej|oit|tei|raa|saj|ont|esh|oye|aac|oas|roi|pas|ven|cov|o o|one|var|emi|mis|i s|jao| is|imi|aj |aji|j e|coy|rat|cot|nan|oti',mah:'en |in |on |an | im|n k|im | ko| an|ok | eo|o a|n i|ko |n e|lok|eo |ij | ka| je|ej | ma| in|aro|ilo| il| ej|lo |n a|mij|n m| ki| en|ron|arm| ar|rmi|n j|k i|mar|non|e e|ak |o e|ot | no|or |ir |bwe| bw|we |kaj| lo|n b|j e|kin|mon| re|ien|r i|ke | ak|m b|lol| ju|o i|k k|jen|ol |wot|ar |jo |elo|jel| wa|o j|r a|n l|ojo|joj|eor|bar|ajo|j i| ai|ane|e i| be|win|jer|air|j k|eje|men|bal| ke| na|awi|waw|kwo| me| wo|ake|nan|nem|al | em|l k|erb|kot| le|uon|ein|mak|ne |juk|ber|juo|er |o r|emk|rba|jej|e k| bo|woj| ba|alo|m k|ro |kie|m e|oj |mkw|ele| dr| jo|r e| mo|n w|k j|mje|l e|lem| ro|ur |k e| ek|bok|ona|rej|ela| ot|kom| e |ote|mou|wij|nok|our|jab|o k|e j|mwi| ji|man|tem| kw|emj|r k| ja|kar|rok|et | to| bu|omo|n n|jok| ie|le |kij|jet|j b|kok|uk |emw|n r|emn|tok|mno|j a|abr|ijo|m a|n d|nlo|dro|k a|l i|ewo|j m|wal|t j|na |e m|ren|rew|bre|ukj|aki|kju|inw|nwo|r b|k n| ik|kwa|t i|ta |oba|a i|ata|kak|iki|o l|ki |bel|kej|kab|j j|lal| el| ib|ae |uko|r j|oki|oma|ibe|kei|jba|kka|ekk|buk|ejb|emo|ije|ri |wor|lap|lel|jon|won|r n|re |ben|ali|r w|o m|j r|okl|kal|oko|kje|okj| ij|j o|iko|eir|aje|tat|k m| ir|eka|un |i i|m j|iji|t k|onl|jeb|k l|ena|t e|k w|ana|uti|o n|iej|t w|one| un|ul |tie|e r|jei|e n|klo|j l',rar:' te|nga|ang|te |ga |a t|i t|ia |e t| ta| i | e |aka| ki|a a| ak|ata|ai |e a|a k|o t|aan|tai|au |ta |a i|e k|re |a e|tu |tet|eta|ki | ia|atu| au|gat| tu|tan| ra|kia| an|u t|tei| ti| ko|kor|ika|kaa|to |e i|ato|ore|tik|ana|na |i a|ama| to| me| ua|kat|a m|uat|man|eia|toa|ite|aki| ma|i r|ian|i u|ra |no | ka|ei |o i| o |oto|u i|u a| no|a o| ro|a n|a r|rot|tau|e r|ua |rav|ka |tur|ora|e m|ile|sil|asi|bas| ba|lei|oa |eit| or|ona|ava| pa|kak|i i|me |tam|ton|ura|e o|pu |a p|tak|e e|kit|api|ako|i e|tua|ma |raa|oat|o a|ira|ti |u k|apa|ke |ure|ou |iri|u e|rat|ati|nat|gaa|e p|iki|uru|ran|nam|ita|aru|i k|ko |aia|par|iti| at|aat|kam|ake|tup|nak|ave|e n|ing|rur|u b|ri |upu|aur| na| pu|pap|ano|va |kot|ari|ate| ai|ara|ro |tir|oan|ean| ng|mei|ait|oko|ru |utu|i m|uan|ere| ap|rak|tao|tou| a |u o|ea |rik|pin|pir|auk|aro| it| pi|ota|oki|mea|u m|kan|pua|rai|kai|noo|u p|noa|aok|ipo|ve |kin|kav|kap|umu|mar|oro|amo| ar|u r|ino|pii|tea| ok|mat|rua|iia|oo | va|uap|eng| pe| re|o r|rei|u n|e u|mu |eir| mu|kim|imi|ria|pak|tat|aor|i p| aa|i o|maa|i n|ne |o k|ina| ik|rea|opu|kua|ao |kar|a u|a b|pa |rin|apu|taa| ei| ir|uao|paa|kau| ri|ter|uko| ku|uka|roa|tum|rau|eu |top|aer|e b|poi|mi |ane|ram|aua|aap|tia|mua|o e|a’a',qvn:'man|una|kun|an |aku| ma| ka|si |ana|apa|nma| ru|ta |ata|nan|na |ach|chr|sha|as |aak|run|ima|paa| na|cha|anm|am |tan|paq|nas| ch|aq |anp| pi|may|tas|nak|ash|mi |npa|hru|a k|ay | im|nch|ant| wa|pan|qa |i m|unm|chu|ama|a r|ita|hay|kan|nta|ipa| ri|nsi|yun|nqa| ju|pit|nam|chi| ya|nat|a m|wan|kap|nuy| la|pa |lap| al|kur|ura|syu|ali|n r|asy|nin|n m| u |hu |ha |awa|ru | mu|ans|rur|naa|juk|qan|anc|i k|ina|mun|nap|aat|isk|nmi|rka|irb|rbi|nku|tin|ish|hra| is|i u|ski|kay|qsi|urk|anq|pti|a p|kas|a a|a i|rim|pis|n a|qku|a n| ni|yac|aqk|i r|daq|a w|pi |ika|yaq|kir|yan|ayn|yta|aya|ruu|n n|nda|asi|in |ran|rik|and|aqs|a j|uy |npi|uch|rqa|uta|un |ayq|hak|qta|lip|kaa|anu|was|kar|a q|u m|y r|iya|a c| ji|kaw|i a|ych|ara|yqa|yla|jin|a l|isi|iku|uyl|uus|usi| am|kin|uku| ta|q n|tuk|naq|inm|kaq|lut| lu|n c|kuy|n j|uk |ayc|qni|i i|tam|u k|aan|qmi|aka|rak|pac|uka|ayp|u i|ray|a y|li |m p|mam|rap| ay|ayt|ari| qu|ala|ank|nti|inq|unc|apt|qut|utu|kac|arq| ur|ink|s k|hin|ynu|ins|aqt|n i|aqm|rsi|aqn|aqa|ypa|hik|ysi|upa|map|bis|maq|ham| pa|i y|hun|ush|has|way|ury|u n|kuq|rac|naw|aki|aa |n l|mas|s a|ays|asa|ma |pas|s m|y k|n y|api|rya|u j|ras|adu|nir|wak|m k|ukl|yar|kla|y i|nni|unn|han|n k|raq|ich| ra|juc|i c|q l|n w',wwa:' o | da| yi|da |ma |iri|ri |a y|yir|na |a o|ba | ta|i d|ro | ǹ|ki |ǹ | i |ta | ya|a d|i o| ma| ba|sar|a t|o n|a n|aro| na|i y| ka|ris|a s|o t|isa|bà | bà|ka |di |a m| ti| sa| di|aa | bo|a b|o b| nɛ|an |maa|a i|i t|ti |ook| fɔ|ari|sa | tɔ|ku |ii |nɛk|a k|oki|i b|de | so|soo|mii| wa|ɛki|re |wan|i k| mi|o w|ya | de| yo|ori|o d|i s|ima|̀ y|o y|aar|daa| to|mma|yaa| ye|fɔɔ|tin|tor|i n|i m|rim|ɔɔk|yon|ɔku|aam|n o|ama|si |ɔɔt|e d|tɔɔ|imm|yi |nde|kpa|o i|paa|iro|ink|bo |ɔɔb|oma|nkp|o k|a p| cɔ| te|oti|a c|tir|on |uri|o f|ɔba|o o|aba|n d|u n|à t|den| mɛ|e n| nɔ|u d|tɛ |ɔtɛ|fɔ |ɔɔr|cɔɔ|u y|ɛɛn|aan|isi|yer|e y|u t| ku|oot|ɛ o|boo|te |eet|eri|i f|aŋi|ɛɛ |ɔ d|e t|n n|ɛ m|aat|ire|sim|yee|pɛɛ|rik| se|nɔɔ|su |mɛɛ|tan|̀ b|ɔri| kp|asi|nda|eti|bom|à d|iba|ina| co|e m|ŋis|yaŋ|sir|a w|yin| pɛ|sab|bar|o p|are|ɛ y|en |ra |n t|kaa|tu |ɛnd|onn|n b|rib| si|ɛmb|e o| su|i c| pe|tet|kpɛ|een|nne|ena|nsi|riy|iya|ond|o s| sɔ|ne |wo |ɛ b|nni|ni |ann| wɛ|wɛ̃|ɛ̃ɛ|and|yoŋ| do|ɔre|ika|tɔ | kɔ|ŋa |kɔɔ| wo|ato|too|ara|dur| yì|yì |bot| pa| yɛ|e s|ɛɛm|à y|ɛ d| tu|dan| mu|kpi|u s|see| nu|nɛ |a f|ãdu|à m|̀ t|i p|kar| pu|puk|uki|kir|yɛɛ| ãd|do |tak|un |run|yau|dɛɛ|n y|coo|oon|nna|sɔɔ|à k|ɔti|to |tim|uti|in |ŋo |oŋo|kut|bu ',qvh:'una|kun|an | ka|nan|pis|is |aku|ana| ru|aq |na |man| ma|ash|anp|shq|äna|mi |apa|ta |npa|hqa|qa |paq|api|run|cha|nak|yän|pan|kuy|lap| la|qan|naw|ita| y |nap|ima|pit|ata|kay| im|aw |ami|a k|n r|kaq|kan|ali| al| ya|a m|nku|kas| sa|say|nat|haw|a r|ura|pa |ayn|npi|i k|ayk|ach|tap|rur|nin| ju|nqa|nta|a y| ri|uyä|ayä|yna|q k| sh|may|shu|qku|nas|nam|awp|yan|ris| na|li |yas|juk|anq|spi|tas|aqk| wa|aru|a l|isp|ans|ink|ant|kin|syu|asy|a a|s m|yun|sh |a s|ypa|ank|su |ray|yni|uku|a i| pi|aqa|a j|awa|uya|s y|wan| o |tin|ayp|nsu|s r|yku| ni|uma|pti|ush|ish|n y|ark|inp|arp|wpa|yka|wak|yar|aki| ch|anm|h k|qpi|n k|i m|maq|ipi|hum|aqp|s a|yac| wi|pip|s s|ay |s k| ja|asi|aya|mar|apt|rka| mu|ila|kur|in |kus|ina|äku|i y|ran|uyn|kak| ar|ni |pak|pay|lak|ur |ibr| pa|iku|nka|has|bri|nch|pän|n m|ruk|q r|q a|wil|ras|nmi|uk |ask| li|hak|lib|apä|rak|ar |a w|n a|jar|pam|n s|i i| aw|rpa|asu|ara|kaw|n l|way|a p|i r|iya|kap|y r|q y| as|tuk|wpi|unp|mat|ruy|yqa|w k|ayq|iki|par|awm|y l| ra|taq|nac|mun|ika|rim|kar|imi|ma | qe| tu|ich|kik|nna| mi|wmi|aka|ann|unk|a n|i p|sar| ki|sun|and|yta|q s|yap|nda|nni|s l|nma|n n|sin|n j|san|w r|i a|s i|y a|usa|arq| ku|n i|rpi|ast|n w|y m|yay|naq|ala|ukn|wtu|tur|a o|urd|iwa|rdä|y i',toj:' ja|ja |b’a| b’| oj|a j|ni |oj |’a |l j|i j|a s|k j|uk |b’ |li | ch|nal|al | wa|kil|il |jas|ax | k’|wax| ma|a l|i s|b’o|’ob|ob’| ju|i o|sok| so|u’u|ok | ya|an |as |ali|tik| sk|ja’|a b|a o|ma |a t|a m|ana|cho| mi|tuk|k’u|sk’|cha|’um|sb’|’in|k’i| lu|um |ha |lan|jni|jel|lu’| le|m k|ina|ani|ab’|tsa| ni|win|ila|uki|i m| sw| i |i b|swi|nki|’an|ki |ink|jun|’ s| sp|hon|iwa|lek|un |el |niw|sta|ik |ona|ula|ojn|’il| ta|nab|’ch|s w|yal|spe|k’a|ta |j b| tu|a y|san| a |a’c|xuk|ini|’aj|pet|j j|i c|ets|e j|yuj| t’|’b’|a a|tal|chn|hni| ay| yi|aje|ala| yu|luk|j s|’un|a n|a’ |ukt|t’i| st|juk|kol|uj | a’|la |ju’| ts|k c|x s|min|b’i|ktu|anu|yi |lal|ay |a k|ma’|iki|mas|i y|e i|j y|k s|lta|wan|’ul|lti|olt|wak|ast|xta|uma|ek |’ni|k a|eli|’ j|’al| sb|ak |x y|ti |a i|a’n|ke | ko|yuk|sa |je |i w|tso| sc|ub’|som|i t|j a| aj|ajy|jyu|sch| sl| ku|iti|le |xi | na| ti|axu|a’t|j k|eki|sle|pan|l s|k’e|a’y|ch |nuk|k y|kul|’ k|aj |ji |jum|asa|tan|i i| it|a’m|ane|n t|une|’ma|omj|l b|mje|mi |n j|n c| sn|a w|l o|n i|y s|nub|aju|jpa| la|i’b|’ b|asb|a c|ijp|hol|sij|k m|lax|k o|na’|l n|n o|l t|n s|ol |’i |tel|x k|i a|ne’| si|e’b|ya’| sj|na | ix|naj| je|och|ley|yi’|uke|laj|yaj|ka |man|ne |ens|pen| oc|’uj|nil|j o|alu| sm|sko',lue:'chi| ku|a k| ch| na|na |aku| mu|la |sa |a n|a m|ana| ka|wa |a c|tu |nga|cha|utu|a l|esa|mut|pwa| lw|lwa|uli|lus|ga |ka |uch|kul|ila|wak|hi |ang|nyi|alu|ses|use|we |kup|lo |ose|kan|sen|ena|uka| va|nak|nal|ach|upw|muk|shi|kut|kwe|i k|a v|ing|ma |e m|a a|e k|pwe|hak|o c|amu|ipw|aha|o k|kuh|yi | an|hip|yoy|kum|eka|eny|han| kw|imb| ja|mo |ko |ava|a j|u w|uta|wos| wo|a w|hiy|fuc|sek|aka|umu|o m|ese|yel|any| ha|ha |akw|kuk|oye|ama|lim|van|mul|ze |ham|iyo|asa|has|ela|aji|ala|apw|wes|isa|vo |wan|elo| ji|him|ngo|kal|kah|mwa|avi|eke|naw| ya|vat|ech|uku|nav| wa|wam|ali|and|ung|lif|avo|u k|che|ish| wu|uma|kes|muc|ifu|mbi|ona|utw|nac|jis|zan| ma| vy|jil|bi |tam|uha|nam| lu|hav|mba| mw|ili|hin|hik|amw|twa|ulu|amo|ush|hen|iha|uze|awa|olo|tan|vak|mwe|kun|a h|mu |ina|kuz|hon|uza|ula|i c|uho|yak|kak|wec|e n|jin|ngi|uwa|u v|tel|iji|i l|ulo|ita|gol|a y|yin|ata|atu|ta |uki|afu|ate|nge|kuv|ge |gan|ise|ako|awu|ivw|kuy|i n| ly|mbu|hil|una|o n|vwa|man|u a|ash|sem|was|kin|nji|kuw|jak|kwa|ne |yen| li|kav|imo|o v|ngu|wah|jij| ng|mil|o j|nda|amb|ya |kwi|iza|lil|sha|tav|iko|wuz|kay|gul|kus|lon|u n|ong|his|iki|wav|vya|no |wal|za |aza|i j|i m|vis|e c|o y| mi|ola|hal|ika|ye |naj|kuc|ndu|wuk|iku|lik|anj|dun|wom|yis',jiv:'nia|ent|ini| ae|nts|aen|ar | tu|a a|tin|ai |iti|i a|chi|ait|ts |ti | nu|kia|iai|in |ia |ich|sar| ch|awa|am |wai|sh |tur|cha| ni|n a|nka|ain|i t| pu|ura|iki|ra |puj|ara|ma |tsu|iar|ash|mas|amu|ish|iaw|nun|tai|unk|an |íni| aí|ana| ta| wa|aín|ha |ker|usa|nke|tak|asa| ya|kar|hic|sha|ham| pa|ach|ink|u a|ch |h a|ni |nki| ma|uju|aku|kan|tsa|a n|kam|kic|r a| as|ati|ram|at |jus|man|kui|ank|ama|er |unt| un|rin|suk|nam|s n|kma| ai|kák|énk| an|i n|ntr|rti|pén|ka |a t| pé|hik|art|uk |r p|uat|min|ajá|nai|ak |tus| ek|una|nui|a u|uit|aja|war|amt|uma|mu |m p|sam| na|aka|rat|yaj|mta|áka|imi| ak|jai|rma|rar| at|kua|mia|ri |ke |tuk|r n| am|mik|nta|m a|tia| aá|atu| en|eku| ju|uin| ká|n n|na |ush| aj|iru| ir|pap|kti|aik|atn|its|s a|a p|tri|t t|k a|nma|h n|arm| au| ay|as |aki|mak|uke|eka|nek|api|umi|tek|nua|run|ats|mat| ar|kak| we|san|t a|rka| ne|yam|aár|aya|n p|pac|uja| jú|ais|ani|ami|iat|tra|hit|k n|já |á n|s t|tki|aru| aú| um|i u|jú |tka|n t|aká| su|i k|uch|um |uri|wak|ari|tum|hat|i c|unu|aim|ets|nan| et| sh|amr|chm|atk|tnu|yai|chí|nen|ene|k p|hík|íki|niu|uis|r e|ust|uim|ame|sti|iam|i w|a w|shi|mét|i p|án |ant|kus|tsé| mé|akm|i m|iak|nt |ji |num|ian|r t|ki | ka|sér|uar|ake|itk|hi |érk|a e|ata|rak| ts',qvc:'una|kun|ta |ana| ka|mba|na |lla|ay |apa|pa |chu| ma|nam|ash|man| ru|chi|ach|a a|cha|aq |nch| yu|amb|a m|lap|qa |umb|uq |ata| ch|all|pis|nda|run|yum|baq|bay|is |yuq|a k|shp|hpa|ich|aku|hay|hiq|a y|nap|nqa|hu |ina|nas|yta|tin|anc|an | di|api|aqa|ama|nan|and|am |paq|nat|dir|mi |gun|qta|iri|ric|ngu|in |kan|aqt|da | at|uyu|ayt| su| wa|shq|kas|nak|suq|hqa|ima|qku|huy| ya|ch |shu|ati|anq|syu|asy|a s|y r|h a|qan|hin|nin| pa|yun|iku| mu|a r| al|q k|lli|ura| na|ma | ni|a p| am|yan|a c|mun|iq |rur|shi|maq|mas|sin|uku|a d|pi | ak|laq|kay|yku| sh|qll|ing|uqk|wan|a t|hum|uma|a i|asi|ran|inc| im|pti|yac|a w|qal| ll|ita|u k|rmi|may|qpi| an|ush|naq|mbi|q a|war|i k|yas|iya|nll|arm|a n|apt| pi|ish|q r|ung|aql|kap|lit|adu| ti|kam|ays|tiy|ayu|y n|ayk|ysh|pac|tan|un |pay|nni|tra|q m|kin|ind|ley|ras|ayp| le|ray|la |unn|a l|ism|i y|n m|uya| ta|smi|hik|qac| pu|q c|qam|pip|q y|iqp|ipi|qpa|iqk|ara|awa|nma|nis|n k|mac|tap| ay|pan|akr|inl|qmi|kra|yis|m a|unq|yuy|mik| as|ila|rin| tr|y l|kuy|a u|baj| qe|tuk|yll|ayl|s y|aka|bis|isk|aba|du |rab|q s|uqm|hun|naw|a q|lin|ida| ku|i a|aqp|apu|aya|n c|n s|ami| tu|n l|q i|tim|kus|pap|ha |kuq|imb|y t|n a|m p| ba|ika|ask|ast|ull|iyt|y m|ypa| ju|kaw|und|lay|pul|dar|aws|s a',hlt:'ng |na |ah | th|ang| na|ai | kh|ham|eh |la | ha| ah| la|tha|lan|hla|eng|oei|ih |thl| ka|om |am |hai|i a| ma|kha|boe| ne| a |a t|el |h t|kah|a h| bo|ing| pa|oel|neh|moe|eih| ti|a n| ca|mai|i n|h k|hmo|ngt|amh|a k|ong|mhm| te|te |h a|oe |a a| ra|ung|h l|haw|hui|ek |aw |g t|loe|ram| lo| om|h n| sa|g k|en |m b|g a|uen|ina|ui |oen|ain| at|awn|i t|nga|h h|mah|tom|kho|oh |m t|khu|h p|ka |loh|a l| ni|at |h m| do|tun|amt|g n|aih|hin|h b| va|h r|ak |gto|hoe|aen|e a|don|paw|oek| tu| ng|a o|hat|l a| ta|gai|wn |k t|taw|aek|aeh|mue|a r| bi|ei |sae|sak|ueh|g h|pae|a c|e t|m m|he |ngh| ba|mtu|ni |olh|thu| ro|coe|ghi|g m|lam|kna|can| he|ata|i h|tih|n t|tlo|awt|ala|m k|w t| bu| hn|k n|a b| u |bi |ban|hno|ngp|a s|tho|un |tue|vae|hlo|osa|i k| co|lai|cal|e k|adi| da|ihl| up|i l|a d|roe| mu|g l|wh |awh|e n|hos| ol|m o|pad|i p|di |ca |ae |hue|a p| ya|gna|ngn|l n|no |dan|upa|ith| po|tae|a u| ko|ama|phu|m n|l t|n m| am|tan| ph|a m|ti |sai|wt |h y|o n|bue|tis|nda| me|hol|van|pa | ak|pin|t n|lh |isa|um |nen|lpo|gta|dah|wnd|nin|daw|ait|h u|han| hm|alp|yal|g p| im|g b|uek|h d|an |pui|g c|ol |poe|h c|ngl|baw|it |kun|e l| ku|anp|o a| un|h s|pit|ben| be|n n|npi|hae| tl|pon|ona| hi| as|tik|nah|eba|nya|roi|e b|the',qud:'una|cun|na |lla|nga| ca|acu|cha|ta |man|a c|qui| ma| ch|ac |ucu|ga |chu|pi |pac|ari|um |ach|mi |nac|a m|cuy|ana| ru|tuc| qu|ata|shp|all| tu|hum|cta|tac| ll|ish|nam|ash|ami|a p|run|ang| pa|pa |ing| sh|uy |hay|i c|shu|lac|án |hpa|hca|shc|ama|api|ca |uán|huá|act|nap|ric|a s| cu|a t|icu|y r|pay|ich|hua| hu|ahu|hin|shi|c c| al|apa|ay |pes|ayc|es |yta|huc|ina|cac| ta|cay|ayt|a a|ycu|a r|la |an |har|ayp|usa|uya|chi| ri|ima|nat|can|aus|mas|cau| pi| mi|i t|a q| ni|lli|aca|rin| ya|n c|ita|uin|yac|nta|ura|a h|ant|and|tan|ipa|li |llu|uis|yuy| yu|nal|may|a l|ung|ape|nda|ypa|in |nis|hpi|iqu|dar|lat|yll|m t|ill|atu|hat| ha|ayl|cpi|uiq|say|i h|uc |tum|aya|uct|i m|uic|nah|uma|tar|ush| pu|a u|mac|aqu|a n|n t|hu | ay|sna|cam|rip| ti|m c|yas|tap|rim|asn|c m|nch|c a|yan|a y| su|i p|i s|c q|yay|rur|hic|ris|ipe|i a|has|ypi|ma |pur| im|acp|ri |luc|gac|ipi|gap|pit|i y|iña|ays|hac|n p|a i|pip|i l|cll|n a|n l|ysh|mil|aym|yma|tam| ja|ngu|ran|n r|cat|cuc|sum|hur|uas|lam|car|uip|uar|hui|rmi|pin|tin|mit|pic|ull|uri|cus|arm|lay|m y|ayu|yhu|uch|s c|s m|i n|jap|ic |anc|uiñ|ala|sac|tic|ra |n m|asi|llp|acl|y l|lpa| ap|u c|n q|ha |gal|c y|hus|yuc|mun|uah|arc|m m|y h|lan|tah|rca|yla|c l|y p|ihu|nin|i q|san|uac|min|a j',pon:'en | ka|hn |an |ahn| de|ki | me|de | oh| pa|ama|oh |ara|ng | pw| ar| en|il |me |n e|e p|kan| sa|n k|son|iki|man|n a|pah|as |rai|n p|ros|mas| so|kar|aro|ram|os |pwu| ko|da |pwe|pil|weh| ah|ail| we|ang| eh|n s| ma| pi|ale|e k|n d|ede|hu |n w|nik|n m|hni|nam|i d|sal|ek |s a|ong|i m|ana|in |h p|oso|s k|ung|e m|wun| mw|pai|soh| pe|ohn|kos| na|hda|nge|men|on |aik|doa|ada|led|aka|eme|ehn|ehu|sou|gen|hte|te |pen|ehd|pwi|eh |dek|ahk|san| ke|kak|i p|e s|wah|nan|asa|hng| to| wi|dah| li|ene|we |wei|wet|l p|et |ehk| se| ni|oht|was|e d|ira|ed |ou |mwa|hki|neh| po|l k| ir|ian|h k|ans|wih|oah|ahr|a k|aso|epw|poa|wel| uh| em|ei |ahu|hk | ia|pwa|l s|toh| re|ak |a m|wia|n o|lip|ein|ie |e a|h s|h m|la |mwe|e e|ehi|g k|el |i k| an|wuk|pa | ak|ur |mpa|amp|sam|ipi|n i| di|ehl|hla|mwo|our|mou| mo|oas| wa|u m|apw|l m|ele|g p|l a|i a|hr |g o|ih |ni | du|a d|nso|ihn|di |one|k p|uka|hre| mi|hi |n t| da| ep|wal|k k|epe|kei| ki|pwo|al | do|e i|ese|kat| in|nei|oad|i n|n u|awa|reh|ipw| la|uwe|lel|at |meh|air|s m|i e|ned|nne|onn|ine|med|hl |ion|a p|leh|sem|id |ala|wen|re |dip|hdi|ado|i s|iso|sa |deh| su|h d|uhd|ia |ida|eng|nin|ndi|k e|le |mpw|emp|ud |eu |r e|oan|e t|lok|pw |ili|seu|a a|ir | te|ond|eki|ewe|e n| al',agr:'ain|ina|mai|ai |ent|ich|ash|sh |i a|nts| ai| ae|aen| nu|aka|tik|chi|wai|au |ida|dau|ts | as|gka|n a|ama|cha|aid|shi| wa|in | ta|tak|u a|tsu|nai| ti|ait|uja|amu|am |a a|kan|kam| pu|i t| tu|kic|ak |puj|hi |num|sa |k a|an |nun|uju|aja|tai|ui | an|iki|nma|ham|h a|unu|agk|ima| ch|kas|s a|hic|kat| ag|m a|ch |uk |ag |ush|ish|um |aya|ane| ni|uma|asa|ata|ja |as |aku|awa|i n| ju|nen|nii| ya|usa|mak|its|ugk|aju|nak|tus|nug|mun|ka |aki|shk|un |sui| aj|a n|jam|uni|mas| at|tin|jai|na |uti|jum|jui|aun|tuj|tka|ig |ii |ita|nja|ika|tsa|anm|h n| ap|sag|yam| pa|bau|ake| du|nia|ats|una|hka|itk|h t|kus|dut| um|umi|jas|eka|jun|amj|wak|ik |suk|g a|jut|ek | de|mta|a t|ta |dek|ti | ma|kes|nta|apu| di|ais|esh|aim|a j|ach|nka| sh| am|at |auj|mam|enj|ete|amt|tan|may|k t|jin|chu|uwa|iig|a d|jus|unm|n t|hii|ink|apa|ji |sam| au|a p|ya |kag|agt| em|nu |mka|n p|gke| ay|mju|ku |u n|kma|pu |u t|gta|nag|tek|hu | ak|tia|eja|ntu|tam| ji|tnu|atn| na|api|tas|i w|nuw| be|bet|m p|ati|dit|mu |hik|min|ant|nui|uwe|inu|kak|aga|h w|s p| et|aig| im|iaj|ju |aik|naw| yu|us |egk|gma|ets|kej|uim|juk|i u|kui|pap|juj|u d|a w|g t|hat|ikt|nam|i i|emt|anu|gba|i j|iju| ku|ma |n n|i y|aji|ikm|me |pic|paj|s n|yak|kin|wa |kti|man| iw| da|yup',qxa:'lla|aj | ka|ta |man|una|nta|sqa|cha|na |ant|an |pis|ana|nan| ma|is |ach|paj|qa |asq|api|qan|ank|kun|anp|a m| ch|ata|nku|kuy|chu|ati| ll|nin|yni|yoj|ay |taj| at|hay|npa|ina|a k|ama|in |jta|ima| ru|lap|uku|spa|ajt|iyo|j k| tu|tuk|wan|aku|tiy|chi|a p|awa|ill|niy| wa|laj|yta|ari|kan| ji| pi|all|iyn|oj |jin|pi |hus|kay|run|iku|uy | im| uj|asp|lan|pa |a r|ku |mun|a a| qh|ayk| mu|mas|nma|isq|jll|sni|yku|n k| ti|tia|may|asi|tap|a c|nqa|ipi|a t| ya|us |apa|a l|a u|a j|kas| ri|ma |j m|nch|apu|pip|ayq|s k|s a|hu |kaw| pa|aws|anm|wsa|pil|ian|pun|k a|npi|ray|upa|uch|j l|kup|n t|qha|anq|tan|khu|ri |kac|uni|nas|ion|a q|j j|par|uma|hik|pay|aqa|ayn| as|i k|ara|tin|rim|int| ni|pat| ki|kus|ayt|ayr|ni |j p|ris|kik|uri|yll|iki|kam|qen|n j|hak|yri|nra|yqe|uj |n y|nap|was|rua|yac|rik|j c|taw|a w| de|n m|aci|tat|has| ju| pu|ita|anr|nk |j r| sa| su|y r|en |pur|yan|sta| yu|hun|kin|j t| ja|anc|jku|u k|uyt|kaj|sis|a y|qac|han|nay|un |mac|nwa|aya|u t|cio|ska|ka |y k|pac|s m|sak|ich|ayl|cia|ayo|tac|war|uya| qo| ta|n l| re|usk|n r| kh|qhe|jch| un|asn|waj| le|iyt|n p|rin|one|j q|yqa|say|lig|jni|isp|upi|jpi| ay|yka|nam|pal|nej|y a|nit|n c|ink|uyn|n a|isn|yma|lam|j w|his|hij|hap|nes|ojp| aj|s c|lat| al|a s|mar|lli',tca:' na|xü̃|rü | rü|ü̃ |ü n| i |ma |a n|na | ng| ĩ |ngẽ|ü̃x| ta|̃xü|nam|uü̃|gü | du|duü|nax|üxü|̃ r|gu |a t|ĩ n|acü|̃ ĩ|wüx|üxi| nü|ü̃g|xgu|ame|a̱x|i n|me |chi|uxü| wü|nüx|ẽma|gẽm|ü t|e n|wa |ü r|ixĩ|cü |̃gü|axü|ana|tax|̱xg|ama|u i|xi |i d|axu|gẽx|nac|gux|uma|i i|̃ n| ni|xna|ach|nix|̱x |xĩ |gum|exü| gu|e̱x|nan|a r|ca̱|tan|ẽxg|ürü|ü i| ya|ãẽ̱|gac|xga| ãẽ|ẽ̱x|u r|ã n|üwa|cür|aã |xuc|üma|ucü|rüw| me|max|ü e|̃ma|a ĩ|ĩ d| e̱| no|̱xn|tex|tam|̱xe|maã|ü̃c|ü̃m| to|ü̃ã|̃ca|xé |orü|nor| te|exé| ch|u n|arü|ata|güx|ügü|a w|ẽxü|meã|ãne|nap|axã|eã |hix|i w|u̱x|nat|yax|ang|ãxü|chu|xu |pur|rac|ura|̱xu|cha|xex|hu̱|a ã|iü̃|hiü|hig|i t|mar|ga |x r|ü m|ta |aü̃|haü|üxn| ma|xwa|x i|nag|̱ac|ṯa|̃ãn| ṯ|xẽẽ|a m|nge|ixe|a y|ü̃́|̃́ |ewa|atü|igü|ĩ g|wa̱|ãcü|gü̃|xĩx|̃gu|ich| yi|ü g|xma|xic|a i|ĩnü|agu|xux|xĩn|axw|yix|anü|xch|cüm|axĩ|é t|tog|ogü|̃ y|to |ra | pu|era|naw|xig|ü ĩ|ngü| po|ü c|o i|ngu|ẽẽx|ope|x n|igu|a c|ü w|́ n| eg|new|a e|gex|nüẽ|i ã|̃xẽ|nüg|ẽxm|apu|pan|upa|xgü| ña|ega|mex|axc| bu|ri | ix|awü| er|per|erü| ñu|é n|nay|bux|ñaã|ü d|e i|pop|ĩxg|a d|uxg|apo|pox|xri|cua|e r|acu|ü̃͟|ya |ĩ w|ua̱|rüü|ü p|nü |aya|ãma| tu|tup|mac|̃͟ã|ĩ ñ|ixu|cüg|ne |axũ|oxc|xcu|xũx|axõ|̃ i|xãc|ixr|ñux|xãx|aux|awa|cüx|tü |cu |xe ',chj:' ds|sa |dsa| e |a j| ju|ía |a e|la |u d| la| jm|uu |a d|i d| sí|e j|a l|a s|ua | ki|a t| na|mo |ki |a k| a |ma |jmo|li | li|sía|jua|jä | jä|nía|na |o d|a n|ju |i j| i | ní|ä d| gu| ñi|ñi | o | de|e l|rec| ma|der|ere| jn|ho |ech|cho|ia | kö|íä |jï | jï|kö |o e|su | ku|o k|e s| tu|tu |a a|e d|dsu|i t| su|i l|ja |a m| tä|a i|a o|tä |jma|u j|nia| ru| lu| h | ja|kuu|ï d| sa|ä e|a h|i k|ä k| fu|u n| ni|iä |ta |tá |u g| ti|lu |síä| tá|fuu|sá |dso| ta|u t|nac|suu|ka | ka|juu|a r| ï | tï|tï |a ñ|o j|e n|i n|ä l|i e|e a|ti |ne | si| tí|dsá|mu |ue |ï j|ru |e t|jne|jni|ö ñ|ä j|jmu|u s|uú | ji|á e|a g|u l|gua|u e| kä|kä |o m|á j|aci|ö j|siä| sï|ni |ací|ä n|u k|á l|o g|ba |dsi| é |e k|á d| ba|iö |o t| as|eé |u a|i g|si |i m|juú|h i| un|ie | mo| hu|así|tíä|no |tö |ä a|ö n|guu|rue|a ï|oo |so | kï|kï |o s|íá |huu| tö|ji |oó | vo|i s|mi |ö l|jní|ciö|ö s|á k|ui |ï t|gui| jú| ie|síá|ï k|d h|u ñ|e i| d |íö | le| ej| uu|uá |ï e|uí |guí|ö k| kí|eli|o n|ï l|í d|tía| re|á n|uo |a u| í |i o| ro|sia| lí|co | go| ge|uï |a f|guï|o ñ|é f|vo | no| je|o l|u o|cío|o i|ï n|one|má |nes|es |s u|uni|i i|nid|i ñ| es|soó|cíö| jí|juá| ó |ó d| j |ecl| já|já |un |jue|ida| má|jí |á o|lá |í l|e m| lá|úu |ïa | u |das|u u|as ',kwi:'az |kaz|an | ka| wa|tpa|pa | m |nit| ni|ai |kas|wan|ama|nka|aka|awa|kit| an| ma|ne |it |ara|m j| su|itp| ku|mak|a a|cha|chi|as |ant|na |ntu|asa|maz|aru|tus|n k|paz|atp|sun|ura|aki|z k|a k|nta|mai|a m| pa| ch|rus|akp|a w|in |kpa| ja|kar|z a|pai|a p|uka|aza|sa |alk|ain|za |ra |ska|wat|pam|n n|kal|z m|war|wai|z p| p |t t|unk|lka| aw|ion|rak|tak|t n| pu| nk| sa|us |t m|a s|int|kam|mam|m n|usp|ran|n p|n m|cio|ach|spa|at |taw| t | pi|a n|z s|ika|usk|kun|ash|ane|z w|ruz|aci|tuz|un |pur|tar|jat|ish|iwa|uz | na|min| te|hiw|ana|jan|ta |kai|ent| tu|per|jma|a t|alt|kua|unt|i a|hat| n | jm| au|ltu|n a|tch|pak|al |hi |han|kui|era|sha|iun|sar|zna|s w|s k|onk| tp|uma|nte| mi|nti| re|wua|z u|par|tm |p n|ita|uzp|zpa|z n|i k|zka|miz|i w|n s| pr|uin|atm|ais|uru|ter|amp| in|ien|am |usa|man|izn|wa |kaw|e s|itm|tur|anm|mas|ar |r t|ual|ipe|nma|npa|s a|s m|m l|kan|amt| ki|ina|cia|pas|ici|tik|ial|ha |e m|pru|tuk| nt|au |i m|t p|sai|n w|itu|z i|siu| am|itc|nak|pit|hum|ist| hu|lta|ait|e a|nna|ram|amm|p p|hin|i n|aiz|iak| li|tpu|t k| as|was|sam|nac|kta|ank|ami|a i|cka|il |nci|apt|mpa|nk |ann|rai|raw|tra|z t|rta|akt|ciu|nal|a c| up|lki|n t|uzk|i p| un|h k|uil|i s|eka|ima|men|shi|hik|lne|sht|ian|pia|mtu|tui|asi',rgn:'la |oun| e | la|un | di|iou|a l|na |da |zio|una| pr|a p|rét|ét |dir| da|iré|tà |a d|azi|a s| in|à d| ad|per| dl|ers| pe|ad |ta | à |sa |ni |i p| un|nt |sou|rso| i | cu|gni| su|a c|ènt|ia |mèn|ogn| og| co|a à| m | st| ma|a a|li |èsa|za |i d|a e|dla| li|di |t d|pro|su | l | ch| ri|a t| o |umè|t m|e d|nza|a u|ma |i s|t e|stè|in | ès|ibe|ità|ra | u |lib|ber| al|ert|naz|i e|e l|rtà|e m|amè|cun|int|n c|u s| to|ii |d c| qu|ich|m l|rì |e i| pu| at|con|ent|a i|prì|e a|sia|ter|n s|uni|cum|che|tot|our|èd |ita| ni|ri | si|he |al | re|si | el|tra|èl |el |ist| d |pre|unt|rop|à e|n a|a n|ti |ot |n d|a o|raz|e p|sun|nd |l i|sci|a m| na| tl|at |nda|nta|èla|qua| de|n e|t i|n p| pa| te| è |a è|ara|nit|ché|i a|nis|ndi|t a|l d|izi|sta|nte|tèd|èri|ali|dli|i o|dis| um| se|isu|ric|i n| fo|i l|rà |ual| po| gi|sèn|ost|i c|ois|èda|opi|t t|i à|men|nèl|ch |ur |a g|a r|ran|a f|tè |erè|ènz|vit|ris|és |i i|uzi| c |gio|is |and|res|pri| sc| s |tri|d r|t s|chi|cié|str|rim|sti| du|t u| so|eri|u r|m u|n u|ide|put|l o|idi|dic|nsi|bli|und|l e|op |èn |unè|n l|ind|ntr|hia| ar|n o|rel|isp|esi|ici|eli|iar|iun|sid|iél|lit|dam|d l|soc|foi|nti|tla|i m|utr|trà|cou|à è|urè|zi |imi| j |ilt|dl |imè|lig|ntè|ond| ci|età|der|tic|par',tob:'da | da|axa| qa|ata| na| ca|taq|aq |ca |ac |shi| hu|na |a a|o o|a l|aua|chi|a q| ot|ta |uo |ayi|a n|huo|pi |tax|xac| en|qat|ec | ma|t d|yi |may|c n|ena|gue|qai| la|ota|aỹa|a h|it |hit|igu|ish|a i|gui| a |hig|nau| ỹa|q d|ana|ỹax|a s| is|am |aqt|i o|cam|iỹa|ama|nat|a ỹ|i q|at |hiỹ|xau|uac|a d| sh|i n| sa|qta| al|lec| o |aic|c d|hi |lat|a m|o c|eta|e e|ala|i i|a c|en |ua |ach|hua|agu|c c|i d|qan|xan| i |ui |ot |ai |eet| t |xat|hue|a t|uen|t c|c q|ale|api|qaỹ| ch|a e|ỹat|nax|uap|uet|ỹa |tac| l |egu|i m| ne|tta|sat|ii |lhu|n d|t n|uii|ape| ll|ue |nac|ipi|asa|ic | ee|ane|ica|lli|i c|lỹa|i e|qoỹ|ich|i h|cha|ues|oỹi|q e| lỹ|sa |iue|c h|och|lla|to |cpi| iu|ne |ona|ỹaỹ| on|uax| ỹo|ash|ott|alh|q n|pax|nam|i l|l a|max|qch|lic|t q|i s|ỹin| de| nt|lal|yip|peg|mai|nta|acp|ete| ya|ita|eda|qal|ỹam|lap|in |yaq|laq|de |qto|ỹot|anq|nqo|uas|uec|m l|aqa|tec| aq|ais|q q|nap|et | am|u a|alo|apa|q c|sai|ate|o n| ed|n a|ole|tag|oua|ilo|ga |em |esa|sou|c m|a y|oxo|q i|lax|tal|tee|xa |ỹal|xag|m d|te |ha |ail|lpi|tau|l o|aqc|que|lo |soc| ay|eso|le | nq|uem|igo|laỹ|aan| n | no|nqa|iit|n n|xai|alp|lam|q ỹ|ote|maq|eu |q s|c e|tap|tai|nan|cho|nec|i ỹ|hii|lot|ono|oon|t i| oo|ele|saq|nal| so|co |ỹaa|ỹoq|ỹau| iv|ivi',guu:' th|thë|hë |ë p| pë|pë |i t|wë |ë t|ham|oti|a t|mi |ma |amo|hit| rë|ë k|awë|ihi|tha|ai | ku| ha|ima|ou |rë | to|tim|hi |pra|mot|ë r|ami| no|iti|ë h|i h|tot|ni |tih|kãi|ha | kã|taw|ãi | ã |ama|ita| hi|he | ri|iã |riã| wã| ta|i k|ë ã|omi|i p|i r| sh|mai|ë n|ei |no |ã r|ohi|tit|iwë|ëni|ehe|raw|mou|iha| ma|u t|tiw|ëri|rih|o t|noh|ë w| ih|ë i| pu| he|upr|puh| ai| ka|uhi|kup| pa|tao|peh|kam|për|kui|ë s|ui |pi |ã t|hã |aom| pe|i a|opë|uri|ã h|ao |hap| ur|ãhã|pën|pou|apo|wei|o k|opr| hu|ayo|ĩhĩ|aih|e t|yëk|hip| ko|top|ri |wãr|piy|iyë|eri|wãh| pi|ë m| ĩh|sho| wa|ã n|oho|you|kua|hei|ëhë|a p|hën|ith|ĩ t|hir|ata|uwë| ya|rio|ëam|u p|aha|her|pat|ëma| të|ipi|rao|kom|het|eti|rai|ipr|ari| rẽ|mop|tëh|nah|rẽ |par|ẽĩ |ho |shi|tam|ono|ram|ã k|hĩ |ëko|rëa|hot|iwe|the|rou|ota|rip|uwe|kuo|i y|aai| oh|i w|io |ira|apr|ena|uku|ki |aiw|usu|pop|aro|nos|ouw|i s|hai|kou|a h| ay|sha|tae|uaa|a k| en|ãrĩ|i n|e k|suk| kõ|u h|ii |opo|e h|imo|pro|ë u|ëyë|ë a|ope|o w|ihã|ti |aya|i m|ewë|wã |u k|ihe| us|mak| mi|him|kuw|wẽĩ| wë|wëy|o p|weh|osi|oni|owẽ|now| a |ëi |ãno|a a| e |yai|hãn|o r|ã w|i ĩ| su|eo |aeo|mih|pon|a u|ano|i e|o m|pëm|rew|uo |aki|har|ë o|ẽ t|e u|o ã|rii|uam|mam|owë|rea|ro |hĩr|suw|ta |opi|way|iap|ore|i u',qxu:'nch|chi|his| ka|anc|spa|pas|aq |as |una|ana|apa|man|lla|paq|is |nan|cha|kun|kan|na |a k|isp|ta | ma|ech|an | de|aku|ere|rec|cho|der| ll|ina|hon|pa |onc|sqa|wan|hin|mi |qa |nap|ach| ch|asp|ay |taq|chu|aqt|hay| ru|ipa| hi|inc|hu |pan|awa|nak|tin|asq|i d|qta|kaq|all|was|s k|pip|ata| ya|qan|lap|in |anm|kus|s m|ima|ama|anp|nta|q k| ni| pi|npa|a r|run|a m|nas|a a|pi |nmi|tap|k a|sta|lan|sku|isk|yta|ant|yan|n k| qa| hu|ayt|ari|yoq|may| wa|n h|aqm|uwa|ank|qti|q m|a l|sma|ism|laq| ha| im|qmi|nin|un |swa|sun|ma |nat|ita|ruw|q h|kay|ist|a c|s l|lli|nit|ati|ara|lin|la |ayn|kas|ion| al| sa|aci| es|asw|cio|mun|a h|s h|nk |a y|s q|oq |s a|usp| at|a q| mu| qe|est|isq|uya|y d|nku|i k|y l|aqa|has| ay|s y|a p|kuy|q a|sar|ku | pa|yac|api|ypi|yni|n l|nac| am|qpa|ayp| le|nma|a s|n p|qsi|ley|nis|u n|nqa| na|huk|qni|kaw|s w|usu|haw|iku|ayq|n r|naq|s i|kam| ta|asu|uch|iwa|aws|ich| re|asi|wsa|anq|a n|say|ayk|pal|unc|q d|s p|n m|tiy|ien|hat|q p|pak|n c| tu|s r|sin|yku|ayo|qaw|s n|dio|a d|npi|qll|aqp|uni| ku|ey |nay|iya|n d|tan| ju| ca|hap|ios|a i|yay|mar|rim|par|eqs|han|q l| as| yu|y h|asa|u c|yqe|ado|mac|per|qen| ri|qar|req|q c|awk|s e|u l|amp|war|s c|tad|arm|sis|n y|rmi|q w|uez| ap|jue|ñun|uñu|huñ|qec|udi',pau:' a |el | ra|ra | ch|ngi| ng| el| ma|cha|l m| l |l a|had|ad |ech|eng| me|ma |ii |gii|ir |lem| be|i a|kl |lle|che|ar | ll|nga|mel|mo |a l|l e|a b|eme|tir| kl|a n|a k|gar|l l| di|l r|a u|ul |rng|okl|a c|mal|d a|ng |ek |hel|l c|arn| mo|er | er|il |bel|mok|k l| ar|elt|men|al |nge|elu|lel|lti|bek|ele|mek|ak |lec|ch |eke|ome|chu|kle|k a|lt | om|ema| ti|dia|iak|r b|bec|r a|edm|ung|uch|d e|r r|o m|rre|uul|ale|l n|ebe|mer|i m|a i|alt|a m|l k|r e|lmo|r n|a o|a r| te|l d| en|dmo| se|i e|cho|a d|tel|ilm|ai | il|b e| lo| e |rek|ker|ang|ub | ul|k e| uc|hub|l t|r c|ruu|aik|eru|l o|ll |luu|r t| un|isi|uu |ngm|a t|ekl|ach|u a|len|osi|it |ei |del|hul|gil|r m|a s|l b|t e|irr| al|kel|h r|seb| am| ro|kng|era|ked|lac|lse| le|ged|sis|rar|dir| de|i r|d m| bu|dec|lou|gmo|ika|git|rir|ull|amo|u m|rel|kla|uld|d l|ode|r l|l u|tia|sel|ngu|t r|gul| bl|ou | re|e d| ur|dil|iil|ise|kir|d r|lek|chi|t m|iu |g m|muk|ube|uai|klo|oi |kli|ed | ea|lte|eli|ren|ike|gal|ngd|gdi|rog|ogu|gui|ui |t l|bua|siu|o s|els|i l|ire|reo|alk|lk |lul|leb|eri|hos|or |edu|dim|kal|mor|akl|u e|ais| ai|e m|urr|ol |ude| ki|l s|id |als|ell|ios|dio|o c|bai|lir|h e|sec|ole| ke|dme|olt|den| kn|bed|eor|ial|goi|lal|ego|u l| lu|ukl|lun|ekn|lde|ble|lew',shp:' ja|qui|i j|hue|on |ui |iqu| iq|bi |ahu|que|jah|a j|n j|ra |i i|ti |hon|sho|ash|jat|ain|ues| hu|ati|ama|sca|an | jo|uet|nan|oni|esc|ato|in |bo |a i|nbi|jon|aqu|ino|uin|tsa|jai|ets|shi|sh |con|ja |ma |ana|bir| qu|ira|abi|ina|tia|equ|ian|noa|ima| sh|est|can|ueq|res|hin|onb| yo| ic|to |ora|ibi|sti|mab|nsh|iti|oas|ibo|aca|a a|jac|tim|aco|nti|n a|cam|n i|non|équ|hué|uéq|ai |uen|na |abo|aon|en | ac| ma|ish|bao|asc|rib|atí|ton|i h|jas|o j|eti|h j|i a|n s| be|ant|sa |yoi|mai|ona|nin|nma|sab|nib| co|osh|mat| at|ica|ni | es|ene| on|ara| is|apo|tíb|caa|es |ins| ap|o a|tio|a h|onm| in|nra|ior|ire|iri|íbi|iai|rab| te|s h|o i| aq|car|cá |are|cat|n y|pon|anc|i c|oia|mas|tir|icá|i s| ts|i q|yam|iba| it|ico|n h|ari|oa |nha|sen|era| se|sha|anr|man|ena|een|nen|aba|nca|tan|nqu| na|uee| no|maa|i n|ran|ca |n q|cos|n b|bor|cas|nco|a m|esé|tso|jan|onr|aya|tí |i y|ata|eta|ait|bia|aas|enb|anb| ra|o b| ca|ben|ich|a s|h h| ar|n m|inc| me|cai|ano|a q| ba|tee|i t|cop|as |í j|mea|joi|ans|inb|hib|acá|ebo|nai| as|bet|iam|int|aat|n e|nat|scá| bi|nbo|baq|n c|son|hui|anq|uir|a b|sé |oma|í i|enh|tas|a n|nri|n r|ya |oi | ia| am|uer|ema|i m|she|a t|ric| h |oqu|maq|ia |uis|opí| ho|nya|par|nos|bí |ea |ten|rat|uib|inm|ue ',gug:'ha | ha|ere|a o|pe |vo |ich|ko |va |ra |rek|cha|râ | de|ech|eko|cho|der|ogu|rec|gua|ho | og|gue| ma|uer|e h|agu|a h|may|e o|o d|ete|aym| he| pe| te| oi|te |o h|o o|yma| oj| oñ|ma |hag|uér|e m|erâ|éra|a´e|mba|ua |oje|oñe| re|ve |i o|kué|a e| yv|etâ|a i|upe|a y| av| va|óra|oik| ku|por|gui|pet|re |a t|ión|pór|ave|nte|ypó|yvy| nd|a m|ñem|e i|kat|iko|vyp| om|hup| je|a r|vei|ad |emb|jep|ekó|ava|ika| mb|upi|apo| ic|ui |mbi|a a|´er|óvo|va´|épe|chu|o p|ehe|end|kóv| té|tér|érâ|ipo|áic|omb|tet|ei |o i|a k|nda| ko|ñan|ta |ter|ón |ávo|e p|aci|ció|are|ba´|â o|egu| op|mbo| up|rup|ive|het|ora|dad|a j|e a|vav|po |gar|pa |hes|áva|teî|emo|bia|yre|nde|ara|tâ |amb|jeh|ese|se |a l|api|ang|aik|ngu|nga|atú|tel|apy|kua|pic|and|hái|e t|e n|ba |iap|pyr|ite|â h|opy| ñe|avo|de |orâ| ta|rav|atu|ndo|oci|cie|soc|ert|éi |apó| so|ond|ait|ndi|tap|´e |epo| ru| oh|tem| ik|pi |o a|i h|i t|epe|eve|avé|ied|eda|a p| há|eic|dai|epy|gué|pyt|óva|ida| ja|ue |ape|o k|a n|e v| er| lé| iñ| um|umi|mi | li|lib|o t|ibe|ber|div|rta|tad|men| ip|o v|léi|uaa|guá|o m|nid|´yr|eña|ñeñ|eli|al |e k|kov|da |â t|a u|éva|ime|ant|u h|îch|cla|túi|imb|úi | im| oî|ha´|tu |e j| na|me |évo|opa|vai|py |ide| id|ers|lig|âi |a c|kot|ote|tev|per|póv|vag',mzi:' ng|nga|a n|tse|jin|ga |a k| ts|ngo|se | ko|xi |n n| ku|kui|in | xi|en |ndi| xu|e n|tji|jo |jua|o n|uta|kju|xut|a t|nda| kj|ta |i n| ta|ind|ojo| tj|a x| nd|i k|n k|ots|ie |e x|ko |e k|i t|goj|n t|ama|n x|’a |on |i x|ua |sie|ui |ni |o t|jen| ka|e t| na|ee |kji|ma |tsi|yij|kot|ije| xk|chj|een|sen|je |ats|die|ya |xki|and|ngi|da |ini|a s|ixi|nkj|iee|ink|ian|ang|iya|din|o x|go | ni|kam|ani|see|uin|nix|gan|an |xko| ch|axk|gay|t’a|aji| ma|ayi|jot|kiy|o k|kon|ia |eng|gat|eje|tsa|na |iko|y’a| se|nia|nan|kue|sia| sk|jmi|nax|ndo| ki|dse|min|ay’| yi|nds|tax|cha|un | si|do |xin|itj|axi|jni|koj|atj|ien| ba| jm|tan|ii | en|hje|xti|tay| ti|a c|ach|aki|jun|aa |gi |gon|kja| mi|maj|end|i m|ki |ti |mat|ikj|kat|a m|jii|its|jon|ond|xuj|sko|akj|osi|kos|ich|a j|ijo|o j|ánd|ima|nt’|kit| nt|uju|áa |iná|tik|son|daj|e s|kok|i s|ijn|nán|uak|jit|iti|xch|enx|iji|jia|sku|hji|taj|han|i e|dik|sob|kie|bat|ona| xt|tin|tja|sej|nri|ue |it’|iá |jan| ji|oji|be |oko|ri |okj|int|sik|xo |tas|nji|anj|xit|mac|tjo|nxi|eji|niá|mej|ata|eni|n j|jee|inr|isi|ajo|xim|chi| ja|nch|ín |tok|n s|jam|ask|i b|ati|njo| je|año|ton|dak|ena|gin|uee|n y|á k|mi |inx|oni|obá|a’a|jaa| xc|i i| ij|báa|e m|cho|i j|a b|hjí|óo |abe|tso|gas| me|sex|inc',mic:'ta’| we| ta|a’n|it |’n | ki| te|kis|n t|aqq|qq | aq|tel|aqa|en |sit|’ta|qan|taq|wen|koq|o’t|n w|na |ik |msi| ko|asi|mit|waj|oqw|t w|qwa|isn| ms|sna|jo’|ajo|te’| ma|isi|an |wej|n k|sik|eli|eke|ejk|jku|ij |in |k k|a’t| ke|li |si |jit|t k|’aq|n a|sut|q t|sin|tij|tas|aqm|lsu|e’w|n m|ite|tek|’k |qmi| wj|wji|k m| al|ksi| mi|ke’|e’t|a k| el|i a|k t|luk|k w|nik|maw|als|k a|ew |la’|ele|new|maj|q w|wa’|iji|ika|nn |ey |uks|ult|lam| ne|’ti|inu|’wa| na|oqo|uk |kul|’l |t t|ann|lek| wi|ita|kl |mim|ima|wla| tl|aju|ukw|na’|tuk|j k|lti|u’k|uti|’te|uta|asu|a’k|muk|e’k|nu’|j a|ul’|t m|tl |i’l|j t|tla|la |a’s|sij|ikt|’ki|kwa|l’a|tet|ku’|o’m|ami|l w|tmu|tew|i k|n p|ela|q k|kwe|jik|aq |’mi|kin|q a|qam|mk |ki’|ket|ett|ewt|ank|wik|awi|amu|i’k|l m| ap|mi |tli|ama|ewe|min|l k|ek |’tm|’si|k n| wl|i’t|a m|qoe|ala|ktu|mu |a t|i t|jiw|’tu|e’l|ikn|kas|tt |q m|uku|u’a|n n|uj |i e|etl|wte|’ka| pa|pas|iw |ej |ti’|ma’|mi’|usu|ina| mu|lo’|l a|a w|nuk|sum|man|kew|a’m| ik|j m|wij|imk|puk|tik|lnu|kat|oey|wes|utm|sul|kej|u k|t e|e’s|pla|j w|io’|ati|lte|sus|l t|ani|ikl| kw|mas|nut|ui’|wio|kut|a’ | wu|esk| et|a’l|muj|w t|a n|lit|uaq|we’|tma|q n|tu’|kwi|nmu| sa|etu|i m|kun|lap|itk|aj |a’q|t a|poq|’lm|las|ula|mut|mal| nu|apo',haw:'ka | ka|na | i |e k|ana|ke |a i|a m|i k|a h|o k|nā | ho| nā| ke| a |ho’|a a| ‘a| ma| o |ia |a k|a ‘| me|o’o|a n|aka| ‘i|le | no|nak|me |no |ua | e |au | kā|‘an|a o|‘ia|kān| ‘o|ai |ma |i n|e ‘|ono|apa|oa |āna| po|ā k|ole| ua|a p|pau|pon|e a| ap|i ‘|’i |aup|ona|la |ike|uni|e n|ni |noa|han| au|upu|pun| kū|kan|u k|a l|o ‘|’ok| ko|ale| pa|i h|‘ol| ha|’a |oho|a’a|o’i|noh|o n|o a|a u|i a|a e|e h|wai|ho |ā p|a w|ui |ila| ku|kau| wa| he| kī|kīv|a’o|ahi|e m|aha|vil|īvi|pal|lik|ā a|i m|kah| lo|’ol|kon|lu |na’|hi |lo |oko|ha | ai| kē| hō|hō’|oha|mal|ina|ao |i i|ala|a’e|hui|i e|u ‘|’e |u l| lā|umu|ano|man|pa’|’ik|ō’i|ea |‘a’|ko’|i o| lu|’o |e i|u a|ēia| li|mea|kēi|o’a|eka|e e|una|i u|i p|āwa|oka| hu|he |loa|’om|kum|a’i|kū’|e p|’on|mu |leh|ehu|’op|lā |nāw|ānā| la|’au|oma|kūl|ku |lel|ule|mak|alu|ae |aku|lun|ā m|ena|ulu|aua|opo|āin| a’|ili|li |o m| mā|kua|o i|ū’o|ele|olo|lek|i’i|ā l| le|‘o |oia|uhi|wal|ola|hon|lan| ‘ē|‘ē |wā |law| wā|uao|kai|wa |o l|ē a|ne |iki|kul|ika|u o|u i| ak| pi|alo|mai|ā h|’oh|o o|āko|ino|iāu|opa|kō |hol|ōle| an|elo|ewa|awe|u m| ‘ō|ūla|aiā|āul|ka’| al|kal|ki |ū ‘|e u| ‘ā|hik|iai|pū |nui|‘oh|ama| pū| ne|‘oi|ela|ahu|wah|pil|i l|mau| mu|‘ōl|e o|mua|hu |kae|luh|hal|lai|ā i|ko ',yap:' ng| ni| ma|ni |nge|n n|ge |en | e |ne |nga|ii |e g| fa| ko|idi|gid| gi|dii|ko |bin|in |ay |att|ttʼ|mat| ro| ba|tʼa|ʼaw|och|an |awe|wen|gub| na|ubi|e m|ara| gu|am |i n|ra |ine|i m|n e|cha|y m|g n|el |bay|aa | ta|ng |kʼ |aba|mab|boc|ngi|on |okʼ|rok| ar|e n| mo|ang|e t|chi| ga|nam| u |eg |ogo|ane|y n|i g|i b| ya|uf |rog| da|e p|iye|l n|gin|fan|iy |lan|gon|ag |a n|n b|d n|puf|re |reb|mot|oto|e b|n k| pi|e k| be|bee|w n|aw | ch|toc|han| la|are| bo|ga |ee |nib|uw |l k|o n|ach|che|m n|yan|il | bi|ab |n m|ey |ch |ʼ n|apa| pu|hiy|mar|ad | re|e a| ti| ka|gak|yel|gaa|i k|tin|len|ban|baa|dab|wel|ba | i |obo|un | ku|lob|rwe|ayu| zi|haa|arw|kan|ina|age|riy|mak|ed |olo|far|i y|gar|n g|b n|zil|owa|akʼ|tay| ol|o f|f r|yal|yuw|liy| ay|iti|lʼ |ing| mi|ma |aku|ney| ne|m r|ali|a m|now|u l|a b|ung|ig |paa|aen|a f|nag|fac| ke|ada|kub|ita| ri|e r| pa|ar |a i|gan|gen|e f|ano|man| me|ir |ebo|bo |ani|ʼe |e c|aar|pin|i d|a g|a p| yo|ite|fel|nit|ow | ra|e y|tir|ʼ g|l m|anʼ|y e|fa |abi|iya|kʼe|i o|g m|ere|r n| un|taa|ama|eng|aga|ile| fi|naw|ail|fai|a t|wae|tal|ted|eb |ili|lun|ram|mad|taf| ge|mod| yu|ul |gi |bap|nin|gay|ulu|hig|elʼ|ati|iba| am|n f|g f|kul|a e| er|nʼe|o g|uni|i t|mit|al |w m|heg|ke |g k|a r|ene',ame:' ñe|et |ene|a a|ñeñ|eñt|ch |net|all|en | ye| am|uen|t ̃|ech| po|hue|pa |ama| at|ohu| al|err|a t|e ñ|che|ha |ma |ñt | ña|̃a |ach|yen|am̃|ra |rra|ñam| ch| ̃ |po |a y|ena| pa|m̃a|llo| e |a ñ| co|a e|t ñ|ere|ñe |esh|att|tt̃| de|na |rec|t a|cho|heñ|der|ret|n a|eñe| t |ñt̃|t̃e|sha|cha|c̈h|arr| o |loh| ac|tet|are|ate|ñer|o c|nes|och|ets|a m|̃ a|coh|et̃|t̃o|t e|ten| añ|ats|o a|tse|añ |o ñ|ñet|o p|a p| m |tar| ts| er|ro |pat| ec| es|hen|ane|mue|rr |h e|oct|eñ |sa |t p|ho |h a|os |̃oc|t̃ |ñen|poc|s ñ|ent|a c| ar|e a| ta|epa|e p|mac|hos|r p|ese|apa|ata|s a|ota|tsr|sro|sen|tat| eñ|rro|lle|tye|̃ch|te |pue|tsa|o o|ey |nen|tan|cte|t̃a|cma|h c|e c|eño| na|̃pa|yes|ñec|eña| yo|o t|o m|ñ ñ|es |er |ot̃|t̃p| or|a n|to |orr|e t|n y|hye|chy|yec|pon|set|no |t d|ame|ñot|h y|lpo|mpo|oc̈|eto| an|she|ye |ts |t̃c|nac|teñ|t̃t|ña |llp|ñal|par| mu|̈ha|ete|ote|ana| ma|cop|ñ a|ahu| en|uel|op |̃ec|ell|y a|nta|ora|añe|̃te|mar|ñ d|hua|aru|rua|on |uas|as |n ñ|uer|ne | pe|tañ|rrt|tso|e o| ya|nte|ecm|n p|ec̈|emp|̃e |̃ar|pot|uet|m e|ant| pu|rta|nan|̃ p| ño|ñ p|rre|ar |yeñ|que|ann|tpa|̃ey|ta |n d|asa| t̃| te|pen|n e|eno|p̃a|het|yey|an |r e|cot|ida|le | ne|o e|ñap|loc|ñoc|ney|r ñ|̃o |ay |one|a o|ses|̃ c|aye| ̃a|ll |yep|tep',cbt:'ya |huë|hua|a n| hu| ya|a h|ina|na |so | ni|chi|uër| no|hin|pi |uë | co|aso|quë|rin| na|a i|aca|ëri|ach|api|ua |o y| in|in |cas|poa| sa|ahu|opi|ohu|co |npo|noy|oya|ëhu|a c|ipi|a y|an | pi|nan|a a|inp| ma| pa|sha|ta | a |ana|nap|ha |no | ip|a p|uac| an|nhu|arë|nin|inh|o n| qu|oa |mar|iya|yap|pin|ë n|tër|ëra|piy|uën|n n| të|pir|i p|iso|nto|o m|n a|nta|cat|toh|ant|sa |o s|nis|ran|tac|ata|ita|ish|rë |ma |ërë|ais|i n|ë c|pit|top|aqu|a s|ton|cai|rno|irn|o t|yon|cop|tëh|oro|ito|atë|ën |rëh|nën|ë a|uan|ont| to|sac|hui| ca|nac|a t|ani|nit|ro |ins|n q|i s|nqu|ato|apo|pac|on |ni | sh|ino|pah|i c|int|oas|iri|qui|n c|tah|ini|par|n i|ica|nch|ona|ihu|ënt|ëqu|noh|a q|n p|coi|nip| ch|ëca|anë|ënp|ënë|o p|ri |ama|tëq| am|inc|ari|i t|itë|a m|naq|ë p|oso|oin|shi|i y|ian|ë y|hi |uat|iyo|san|ra |soh|niy|n y|uir|onq|npa|pia|ntë|onp|cha| ta|nor|tin|o a|ain|nso|uëc| yo|nat|npi|i a|sor|nos|i i|cac|hac|oca|o i|pa | ac|nëh|pat|nti| pë|ima|apa|non|tot|hit|map|o c|uëm|tën|ota|nsh|ëma|art|rëc|rti|ti |ano|son|och| po|ara|aco|n h|o h|pop|ash| es|esc|scu|uar|aro|cue|uel|iin|uët|anp|poc|uah|roc|ori|pih|ira|i h|pën|ela|uëa|iqu| im|ëa |a e|ëin|asa|ëtë|uëi|uai|uic|uas|rës|nah|ayo|n s|ca |uay|nas|ëch|ë t|nic|isë|ois|ipa',gyr:'ra |atu| av|kat|ko |eko|tu |rek|kwa|ava|ae |mbo|ei |se |va |a o| va| oi|ave| mb|ar |aka| op|e o| nd|opa|vei|pak|ira| ya|oik| gw|u a|a a|amb|pe |iya|ekw|ua |vae|gwa| re|wa |chi|emb|bae|bua|mba| am|vir|a p|mbu| vi|i o|ika| te|ire|ese| ko| se|yai| pi|e a|sa |ri |e i|e y|a v|nga|i a|ve |ta |nda|pri|yur|a i| oy|gar| yu|ure|aër|ëi |vaë|ung|tek|nun|ndi|ai |ëra|boe|a y|nde|i v|bor|ora|oya|ete|and|a m|o o|koi|ota|a t|ere|ipe|inu| in|yan|te |e m|e r| ye|imb|o y|yem|pip|oro|diy| ru|era|a n| ch|res|mbi|gwe|yav|end|ara| ñe|e n|a g|rer| iy|wai|oi |e v|epi|tei|pi | o |i i|i n|ipo|o v|ite|upi|i k|e s|oye|ich|pot|upe|avi|de |was|okw|asu|o i| po|hir|oñe|ke |ach|rup|oet| im|aik|ase|sek|i s|ndo|tup|upr|hia|ikw|i y|a r|isa|apo|oim|po |ise| su|chu|eir|tëi|ia |o a|a s| ei| ip|pia|hup|ime|ñep|eta|e k| om|su |eis|war|emo|sui|tas|aer| ik|a k|er |iko|ita| os|ait|u o|rok|asa|o m|i t| ae|ose|rai|r a|e t|ore|por|kor|u v|pis|yap|wac|iro|par|mo |pëi| ke|ui |kua|a ñ|ipi|moñ| të|bim| ño|r r|no |ño |iap|omb|aei| ve|pir|ndu|rav|i p|aya|mon|o r|isi|epë|tui|oip|o k|u p|ya |apr|igw| ra|dae|ñet|sar|pit|uve|bot|tar|rop|r o|omo|eku|iki|roy|ako| ak|rep|are|i r|oit| ai|esa|umo|ipa|rum|vik|iet|sir|osa| oñ|yep|sep|ike|epe|opi',vep:'en | i |den|iže|ehe| va|ikt|ide|oik|an |ktu| oi| me|el | om|nda|tuz|da |he |om |use| ka|hiž|meh|z’ |uz’|val|end|l o| ü|le |aha| jo|tus|es |ele|iži|žel| te|ald|dan|̈ht|üh|e m|ahi|ude|kai|id |und| ra|m o|ali|gah|oid|as |jog|oga|ahv|oma| ku| mu|n k| ta|hel|ha | mi|kun|l m|hva|rah|vai|uda|toi|ed |ndu|liž|ai |n t|ta |kon|lda|tud|tad| ko| ol|iče|itu|dus|ada|vah|äne|iš |hth|aik|ei |išt|d i|hän| hä|n a|nen|thi| ei|ud | ni|n p| sa|sta|il |teg|n v|ita|n i|ija|mug|n o|a m|i s|ad |e t|žid|sel|n m|miš|a i|iše|oiž| to|pid|i v|uzi|al |i k|d o|tar|oit|e o|e i|še |voi|i o| ma|i t|d k|dam|nd |e k|tte|čen|arv| ho|a k|kes|seh| ke| pi|ze | el|amb|rvo| ne|žeh|mel|hte|jan|rad|mat|nik|a t|sen|i p| ič|idä|oli|len|ona|esk|zid|kud|ego|čče|ust|i m|iž |päi|ičč|uga|žen| si|old|usi|ope|ba |gen|d m| tä|arb|tes|ma |nec|äi |pen| su|eze|s i|des|and|dah|n u|ehi| ar|ne | us|miž|čez|tom|ami|iki|tam|ond|jas|cij|doi|gaž|ažo|on |žo |in |sid|elo|ihe|sa |eht|ahu|mai|biž|ugo|rbi|ine|el’|das|ldk|uta|abu|iba| ab|a u|hud|teh|ado|nan|mba|sko|ike| po| so|dku|n s|lit|aič|aht|goi|kan|ait|dud|s h|ara|aci|zoi|s t| pa|a e|a v|ske|što|ial|man|i h|itt|n j|aiž|a s|tah|eda|ho |oho| pä|ast|ile|ut | vo|e h|usk|n r|jou|dal|hen|i u|mus| op',cpu:'ri |tzi|ant|iri|ari|aye|tsi|ica|nta| ir|i i|atz|tya|yet|ca |zir|i o|ni |i a|aar|iro|a i|aca|ro |yaa|shi|ita|ait|can|yee|eta|car|tha|eri|aro|ero|zi |ric|ter|ash|oca|tai|eni| at|que|ya |nca|een| oc|i t|ats|te |ine|pay|pit|qui|mpi|eet|ira| te| ee|e i| in|ipa|aan|tac|amp| on|ñaa|cov|caa|si |inc|a o|ava|ara|apa|aqu|zim|tay| ca|ota|sic|ima|ova|tar|hin| ts|ori|ror|i j|a a|nty|ame|ntz|rir|ity|nam|vai|ata|tat|onc|cam|ite| ar|ron|nqu|aty|o i|eth|ne |mee|ta |ran|etz|hat| pa|eer|iya|i c|eva| ic|oni|taq|rat|ete|cat|ina| na|o o| ap|aac|jev|i e|tan|e o|its|rip|a t|aiy|pai| o |i n|i p|eej|air| ja|tav| im|par|mat|per|jat|e a|pas|ent|anq|nco|nte| iñ|aay|int|san|omp|nts|iña|eja|oña|ove|api|sir|ana|uer|ont|aco|aap|vac| je|ue |ety|har|ui |raa| an| os|uem|ith| om|tye|ema|yot|ma |ra |pin|ath|o t|hir|rin|ate|taa|hit|eca|vat|imo|tec|mpa|net|iyo|cha|maa|iqu|tem|ape|itz|pat|uin|ye |rot|ven|riy|imp|opa|osa| ma|emi|aav| is|a j|mit|var|inq|roc|uit|mpe|nat|era|a p|jan| ip|vay|vas|sip|poñ|o a| tz|ai |a e|roo|aas|aat|oco|ire|oye| op|osh|sin|aña|rov|rom|iye|equ|ha |ach|cai|aga|ave|hay|ani|ico|e e|ije|imi|cot|iry|gai|ish|tas| pi|oqu|o j| jo|mon|otz|ner|j a|a c|man|i m|e t|roñ|ote| aa|ini|sit|ain|iva|ane|ve | ij|ren',acu:'ain| ai| tu|ai |ina|tai| nu|nui|i t|ngk|sar|uit|ita|int|ash|nau|tur|ha |ar |inu|ura|tin|chi|sha|art|nts|a n|rti| ni|i a|iki|usa|u a|rin|gka|tsu|ka |a a|ker|ich| ma|ts |cha|au | pu|puj|sh |nun|mas|ang| wa|uju|tus|ras|awa|kia|suk| ch|uk |ra |eng|gke| pa|asa|nin|kan|in |kic|ni |pen| pe|ach|nu |jus|amt|hik|aya|tnu|atn|a t|ia |ch |aka|n p|r n|u n|h n|i n|ung|er |aun|uka|ti |iar|un |wak|kar|mta|ake|ish|r p| as|an |pac|wai|ji |a p| an|nti|h a|una| na| ta|s a|ari|nch|uri|eka|its|ara|ri |rar|tim|ram|kam|uwa|kat| ap|nam|nak| ne|nuw|nma|apu|war|aki|nek|anm|ern| ak| aa|aar|ata|k a|ya |may| me|k p|n a| aw|tak|tra|met|ete|tek|a m|pu |a c|arm|aji|run|nan|am |bie|ier|iru|rno|uni| go|ing|gob|mia|obi|r a|ush|era|isa|ek |sri|unt|aus| ir|ng |as |jai|ntr|i m|hit|ana|hti| yu|tan|s m|aik|auk|ust|uin|iin|no |uch|ami|mau|rka|ak |u t|sht|uja|hic|ais|kas|ait|umi| um|k n|rma| ya|ink|ama|tas|nia| ti|hat|tu |r m|tun|inc|na |r t|jui| ju|nuk|naw|nka| uc|iis| in|maa|a s|yai|wat|a i|wa |ats|waj|a j|eri|imi|s w|aan|sta|mat|uma|aja| su|amu|i w|pas|itj|ati|gki|k t|sun|n n|iri|ase|tka|ini|nay|yat|ham|a w|ju |tji|his|mi |e a|sa |akk|h m|i y|unc|atk|ant|kka| ji|mir|tsa|atr|ani|r w|se |mts|kii|u w|msa|i j| ts|mik|yum|nur',not:'que| ca|ra |gue|ati|nga|ani|ti |a i|igu| ir|isa|nin|ue |ina|sat|can|uen|nta|ais|ro |eng|ant|ca |tsi|te |nat|ing|ira|aca|aqu|iro|aig|i i| in|ora|iri|ara|ats|aro| ai|ata|car| or| pi|int|uer|aga|ri |sig|e c|mat|ga |gai|a p|i o|gan|tag| ma|taq|gom|ite|gui|ngo|asi|ta | te|a c|ong|i c| on|e o|guë|agu|ero|e a|ngu|a o| an| pa|e i|mi |i a|i p|oma|tai|ini|tim|ita|ni | qu|uë |ome|iqu|ima|oca|iti|nqu|nti|ui |a a|nar|anq|i m|sin|ten|ari|ica|emi|rir|eit|omi|mei|san|a t|o a|pai|sit|mit|rac|air|oba|bir|pin|imi|iga|qui| om|nia|ang|ota|gac|gar|o i|nts|tir|tin|uem| ar|oti|mag|obi|eri|egu|quë|eni| ba| it|ito|bas|rin|ran|iat|ate|o o|man|ma |rog|i t|isi| ic|pij|tis|roc|e p|tar|oco|ena|iba|a q| po|iji|pag|toc|cot|tac|equ|asa|nas|si |uir| oc|gas|rot| ob|roo|iac|pit|a b|ipa|o m|ëma| ig|ntë| sa| aq|ori|oot|rob|ane|bin|uëm|rom|ëri|anë|uit|águ|ë a|pic|got|ogo|tan|mar|e q|o p|ico| je|jem|gob|bac|caa|ne |nib|re |mis|ain|rai|ëgo|cag| im|ábi|oro|a s|i j|uim|cat|a j|bat|ngá|com|uër|gáb|oqu|bai|jeg|në |ë c|tëg|ria|cha|ogó|ai |ë i| co|agá|oto|ibo|era|ha |bag|mai|ija|are| ij|jan|tas|ror|ino|mip|ont|rit|a m|aat|ëqu|uëq|ëmi|rag|ote|uib|o c|ë o|oje|roj|jit| pá|pág|sai|ach|tsa|oga|a n|opa|igo|eta|ato|uet|es | ib|ueb|ait',sme:'vuo|ja |uoh| da| ja|aš | vu|at | le|lea|id |laš|hta|uoi|oig|iga|tvu|ta |a v|gat|atv|oht|as |ala|aid|ii |ea | ju|uoð|vvo| dá|a d|uvv|in |dah|ohk|oða|idd|juo|lmm|ddj|usa|dja|a o|it |ga |ot | ol|sa |hke|je |hje|ahj|čča|rid| ov| ma|s l|te |ačč|okt|a s| oa|iid|ear|fri| ga|a b|ovd|us |aht|t d|nna|htt| fr|a j|vnn|hus|alg|ola|eat|i d|aga|gal|mmo| ná|ge |e g| al|an | bu|ðai|de |vtt| su|uvn|et |i j|avu|vot| go|eal|go |áht|tta|čas|dan|eha|keh|buo|ahu|on |olm|lbm|all| si| bo|gga|t s|t o|dag|s j|vdd|lgg|sii|lág|von|t v|hač|stá|is |juv|stu| mi|arr|svu| ea|n j|mii|saš|vál|jav|ášš|e o|moš|n d|šuv| vá|náš| do|dda| se|oju|e d|ttu|kte|ála|š d|t j| ve|tus|ahk|bmo|i o|štu|ost|a m|ssá|ast|mi |ažž|lla|ovt|ása|hte|ái |oah| gu| ri|ššu| ii|mea|ut |uođ|tag|bea|kta|alm|nal|tas|švu| du|š v|lgá|t g|t l|mmá|tá |án |osi|ide|ass| so|gas|tii|bok| be|gá |d j|arg| lá|ága|rii|iel|a f|skk|uid| rá| ba|eam|kká|vea|hka|ða |oda|eah|s d|das|lač|žžu|dat|sis| má|mat|ain|alu|uot|ođa|uos|t m|áld| ie|tuv|mie|tti|kko|ami| di|n v| st|žut|doa|rra|lli|oaž|ssi|uol|a g|tto|iin|áss|dás|olb|lus|age|lit|dit| ok|sea|ann|uht|duo|ikk|hkk|bar|dus|odj|uod|š o|suo|ddi|sás|a n|ahp|š s|dea|n l|agu|oll|ke |d b|hti|akk|i b|má |add|dán|rvo|á m|n o',yad:'iy |tya|rva|ada|irv| ra| ri|vay|ay |arv|ra |cha|da |a j| sa|ara|yan|ya |ich|y r| ji|rir|amu|vat|a r|rvi| va|ijy|rya| ni| da|va |ati|uty|nij|a n|ari| ti|iry|y j|yad|var|ava|u n|tiy|aty|nva|rar|anv|jya|ata|a t|vic| ja|sar|ye |tit|ach|dye|ity|asa|aju|idy|dar|ami|ju |ant|nty|yu |ta |y v|tid|ary|a s|yat|a v|sam| mu|mu | vi| ne|jir|chi|anu|chu|u r|siy| ta|mus|a m|ram|usi|taj|nut|adi|ita|dat|tyu|mir|ani|ne |van|riy|u v|imy|nu |iva|vij|y n|uy | nu|ryi|uch|cad|a d|au |y s|uca| vu|ech|mut|had|ivy|yar|muy|y t|jar|nti|jau|era|jaa|tar|u j|hip|jmu|uma|y d|ma |myu|miy|uva|ipi|piy|i r|rve|jyu|has|e j|iqu|dam|viv|que|yi |ha |aya|e t|ti |oda| jn|e v|tja|yam|muc| j |mur|ñum|tav|e r|vad| ca|u d|daj|u t|ivi|imu|yuc|i j|vac|hu |jnu|asi|cho|niq|j i|ate|ura|tye|yiv|tyi|yas|i t|niy|u s|riv|yja| ju|ric|ran|umi|vur|yic|umu|mya|adu|aad|dañ| nr|sat|unu|yav|ter|di |tad|ijm|jad| yi|urv| jm|vut|har|rim|vyi|rat|vja|mun|dod|iya|añu|uya|e s|iyj|vam|omu|ije|i n|jas|nrv|int|uti|jva|dim|uej|enu|che| tu|uri|eta|eja|hir|ija|cat|rvj|jec|sav|a y|isi|yuv|aja|jav|vya|itj|eva|vec|yom|jiv|tim|yum| jv|eda| de|num|ude|jac|amy|tan|jub|sac|jit|div|riñ|hav|jam|jan|rye|ado|uba|yij|ni |upa|ida|vi |ade|ho |der|hod| mi|yev|uta|iñu|hut',ura:'in |cha|ha |uru| ne|ne |ain| ca| ra|aur|a c|ru | co|ach|iha|n n|a n|aai|ana| ni|aau|cac|aca|e c|ein|uhi|n c|ai | ch|nih|ina|haa|naa|na |eei| na|ich|ruh|coa|ane|rai|ojo|uha|caa|rau|nac|auh|ere|u n|iji|aa |joa|han|chu|ine|oha|e n|iin|nee|a r|i n|u c|hi |i c|oai|aen|aoj|hin|u r|cur|oco|i r| it|coc|te |uri|cai|eur|eeu|hae|coi|n i|a j|ata|hur|en |nan|nii| ja|aih| qu| ac| sa|hu |e a|aan|ena|ita| je|e r| cu| ic|ela|jer|a a|raa|ue |que| ai|ree|re |oin|oaa|ii |e j|cuh|nai|ito|tii|toh|ihu|ta | te|jia|ati|nen|hac|ucu|aoh|ara|cao|aun|cor|rij|eje|eri|taa|acu|joe|lan|aao|ato|era|hat|ric|nao| le|ecu|nu |ei |eca|lau|tan|can|oat|ner|nej|ri | er|rih|sat|jan|ero| ba|jie|a s|n r| ri|oro| la|u a|toj|oar|ier|rer|jau|ait|e s|ene|oto|tol|a t|ole|ler| ji|iri|ihe| es|hei|jaa|aon|rao|ate| at|aja|oee|i i|ra |hau|la |ini|aot|tee|jij|iei|n j|roa|jee|oec| go|gob| jo|a i|obi|bie|ern|i j|mii|n a|ona|hao|jel|qui|iic|rno|n t| be|taj|an |oae|lee|enr|nre|ami| am|aal|cau|saa|e l|ban|e e| en|ton|n e|ca | nu|oau|un |ala| re|ruc|i a| ru|e i|no |nat|ore|ren|eta| to|n q|nec|au |e t|i q|mih|nri|net|uuj| in|i b|i e|eni|rii|jii|una|tuc|n l|hun|oac|uju|oit|nij|och|itu|ete|anu|onr|i t|o n|aba|roe|nab|iao|ure|aje|u j|u i| ta|a e',cbu:'chi|pa |ari|a t|ots| va|pot| tp|tpo|ach|ina| ta|ni |ats|tar|ama|iya|tsi|van|ani|ri |ts |ich|ha |spa|ia | at|ya |a a|am |ara|tam|tsa|sta|nts|tsp|int|apa|ash|ana| ma|ini|tin|ati|ro |shi|a m|nar|ta |i a|i t|a v|hpa|chp|sha|aro|tst|rin|ita|sia|oro|a k|mam|ron| ka|ata| go|aya| ki|a i|hin|asi|sa |ch |tac|sin| pa|agt|tap|ano|gob|gts|nas| an| ch| as|hig|on | to|ago|cha|ish| na|obi|bie| za|sir|lli|ko | ya|niy|noa|igo|ria|ier| ic|ota|hiy|npa|pi |gor|vat|oa | is|och|iri|ato|pay|ayo|sh |rit|kin|nat|hir|ero|a g|pat|pch|s t|mag| ko|hid|o v|may| it|iat|tak|sar|rag|a n|ova|in |zad|ist|api|xar| yo| ts|nag|hia|inp|hil|ava| mi|oni|o t|tat|a p|ros|osh|a y|ir |pan|kor|mac|o a|adk|to |i k|ona| sh|r t|ako|na |kiy|is | tá|sho| pc|sht|i v|yan|rak|i p|tox|oxa|kam|asa|osi|ill|yot|azi| iy|nia|ora|iar|idi|a c|lin|s v|din|m z|aha|tay|i i|yam|azt|siy|zta| ap|hta|¿ta|hic|vaz|o i|kis|ad |yas| ¿t|got|rav|s i|iro|a s|nap|aka|yog|psh|dko|yá |yat|ima|iyá|yac|vap|rar|hto|maz|zin| vi|os | ku|kuk|iyo|vas|mis|kan|og |yar|aki|agi|cht|nic|ap |ayr|kas| da|yri|h a|nad|s k|anp|á k|pag|amo|opi|hon|tpa|tov|nta|pac|sam|riy| ar|m v|cho|all|da |go |nak|mon|m t|h t|ias|az |nay|kiz|va |man|asp|yop|yoc|rap| ll|kar|m p|n i|si |tár| iz',huu:'na |ena| na| ra|a n|ie |com|ill|mɨe|ana|a b|ɨe |nai|mo |ñen| bu|a i| ie|mɨn|omɨ|ɨnɨ| co|iñe|lla|uiñ|aim|rai|ia |a j|e r|bie|fue|a r|e i|afu|raf|imɨ|rui|aca|nɨ |a c|aɨ |ga |air|iru| il| bi|no |lle|can| ja|ona|nia| ji|len|e n|nag|de |caɨ|aga| ll|llo|nan|ɨ n|naɨ| du|uen|acɨ| is|soi|una|jɨa|bun|iso|e c|ue |bu |ɨna|ide|o n|ien|emo|ita|aɨr|ɨen|ɨra|ɨno|raɨ|ua | ca|o i|ɨaɨ|ɨca|a u|ail|amo|aɨc|ani|tai|mac|laɨ|ɨco| jɨ|lan|ano|re |a d|se | dɨ|iac|aɨm|ier|ern|oid|jai|ɨmo|obi|gob|jit|cɨ |rno| go|mon|iño| da|a f|o b|ima| ma| se| nɨ|cai|e f|e j|aia|aɨe|nɨe|oll|nua|o j|omo| fe|dui|la |e s|aɨj| ur|edɨ|ɨmɨ|ɨjɨ|fɨn|ere|nɨn| fɨ|e d|o d|ome|ño |ama|ɨ c|ɨma|maɨ|fui|ra | ui| fa|i i|uer|due|dɨ |idɨ|a l|oia|jir|ira|dɨm|ɨ b|cɨn|ai |ɨ j|aiñ|eiñ|fac|gam|amɨ|dɨc|a g|aid|tɨc|iad|fei|nam|ain| ia|otɨ|nom|uid|ñed|añe|ina| ua| it|jac|log|daj|ise|ɨ d|uil|ri |lot|iñu|ñua|sef|efu|oñe|ais|oga|ɨem|a ɨ|anu|uri|oi |tañ|ese| rɨ|o l|non|itɨ|ɨ r| si|uai|ɨ u|ɨ i|eni|ino|aɨn|mai|ɨga|e a|ata| ju|ɨño|sia|aje|e b|ɨru|aie|ado|a s|u j| an|dɨg|rɨñ|a o|mui|ca |bue|a m|ecɨ| jo|jam|lam|e g|aja|uem|rue|je |dɨe|dan|do |ɨes|ui |ɨnu|nin|nɨr|e u|uia|aac|e ɨ| ɨb|ɨba|uan|ega|cue|mec|dol|dɨn|bum|ɨne|eda|nɨm|sed|umo|ban|uru|tɨm|oni|bai|i d|ɨa ',cof:'sa |chi|hi |la |man|i t|a t| ma| to|ant|an |ka |nan|nta| ch|ti |to |no | ts|tsa|shi|ila| i | pa|oe |a c|jun|ala| ju|e t|ta |nsh| in| ya| ti| jo| sa|a m|nka|joe|ano|a i| se|hil| ta|e i|a k|a s|a j|e j|ke |le | ke|yan|nun|ena|era|ra |ira|uns| ki|aka|ino|i j|i m|ri |pan|ten|o p|iya|n j|e p|ya |jer|in | je|unk|ken|i p| te|ana|min|san|ae | mi|ari|n m|ach| pi|i s|o m|un |ral|jon|e s|ona|kir|chu|ank|ara|ans|se | mo|ola|a p|o s|de | la|nla|ran|n t|iti|e k|lar|i n| ka|hun|ode|pod| po|anl|n i|ile|piy|nle|laj|tan| na|e m|o t|lak|toe|bi |ajo|ele|are|ayi|pay|nke|ojo|noj|o k|i k| ne|rat|tar|ina|n p|nti|onu|o j|nol|na | so|lac|i y|ela| tu|pe |i i|sel|lae|son|anu|lon|e y|kan|en |on |ton|n k|eti|n s| bo|tit|ika|olo|mi |yal|til|bol|ato|a y| ku|nen|inl|ono|be |ake|kar|lab|re |enk|nal|mir|hik|jo |ech| sh|o n|ati|tak|o i| ja|niy|ent| ni| pe|nch|pa |nue|ue |a l|nte|abe|una|yil|unt|ike|ami|let|mo |ibi|yak|te |umi|tal|obi|nec| we|n n|n y|aya| il|wen|eno|eya|pil|uwa|sen|nto|i e|ura|uni|yar|tob|shu|ape|yap|mok|tae|o y|nar|inu|i b|a n|oka|nbi|ere|huw|abi|mun| me|mer|e l|ama| am|lel|kuw|atu| ko| do|iri|mon|bin|e a|o w|jan| a |lay|i c|tin|kac|wa |ine|omi|jom|uwe| wa|onl|lo |nat| o |i a|esa|ko |u t| er|yib|enc',boa:' ts| me|ne |jcy|e m| mé|íjc|e t|tsá|é m|cyá|né |meí|tsa| mú|re | pá|íty|ke |óne|tsí|sá |jts| mu|á m|hdu|eke|cya|mún|eíj|áme|mek|yur|yón|tyu|é t|uró|hdú|vyé|rón|iyó|iyá|mee|a m|áné|aat|ity|llé|é i|ré |ááb|jɨ́| té|eer|ere|pám| pa| íj|éhd|újɨ|ñúj|saa|á t|yá |yét|iñú|mép| im|pii|e p|e i|té |ivy|ane|dú | né|iiv| te|été|wáá|imí|me |óné|ri | aa|u m|ats|ma |í m|hjɨ|mí |urá|e í| á | ɨ́|jca|ñe |ki |yé |uhd|ɨ́ |épi|muh|i m|rá |ɨ́ɨ|náa|tsó|dur|cat|́ɨ́|muu|áiy|úná|ye | tú|i t|ú m|één|ímí|ene|mɨ́|téh|á p|úha|múh|é p|yái|méé|úna|a t|te |jɨ |du |éjt|ame|aa |ñé |uur|naa|véj|evé|ure|tyú| di|tye|iiñ|túk|vú |até|íñe|éme|éne|énú|mé |ú t|pañ|aam|úne|méi|mem|tsú|myé|kev|úré|néh|ábó|éév| ím|vye|hi |wák|ahd|ijc|ha |yáh|ɨ́j|pɨ́|jác|aan|úke|tso|jch|e á|íñé|áne|sɨ́|een|yán|éké| mɨ|ɨ́a|tsɨ|u t|tyé|mep|úiy|amú|soj|ɨ́á|imy|úné|dit|́am| iñ|yu |áa |ca |évé|́áá|aki|yak|á á|e n|eri|ávy|éhj|júú|óme|áhi|ate|a i|néé|vu |ááv|ehd|éiy|óít|étú|kim|ójc|pán|áki|ten|yéi|tu |íiy|́jt| wá|ewá|mew|ájc|amé|jyu|áll|úme|e a| ii|yam|ké |óiy|meɨ|íll|ú p|jty|ími| án|ju |ááj|dúr|́ne|síñ|róm|áts|sah|píí|é w|úhb|éít|tú | ií|ɨ́n|ner|úún|ává|a í|úvú| pi|yan|ehj|ácú|áré|vén|ííñ| ij|emé|i á|éém| pí|yát|tyá|méw|chí| wa|unú|añe|á i|ájá|ték|éré',ztu:'ny |a a| a |u u| un| bu|bu |nny|unn|ra | ra| ch|e e|ih | e |a p| pa| na|hr |e c| de|ahr|pah|y r|a b|ee |na |y n|te | te| i |ta |a t| ga|e i|ere| ta|ree|der|ch | ni|i i| p |ga |h r|nn |r g|chi| x |rih|ty | gu|a c|nih|que|h c| ty| ih|i t|ei |aa |x t|y b|ni |hnn|by | qu|uny|p d|oon|yoo|ony|cëh|h n|i c| ny| cy|cy |uei|ëhn| cë|e r| c |h p|y c|guu|syo|uun|zi | la|ihb|hby| o | zi| re|ru |ye |ihz|i n|a r|y g|asy|hih|re |a n| pr|iru|zy |hir|e b|taa|e n|n n|zh |a l| li|xi | xi|a s|hzy|y z| ri|ah |y x|lah|hzh| n |y l|h g|le |nye|rta|ar |aar|n r|i d|y q|loh|eh |y t|ida|pro|er |ca |y p|r r|ann| co|a d|r c|ert|h b|hu |a x|ber|ibe|lib|cla|ahz| u |chu|h x|y d|uh | ca|eer| rn|r y|za |daa|nni| s |nah| gy| ll|oh | ru|rnn|a z|la |yee|be | bl|nna|u r| di|aht| eh|yuh|lyu|dec| wb|wby|gax|ecl|gah|lar|bye| lo| sa|hah|ara| ze|ze |c t|ras| in|iny|i l|p b|rca|di |maa|dig|co | rc|lle|jee|o c|blo|y o|h y|yih|ly |i r|ii |hii| mn|ll | rr|i u|hi | st|h q|eje|z b|tej| an|ote|nas|hny|y s|cas|deh|o o|pri|h t|rot|aha|u g|iga| nn|nid|sa | z |tih| yn|r l|ohi|ruh|uhn| le|a i|ng |u n|rel| yb|aly|uni|eli|n s|gui| cr|rre|el |wee|cwe|hty| sc|as |aan| aa|i e| za|ica|a m|gaa|can|r d|aal|n d|mnn|lly|nnr|cri|se | al|tee|yon|ona',cbr:' ca|icë|in | un| ic|uni|ën |qui|ca |cën|ma |a a|uin|ama|cë |bi |n a| ai|n c|nan|ti |cam|ain|i i|un |n u|ni |a u|i u|i c|tsi|a i|sin|an |nu |iti|ana|ñu |sa |a c|bët|ima| bë| ñu|tim|nun| it|abi|xun|tan|ëts| si|ina|anu|u i|nti| cu|ra |oqu|si |inu|isa|í i|i a|ë u| an|ica|car|ara|ati| at| qu|tí |ia |ban|ncë| ui|ant|ani|a t| ta|n b| ba|nin| oq|rib|n s|a b| a | us|nic|ais|ibi|man|acë|mab|usa|ësa|ern|rno|ier|nën| go|gob|obi|bie| ra|aqu|ëma|cës| më|nia|i b| up|ixu|ocë|anc|una|u c|nqu|u a|iri|cëm|mai|uix|anq| ac|cuë|ënë| në|upí|ëtë|nët|bë |ish|ití|n ñ|i o|nbi|pí |na |ë a| aq|i r| im|ë i|tën|non| ap|ari|apu|int|ai |uëë|ëën|ins|onë|ënu|ëni|cua|mën|air|u m|ibë|anm|sai|a o|ce |cëx|uis|i n|ë b|n i|bit|a ñ|max|sh |its|pit|nmi|ë q|rab|upi| is|x c| ax|ami|ian| me|imo|ax |axu| bu|n m| ti| ub|mi |në |nio| bi|unb|sab|a g| pa|n x| am|xan| xa|rai|n ë|buc|ëx |uan|pun|n n| in|ë c|aca|a m|í o|i m|a q|sar|hi |ënc|n p|ëta|sam|ucu|shi|can|nix|a s|uia| ma|nac|i ñ|mëë|uir|mit|nma| ën|ric| nu|ui |n g|ucë|ice|xa |i s|añu|cup| së|u ñ| añ|nib|unu|sën|oi |cun|ix | ia|n t|rin|tis|oca|nán|axa|a e|n r|ëcë|n q|ë t|saq|nri|uní|ntí|mar|chi|cue|ubí| xu|ioc| en|xbi|mic| ch|cac|uic|iqu|sib|noc| oi|íoc| as| di|dio|ios|imë|h c',mcf:'qui| ch|mbo|id | ic|sh |tsi|uid|ash|amb|bo |o i|ëda|que|aid|bëd|ac | bë|ias|dam|ict|sia|bi |cts| ca|in |n c|on |ho | qu|uin|chu|hui|ec |c b|cho| ni|ida|chi|iqu|cac|o c|uts|sho| ut|ido| da|i c|nid|esh|cqu| ta|dai|abi|nqu|equ|ics|ues| ma|ën |csa|ats|boe|tse|ted| ab|mbi|edi|ses|mat|n n|ueq|h c|bit|n m|en |sam|ton|das|ite|di |dën|ada| ad| na|c i|dnu| cu|idë|iac|a c|es |bad|d a|tab|aba|pan| ai|h n|d d|tia|uiq|shu| pa|oqu|pad|dqu|o a|n a|nëd|un |anë|don|d n|apa|imb| at|h q|da |uen|hoq| mi|ibi|nu |sib|ato|ino|noë|ta |uio|hia|oës|na |ësh|una|din|ipa|tan|sin| iq|ono|oec|emb|ibo| is|uip|adn| ua|adq|idi|i n|dad|cue|ai |nun|dap|ant|do |c t|ade| në|a u|bon|u q|hun|nac|nec|n t|iai|no |enq|abo|c c|anu|cai|nue|bid|i a|nti|ic |nia|uec|n p|h a|men|c a| be|ado|nen| co|i m|i b|con|d u|d c|tsë|cui|dac|n i|io | sh|d i|pab| ne|shë|nëi|ëid|hit|ito|oen|ebi|sun|h p|mib| pi|aqu|o b|iuc|sëc|ocq|ëqu|hie|ucq|ish|n b| am|ies|n u|uai| nu|uqu|piu|inq|i q|iec|nan|nuq|enu|bed|d m| me|api|pim|iap|ui |cuë|te |acn|c m|cbi|h u|uia|s u|hën|ëcq|nai|adt|o n|ueb|hon|dot|uie|den|csh|d b|hid|ene|idt|n d| em|ane|uet|s a|ioc|ets| më|dec|i u|noa|esu|o y|acb|dob|pen|i t|iad|an |ecq|uib|dan|anq|c q|ota|nda|hub|ubu|osh|pi |icq|ed ',bis:'ng |ong|lon|em |an |blo| bl| ol|man|mo | mo| i |ol | lo|wan| he|hem| we| ma|n i|et |aet|en | wo|rae| ra|we |at | ga|gat|o w|oma| o |wom|i g| wa|n o|sem| ka|t b| ev|vri|evr|n m| fr|emi|sen| no|li |t r|m o|ing|mi | se|ri |kem|eke|m s|oli|g h|mba|i m|tin|e i| me|om |n b|amb| sa|tem|g m|m w| st|g s|ae |eis| ba|mek|ise| fa|iwa|g w|ala|i n|ia |la |riw| pr|bam|fal|g o| na|in |ave|bae|sav|i b|ve |no |fri|lem|asi|se |sta|fas|m b|e h|ti |i s|o f|sin|pro|ap |dom|ido|rid| ia|ed |a m|m m| ta|e o|m e| fo| in|o b|t l| pi|tek|afa|ote|o s|g k|aem|rom|n l|ta | ti|ipo|l r|e m|sae|ens|iti|i k|pol|a b|n w|tae|ara|ole|nar|raf|t m|tri| so|im |nte|i w|g t|aon|res|lse|ols|eta|m h|fol|l b|ntr|ni |sos| tr|ok |kao|gti|ngt|g f|l m|tap|ase|is |ili|wok|ont|ot | re|m f|um |eni|son|aot|a l| en|aso|g l|ete|fro|oa | de|kas| di|i p|nas|usu|gen|ere| pa|spe|pip|get|aed| te|a w|es | lu|o t|m n| la|age|ini| tu|sum|g n| ag|nse|ret|n p|ek |a i|wet|eve|esp|lae|ama|l s|g p|gud|m p|t w|g d|m t|i l|g b|jen|rei|m l|loa|m r|sol|o o|luk|kte|men|ef |aen|aef|pek|m i|are|ekt|n f|i t|o m| ri|ema|nei|int|rot|os |kae|ea |o i|lev|lit|d b|ten|kse|it |sip|oso|s b|o l|rit|eri| ko|lge|ik |i o|as |olg|nom|wol|ren|vel|n t|n s|n r|d l|ono|nol',csa:' ts| le|†̎ |ia | ki|jmo|kio|lej| ne|os |ou |ne | li|ej†|sou|oo |tso|sia|tsa|j†̎|io | ju|e k| ta|̎ t|le |a l|uu | jm|sa |kö |ii |t†̎| kö| t†| ni|mos| ku|o t| mu|u t|joo|ojo| ma|moj|asi|†̍ | mo|o l|mo |tas|ni |a t| e |ijm| si|i j|aka|mak|ios|o̱ |e t|kal|s t|muk|uku|kuu|i k|a m|u l|a n|o j|a k|juu|xii|lij|e j| ka|o n| ti|a j|ta |u k|s l|i l|alo|ö m|ua |e l| mi|nia|s k|li |s n|loo|a s|e m| re|ixi|re |lii|o s| jn|mix|na | so|so̱|sam|u n|i t|i m|chi| ch|a̱ |s m|ö n|o k| sa|äs | s |̎ j|nio| ij|̎ l|kua| i |au |jni|u e|aa |ito| la| í | ja|hit|jus|jmä|soo|e e|gï |ama|s i|̍ t| na|too|e s|a r| rü|ti |̎ k|jua|̱ t|j†̍|e i|ní | ej|ejm|̎ i|o m|ija|s j|isi|jï |lis|jau|ö j|ï k|ï j|̱ n|gu†|u†̍|̱ k| gï| in| ji|̱ l|uso|kaj|oo̱|kur|u s|̎ n| nü|mug| il| is|jna|mä |u i|nü |ugu|í t|a i|a†̍|nei| jï|s í|ini|u m|jij|ue |i s|la†|kuo| xi|aäs|tin| s†|e n| ek|̱ j|u j|s e|i n|ös |ma |jaa|ale|iní|kue|kia|jup|upi|üs | ik|ajm|m†̎|ala|la |a e|lit|it†| ï |o e|as |s r|rü |̍ l|só |o r|ií |í n|o i|kï |eki|ü l|ila|es |pií|moo|uo |í l|uré|jue|iso|ka | kï|lak|ei |ü n|̍ s|s†̍|ió | jo|s†̎|o̱o|̱o |i g|io̱|̍ j|ée |rée| el|ika|a ñ| ñi|ima|ï t|aa̱|̎ e|maj|†̍s|̍s |meï|ï l|usó|am†|ä̱ |ñü |ta̱|ñaa|laj|kaä|ü e|oös|lig|aj†|ü s|̱ i|ts ',cic:'at |ann|aka| ka|nna|ya |kat| na|kma|kan|chi|tta|att|nan| ch|t i|tak|a n| ha|hat|o̱ |a̱ |ish| is|mak|hoo|ook|ha |i k|aho|hi |ani| ni|nak|a c|ka |mat|alh|itt|akm|a a|ni |sa |ban|nah|sha|a i|cha|oot|yya|̱ i|okm|iba|a k|i b| it|̱ma|na |t n| mó|ka̱|mó̱|ika|ó̱m| bí|íyy|bíy|yi |ot |ho̱|yyi|haa|ana|isa|ak | yo|hpi|a o| sh|i y|a s|ano|niy|ki |ach|lhp|áyy|tok|oka| ik|a h|t a|iya|aat| ya|kya|naa|tti| ki|pis| ba|iho|oky| áy|hmi| im|baa|t h|api|hib|ma̱|koo|shi|ta |aal|lla|yok|̱ a|ima|yo | aa|hok|i h| al|cho|ako| ay| o̱|a b|oli|aap|nih|t á| ho|hol|hak| hi|̱ k|nok|sht|̱ n|ill|ihm|nik| at|ahm|li |aya|i n|iha|oko|sso|̱ h|lli|la |tto|yah|aak|okh|kha|ikb|ila|aff|ffa|mal|too|mi |pi |iss| an|moh|lis|k m|hik|pa | sa|ala|i s|hto|imm|oho|a m|t y|i c|law|t m|hih|haf|tih|ali|fil|okf|kfi|aha|t k|iyy|o i|ich|ppa|ko̱|mmo|tib|aac|amm|ánt|i i|nta|lik|ikc|so |aww|wwi|och|kch|aaf|yaa|kni|nch|aa |all|nal|sal|ksa|oks|him|kbi|̱ y|ayo|o h|o n|akn|hiy|mma|k y|pii|ksh|iis|nom|lhi|omp|íll|tíl|ttí|ato|ma |pil| i̱|ayy|no |̱na|̱ c|ikm|opp|oba|hín|yam|lal|yop|o k| ib| oo|mmi|yyo|wi |mpa|fok|kmo|sho|fa |iks|lak|mik|kak|afo|mah|tim|hma|ota|hán|man| ma|pac| ih| a̱|ith|oto|lht|imi| ap|ohm| ta|hch|bit|i̱l|hip|há̱|t t|kay|han| os',mcd:'in |an |fin|tir|iro|nan|qui|n n| yo|n a|on |uin|hua|fo |ara| na|ifo|ahu|ofo|ifi|ati|non|n y|cai|sha| fu|har|ato|ant| no|ain|ran|oqu|ai |nti|sca|tsa| sh|aif|huu|fut|n i|oan|sho|uts|to |ash|can|rof|ora|oma| at| ma|ma |hon| cu|n c|oin|inf|shu|tif| ah| ra|nfi|n m|aca|pai| is| hu| ni|yor| ic|ra |ono|nfo|iai|foq|foa|un |rom|yoi| ca|ish|yon|fof|uat|cus|rat| as|nia| ts|mai|o n|asc|afi|nca|fai|n f|rif|ica|ton|ano|iti|onf|cas|ama|roq|noc|ush|coi|ana|uun|san|cha|man|hu |unu|o i|o a|cah|n s|oti|o y|afo|n t|iqu|a f|tso|ari|anc|oco|nhu|i a|ina|a n|tan|anh|nif|ori|soa|ri |ani|usc|isi|no |cun|anf|apa|aqu|mat|i i|ino|maf|ian|ima|n r|inr|nra|raf|fot|ico|i y|ro |i n| ta|ito|si |o f|cat|o c|uua|a c|anr|uar|hin|ait| fi|n h| an|nri| ch|ata|fia| in|ui |afa|nqu|shi|ich|nfa|ti |api|o r|inq|i f|hac|i c|co | oi|uu |a i|tap|ofu| mi|iya|a s|ipa|sa |oia|a h|fun|acu|pim|han|hum|raq|uta|ans|rin|uaf|uan| ar|ua |yam|rac|cof|nta|ca |oit|n o|for|i t|aic| ai|o m|ami|yaf|ras|iri|uap|u a|u s|uas|a r|mis|i s|umu|nus| ya|anu|o t|nsh|nma|noa|aiy|a y| pa|sma|aiq|ia |ann|nor|ura|asm|asi|its|mit|uma|uti|nno|isc|ufo|u f|chi|a a|o s|a t|o p| iq| it|uai|ofi|mur| mu|not|min|ram|npa|nuf|uca|fom|uhu|sin|sac| un|tor| ac|inc|nun|nu ',amc:' ja|qui|n j|mun|jat|in |ato|uin|hqu|imu|tim|ui |can|on |to |un |unh|ati|nan|aha|o j|i j| cu|ama|jau|an |hin| yo|nhq|aqu|a j|vo |au |yam|nqu|anq|cuz|ina|uza|ova| qu|xon| sh|jah| hi|ton|hca|u c| jo|hnu|uih|uca|ohi|oni|yoh|tza|anp| ha|utu|pu |n n|nuc|npu|anh|jon|ica|cun|ja |nut|n h| nu|ano|nhc|shi|mah|hax|hai|aya| na|utz|xan|ovi| vu|non| tz|ihq|ahi|n c|ivo|amu|ara|vi |mat|vin|har|ax |n y|iyo|tzo|ovo|nhn|iri|niv|nov|u j|zov|yoo|uiy|iqu|o h|uni|n v|hi |unu|azi|raz|ono|riv|ivi|hir|hon|ha |acu| ho|uir|ona|haq|cat|o c|axo|zan|ani|sha|nuu|vut|jam|i n| co|uun|ric|chi|raa|aun|n q|noo|yov|zi |ira|tun|hap|ti | ra|nti|oha|a h|apo|han|n t|i v|i y|ann|vau|yon|nha|nin|nxo|i q|tzi| va|ihn|iha|inh|nya|va |naa|oxa|ixo|ni |aay|vac| vi|oma|oon|ana|aat|n s|oo | ca|vaa|tut|ait| ch|iro|ito|i h|i c|ohq|hit| ni|zat|van|rom| no|ima|tan|mam|nah|nic|avi|man|maq|ya |zti|za |nna|cov|oov|n d|nix|zah|onv|jaq|i t|oya|hox|oco|apa|coo|izt|atz|zin|aho|ant|u h|o y|iti|ca |o s|ini|ra |vih|ino|nvo|a n|cav|ori|hiq|pan|a c|rah|ich|uma|iya|caa|aah|oca|nno|viz|nmu| ju| mu|voh|a v|o v|o n|onh|ava| de|ham|i s|cho|ech|hih|nma|x n|ora|uya|os |itu|uno|hic|zqu|hav|axa|zax|noh|tiv|nih|sht|ish|tir|rec|ere|der|nri| j |jaa|ahq|u n|una',amr:'hua|dik|ik | hu| o̱|o̱ |da | di|a d| ne| no|ka |k o|̱ n| ke|ne |ken|nog|e̱ | ka| da|po |hue| e̱|a t|ti | ti|oe̱|̱ e|pa |dak|npa|yo |ya |enp|e k|ue |taj|aj |ayo| on|e d|pi |a n|poe|ere|ada|o h|a h|a k|iri|uai|air| ay|pak|nop|aya|opo|uad| o |a o|ara|but|ahu| po|o̱n|atb|rat|tbu|nig| ar|gda|o k|ogd|ak |i k|ri |on | ek| pa|o n|̱ d|i o| ma|o o|khu|a a|ate|eka|gob|end|e n|obi|rno|ern|ier| go| e |bie|nda|no | ko|e a|kat|ko̱|̱ni|akh|bay|nay| ta| ba|ut |mad|k k|e o| i̱|kdi|a p|epi|toe|ker| i |tep|ro | ja|a e|re |i p|i̱ |i n|k e|i e|oro|o e| to|uab|e̱p|e̱y|ee̱|̱y |k i|en | na|e e|kno| ku|uap|na |ea |apo|abo|̱ne|̱ k|nen|man| or|bok|i h|rek|te |nma|oke|e h|ado|og |doy|gti|oya|uea|e p|anm|pee|okd|mey|̱po|a i| ok|ihu| be|si |ig |pok|ika|okn|ta |o t|tih|akd|uak|t k|ont|api|uas|gba|a b|akp|ogb|a̱ |ogo|ke |o m|adi|e̱n|igt|nta|kud|ana|kpo|to̱|g a|nok|asi| mo|epo|y k| ap|kan|kah|baa|k m|jah|aka|nep|ati|ok |ba |̱me|ua |o a|dar|aa |uat|ent|ari|o̱m|ia |oka|e b|go̱|jak|ria|ena|kup|̱ o|i t|̱ h|ey | er|n k|ek |mo |uah|me | pe|akn|pop|aba|a m|n t| ea|n b|utt|tto|uda|ota|kik|kna| ni|ett| et|be |ay |ike|ato|eno|o p|̱pa|i a| ya|e g|i g|da̱|nba|eta|apa|akk|j p| ed|n p|nhu|onh|j d|opa|j t|tta|ehu|o d|gka|upo|rit',cot:'que|aqu|tsa|aji|aca|ca |oca|tsi|nca|ame|ets|cam|eet|mee| ir|nta|ue |i i|gue|sat|jia|a a|uet|int|qui|ica|iro| an|i a|e a|mpa|nqu|ji |ant|caj|onc|ata|iaq|taq|j i|e o|ari|ats| in|uer|ate|ri | oc|ti |pae| ca| te| on|emp|eti|uem|tee|ae |shi|aj |a i|its|san|te |ee |agu|ro |eji|can|ani|taj|sa |e i| ma|tej|nts|tac|cat|eta|isa|anq|iri|ita|ati|ero|caa|iqu| ai| aa|sip|aas|iac|pa |eri|ipa|ais|apa|eca|nte|maj|hoo|caq|cho|ooc|inc|o a|anc|asa|no | it|igu|a o|ash|aat|ira|maa|ano|aco|ama|nin|par|aja|tan| ia|ato|uin|uea|i o|ui |gui|a c|i t|sic|equ| ar|ava|si |epa|jir|a t| qu|ogu|tim|ent|uej| am|pap|ron|ota|uec|cac|tat|nch|uit|ima|aro|avi|uen|ite|o c| ag|e t|e c|inq|ont|imp|jit|iji|opa|ine|i c|aaj|vac| i |saj|ane|ion|nti|a m|to |eje|iat|cag|roc|ric|tic|rog|tio| ac|hin|eat|cot|paj|ej |tep|ara|tas|gar|api|egu|jaj|jig|iga|ana|i m|jet|rig|ish|ram|ija|eja|jan|nij|ea |aac|hit| co|tar| ch|tap| at|niq|oqu|vin|aav|cav|ini|man|nea|siq|oro| ic|amp|tag|ove| ta|o i|mat|nor|gon|nej|ono|coj|jaq|men|o o|taa|rop|sim|rot|tav|oji|j a|ran|pat|coa|uep|enq|ueq|iti|oni| pi|ago|are|ria|ime|ote|ave|i q|saq|uis|nec|ueg|jai| as| ya|ten|pit|naj|pan|veg| sh|ra |o t|ij |nco|ega|rov|sam|car|rim|mpe| ti|ots|a q|hij| ot|nit|e m|tem',ajg:'wo | a |yi |o a|mɛ |gbe|amɛ| yi| wo|le | ɖo| le|ɖo | nɔ|nɔ |o e| ko| am|ɖe | ɖe|be | ci|ɔ a|e e| sɔ|ɔ e|do | gb|e a|ɖek|okp|wi |tɔ | en| ej|kpɔ|eju| eg|i a|ɛ a| kp|kpo| ny|egb|a n|ɔ w|eyi|o ɖ| ey|agb|sɔ |nyi|a s|pwi|ɔwo|kpw|e ɖ| al|enu| ɔ |pok|ekp|cɛ | ag|nu |etɔ|bet|ko |acɛ| ac|lo |an |o n|ci | vo|ɔ n|i ɖ|i y|nyɔ|u a|i w|odo| es| wa|ji |alo|i n|wa |pɔ |i e|kod|ɔn | do|ese|to |iwo|ɛɖe|mɛɖ|se |ciw|yɔ | mɛ|nya|ju |i l|ɛ k| ŋu|o k|a g|sɛn|e n|ŋu | lɔ| ji|awa|o y|e k|ɛ n|tɔw|lɔ | e |na |a k|umɛ|n a|vo |eŋu|a ɖ|de | de|kpl|ukɔ|ɔ c|ple|ovo|uwo|i d|vov|omɛ| ed|ɛ e|ɔ ɖ|edɔ| nɛ|eka|waw|nɛn|ɛnɛ|ɔ l|i k|ɔnɔ|nɔn|ɔkp|ɛ y|o v|kpa|ɛ l|a y|ya |n e|ɔ d|sɔs| ka|dɔn| nu|o l| sɛ| na|ɛn |ŋuk|shi|o w|gbɔ|ɔ g|o j|u l|a w|eny|eɖe|hwe|lan|i s|gan| to| be|ɔwa|wɛ |e s|ɔmɛ|wan|a v|a e|gbɛ| su|o g|e l|ɔnw| je|gba|o s|a l|ɔ k| dr|ni |kɔn|vi | ni| go|e w| hw|pɔk|a d|vok|ɛ c|nwo|alɔ|we |o d|u ɖ|a t|nsɛ|in |ɛwo|bu |i c| cɛ|uɖe|ɛ ɔ|iyi|iny|o p|ana|gom|bes|e h|swɛ|a a|yɔn|e g|jum|uku|u c|any|ka |ɖeɖ|u n|fan| ak|nuw|ɛbu|juk|a x| xo|pla|xwe|ɔɖe|kan|i j|e c|mɛb|hi |ɔnu|uny|e d|je |ubu|ɔbɔ|wen|bɔb|awo|o ɔ|mɛn|n c| xɔ|dɔw|i t|atɔ|e y| dɔ|n k|so |akp|esw|dɔ |leŋ| pl|yin|ega|usu|owo|ɔ y|lɔw|iɖe|bɔ | et|ann|só |nmɛ|ɔ t|ɔsó',arl:' na|a n|iya|ani|ini|a p|na |aja|pue|ia |a m|ra |ya | ma|naa| pu|qui|ish|aa | pa|ara|aar|cua|nu |uey|shi|eya|ari|a s| ta|a c|ano|nia|a t|a j| ji|no |yan|ana| qu|ja | ni|aca|ria|iis|jiy|nii|niu|aji| ca|sha|hiy| se|ta |ata| cu|ri |onu|iti|aaj|a q|maj|nin|u p|jaa|uet|san|pa |tam|iji|uaa| mi|jan|ni |hua|que|unu|mii|man|niy|pan|car|ua |jin|uaj|etu|tun|aat|i p|yaj|uhu|esa|ojo|iri|equ|tia|can|uin|ocu|seq|mon|amo|i n|saa|juh|tio|mar|asa|o n|nis| ja|iur|ioj|han|uri|osa|iqu|a r| sa|aqu|uan|hac|ura|jio|ian|jua|anu|te |yat|u n|nio|iu |uia|iaa|io |jia|ama|iit| so| po|oon|ios|taa|oju|nur|u j|riy|iij|ant|i m|ses|nte|ji |sa |enu|ucu|ca |iaj|soc|i c|o m|o p|noj|aju|uiy|jii|poo|iir| ju|niq|iar|oor|hit|ues|tas|nij|o j|uis|ori|ere|paa| to| no|uir|u t|art|acu|osh|tes|jon|nti|ati|yac|jos|ora|naj|ash|oji|mas|sac|maa|ami|tar|tij|ree|toj|cam|ate|uer| ru|apu|oni|yar|ota|rac|aan|jiu|yoc|i s|rio|jor|iin|ont|i t|tan|aj |o q|ias|are|uju|era|joo|rin|ase|u m|ohu|ejo|e n|uit|cas|uac|riq|too|e s|eyo|tap|eto|e t| sh|his|rer|iuj|cun|yaq|esh|yas|nuj| re|uji|rup| ti|rta|aso|nar|rej|uuc|u c|ete|uta|nuu|uen|rte|uar|ion|hin|coj|sen|paj| nu|o c|uii|tis|uqu|oot|mue|j i|ii |i j|asu|ioo|ee |caj|raj|aru|o s|sam|saq|rii|aje|haa',ppl:'an | ta|al | te|pal| gi|chi| ti|at | mu|it | ne|t t| pa| ga|tay|ay |eli|wel|ne |wan| wa|ga |e t|i t| we|et |hiw|a t|uch|tiw|li |muc|a g|hi |su |met|tik|ina|t g|iwa|n t|lit|gan|git|teh|eme|iat|hem|ehe|ipa| ya|ech| in|gic|ich|egi|ia |esu|tia|tec|tes|ati| ma| ip|wit|a m|wat|t w|i g|ha |l t|yah|l n| se|aga|aha| tu|uk |ti |neg|u t|iwi|gen|a w|cha|pia| ge|n g|nem|emi|k t|t m|na |han|aht|hti| ye|l m|nat| u |a n|xti|te |ine|n w|wa |se |y t|ek |tuk|yek|tah|iwe|en |gip|a i|ita|y g|i m|ixt|t p|upa|n m|mat|ama|ik |gi |ya |ma |tag|mun|t n|agi|ipi|tam|y y|a p|n p|mag|i n|gin|gix|uma|mi |tal| su|l g|e g|l w|hta|awi|tup|tim|n i|imu|une|k s|wia|ta |cht|u g|i w|ach|i i|iwt|n n|ka |ni |atk|ak |t i|mum|mac|tka|i p|t u|ikc|mui|htu|ikn|y i| ag|kch|tig|uli|eng|pat| uk|ima|gim|tat|mit|kti|age|teg|nga| qa|dat|puz| da|tan|kne|i y|eza|u y|a y|gez|uzu|u w|tin|aya|wtu|iga|qak|lwi|ilw|iht|y m|k n|gat|uin|za |tul|ikp|may|awa|uwa|e p|l i|n y|ini|iti|ewi|wi | ix|e a|ami|tit|ukt|n s| ch|mup|lew|taw|ah |ite|u p|kpi|a s|net|e s|ale|wag| nu|gah|iw |igi|ani|u a|e m|tu |k g|gam| na|una|gal|ikt|muw|yaw|zua|uat|a u|k m|e n|lia|use|wti|nan|ame|k p|u m|alm|pa |l y|nex|iaw|t s|k u|san|mut|lme|l p|mu |ezi|epa|me | pu|axt|yuk',mxi:' de|e l|es | la|e d|ne |ion|de |la |os |ent|to |tio|one|te | in|tat| pe|per|le | co|a p|a l|les|ale|ret|as | a |eto|ate|dre|ati|o a| dr|re | e |nti|tos|e e|na |ia |ta |ona|tia|el |s d| le|nte|ant|men|e a|in |ene|que|con| to|a s|tot|ien| pr|ers| et|et | ti| li|res|ita|s e|e p|rso| qu|tie| el|a t|son|ota| re|ber|ess|e c| au|er |e s| l’|sse|o d|pro|nat|a c| su|ue |ame|cti|s a|lib|se |a d|omm|nt |e i|ere|s s|sua|e t|ato|tra| se|nes|era|nal|bbe|a e|com|ual| ad|ua |ter|rta|sta|nen|ica|rà | al|s p|t a|del|ele|nta|ibb| un| d’|ert|ser|nto|ect|las| na|tes|a a|ond| pa|iss|ra |are| si|s i| so|so |o e|est| ne|erà|ad |ssa|io |una|o i|aqu|au | ci|ote|int|ass|s t|s n|sso| aq|ntr|pre| di|ssi|ias|man|aut|e q|mo |s l|ali|nos|ran|ial|rat|no |cun|gua|ont|n l|oci|mat| st| fo|tan|cia|o s|ons|ten|lit|ndi|vit|iti|soc|s c|ciu|den|sec|e n| ma|ria|oll|lle|uma|hum|cla|egu| es|t i|tiv|ata|oto|t d|o p| po|fon| mo|on |tas|ver|ind|cas| ac|a r|ndo|par|tal|o t|t e|ore|ura|ca |n c|nda|dic| tr| me|alt|a n| hu|a f|e r|rec|n e| as|ieu|sie|act|o l|uno|ori|mmo|ena|tor|sti|nsi|cto|ecu|iva|sce|unt|r l| ca|ide|tri|do |nio|lo | eg|eco|ime|l s|a i|ues|l’a|eta|rse|un |nit|nde|cat|s f|rot|ari|ist|qua|a v| fa|rar|als|sat|lse|val'},Cyrillic:{rus:' пр| и |рав|ств| на|пра|го |ени|ове|во | ка|ани|ть | в | по| об|ия |сво| св|лов|на | че|ело|о н| со|ост|чел|ие |ого|ет |ния|ест|аво|ый |ажд| им|ние|век| не|льн|ли |ова|име|ать|при|т п|и п|каж|или|обо| ра|ых |жды| до|дый|воб|ек |бод|ва |й ч|его|ся |и с|ии |аци|еет|но |мее|и и|лен|ой |тва|ных|то | ил|к и|енн| бы|ию | за|ми |тво|и н|о п|ван|о с|сто|аль| вс|ом |о в|ьно|их |ног|и в|нов|ако|про|ий |сти|и о|пол|олж|дол|ое |бра|я в| ос|ным|жен|раз|ти |нос|я и| во|тор|все| ег|ей |тел|не |и р|ред|ель|тве|оди| ко|общ|о и| де|има|а и|чес|ним|сно|как| ли|щес|вле|ься|нны|аст|тьс|нно|осу|е д| от|пре|шен|а с|бще|осн|одн|быт|сов|ыть|лжн|ран|нию|иче|ак |ым |ват|что|сту|чен|е в| ст|рес|оль| ни|ном|род|ля |нар|вен|ду |оже|ны |е и| то|вер|а о|зов|м и|нац|ден|рин|туп|ежд|стр| чт|я п|она|дос|х и|й и|тоя|есп|лич|бес|обр|ото|о б|ьны|ь в|нии|е м|ую | мо|ем | ме|аро| ре|ава|кот|ав | вы|ам |жно|ста|ая |под|и к|ное| к | та| го|гос|суд|еоб|я н|ен |и д|мож|еск|ели|авн|ве |ече|уще|печ|дно|о д|ход|ка | дл|для|ово|ате|льс|ю и|в к|нен|ции|ной|уда|вов| бе|оро|нст|ами|циа|кон|сем|е о|вно| эт|азо|х п|ни |жде|м п|ког|от |дст|вны|сть|ые |о о|пос|сре|тра|ейс|так|и б|дов|му |я к|нал|дру| др|кой|тер|ь п|арс|изн|соц|еди|олн',ukr:'на | пр| і |пра|рав| на|ня |ння| за|ого| по|ти |го |люд| лю|во | ко| ма|льн|юди|их |о н| не|аво|анн|дин| св|сво|ожн|кож|енн|пов|жна| до|ати|ина|ає |а л| бу|аці|не |ува|обо| ос| як|має| ви|них|аль|або|є п| та|ні |ть |ови|бо | ві| аб|ере|і п|а м|вин|без|при|іль|ног|о п|ми |та |ом |ою |бод|ста|воб| бе|до |ва |ті | об|о в|ост| в | що|ий |ся |і с| сп|инн|від|ств|и п|ван|нов|нан|кон| у |ват|она|ії |но |дно|ій |езп|пер| де|ути|ьно|ист|під|сті|бут| мо|и і|ідн|ако|нні|ід |тис|що |род|і в|а з|ава| пе|му |і н|а п|соб|ої |а в|спр|ів |ний|яко|ду |вно|і д|ну |аро|и с| ін|ля |рів|у в| рі|и д|нар|нен|ова|ому|лен|нац|ним|ися|чи |ав |і р|ном| ро|нос|ві |вни|овн| її|ові|мож|віл|у п| пі| су|її |одн| вс|ово|ють|іст|сть|і з| ст|буд| ра|чен|про|роз|івн|оду|а о|ьни|ни |о с|сно|зна|рац|им |о д|ими|я і|ції|х п|дер|чин| со|а с|ерж|и з|и в|е п|ди |заб|осо|у с|е б|сі |тер|ніх|я н|і б|кла|спі|в і| ні|о з|ржа|сту|їх |а н|нна|так|я п|зпе| од|абе|для|ту |і м|печ| дл|же |ки |віт|ніс|гал|ага|е м|ами|зах|рим|ї о|тан|ког|рес|удь| ре|то |ков|тор|ара|сві|тва|а б|оже|соц|оці|ціа|осн|роб|дь‐|ь‐я|‐як|і і|заг|ахи|хис|піл|цій|х в|лив|осв|іал|руч|ь п|інш|в я|ги |аги| ді|ком|ини|а і|оди|нал|тво|кої|всі|я в|ною|об |о у|о о|і о',bos:' пр| и |рав| на|пра|на |да |ма |има| св|а с|а п| да|а и| по|је |во |ко |ва | у |ако|но |о и|е с| за| им|аво|ти |ава|сва|и п|ли |о н|или|и с|их |вак| ко|ост|а у| сл|не |вањ| др|ње | не|кој|ња | би|ије|и д|им |ств|у с|јед|бод|сло|лоб|обо| ил|при| је|ање| ра|а д| об| су|е и|вје|се |ом |и и|сти| се|ју |дру|а б| ос|циј|вој|е п|а н|раз|су |у п|ања|о д|ује|а о|у и| од|и у|ло |ова|дје|жав|оје|а к|ни |ово|едн|ити|аци|у о|о п|нос|и о|бра| ка|шти|а ј|них|е о|пре|про|ржа| бу|буд|тре| тр|ог |држ|бит|е д|у з|ја |ста|авн|ија|е б|миј|и н|реб|сво|ђи |а з|ве |бил|ред|род|аро|ило|ива|ту |пос| ње| из|е у|ају|ба |ка |ем |ени|де |јер|у д|одн|њег|ду |гов|вим|јел|тва|за | до|еђу|ним| са|нар|а т| ни|о к|оји|м и| см| ст|еба|ода|ран|у н|дна|ичн|уђи|ист|вно|алн|и м| дј|нак|нац|сно|нст|тив|ани|ено|е к|е н|аве|ан |чно|и б|ном|сту|нов|ови|чов|нап|ног|м с|ој |ну |а р|еди|овј|оја|сми|осн|анс|ара|дно|х п|под|сам|обр|о о|руг|тво|ји | мо|его|тит|ашт|заш| кр|тељ|ико|уна|ник|рад|оду|туп|жив| ми|јек|кри| ов| вј| чо|ву |г п| оп|међ|њу |рив|нич|ина|одр|е т|уду| те|мје|ење|сви|а ч|у у|ниц|дни| та|и т|тно|ите|и в|дст|акв|те |ао | вр|ра |вољ|рим|ак |иту|ави|кла|вни|амо| он|ада|ере|ена|сто|кон|ст |она|иво|оби|оба|едс|как|љу ',srp:' пр| и |рав|пра| на|на | по|ма | св|да |има|а п|а и|во |ко |ва |ти |и п| у |ако| да|а с|аво|и с|ост| за|о и|сва| им|вак|ава|је |е с| сл| ко|о н|ња |но |не | не|ом |ли | др|или|у с|сло|обо|кој|их |лоб|бод|им |а н|ју | ил|ств| би|сти|а о|при|а у| ра|јед|ог | је|е п|ње |ни |у п|а д|едн|ити|а к|нос|и у|о д|про| су|ање|ова|е и|вањ|и и|циј| ос|се |дру|ста|ају|ања|и о| об|род|ове| ка| де|е о|аци|ја |ово| ни| од|и д| се|ве |ује|ени|ија|авн|жав| ст|у и|м и|дна|су |ред|и н|оја|е б|ара|што|нов|ржа|вој|држ|тва|оди|у о|а б|одн|пош|ошт|ним|а ј|ка |ран|у у| ов|аро|е д|сно|ења|у з|раз| из|осн|а з|о п|аве|пре|де |бит|них|шти|ву |у д|ду |ту | тр|нар| са|гов|за |без|оји|у н|вно|ичн|еђу|ло |ан |чно|ји |нак|ода| ме|вим|то |сво|ани|нац| ње|ник|њег|тит|ој |ме |ном|м с|е у|о к|ку | до|ика|ико|е к|пос|ашт|тре|алн|ног| вр|реб|нст| кр|сту|дно|ем |вар|е н|рив|туп|жив|те |чов|ст |ови|дни|ао |сме|бра|ави| ли|као|вољ|ило|о с|штв|и м|заш|њу |руг|тав|анс|ено|пор|кри|и б|оду|а р|ла | чо|а т|руш|ушт| бу|буд|ављ|уги|м п|ком|оје|вер| ве|под|и в|међ|его|вре|акв|еди|тво| см|од |дел|ена|рад|ба | мо|ну |о ј|дст|кла| оп|как|сам|ере|рим|вич|ива|о о| он|вни|тер|збе|х п|ниц|еба|е р|у в|ист|век|рем|сви|бил|ште|езб|јућ|њен|гла',uzn:'лар|ан |га |ар | ва| би|да |ва |ир | ҳу|ига|уқу|бир|ҳуқ|қуқ|ган| ҳа|ини|нг |р б|иш | та|ни |инг|лик|а э|ида|или|лиш|нин|ари|иши| ин|ади|он |инс|нсо|сон|ий |лан|дир| ма|кин|и б|ши |ҳар| бў|бўл| му|дан|уқи|ила|қла|р и|қиг|эга| эг| ўз|ки |эрк|қил|а б|оли|кла| эр|гад|лга|нли| ол|рки|и ҳ| ёк|ёки| қа|иб |иги|лиг|н б|н м| қи| ба|ара|атл|ри | бо|лат|бил|ин |ҳам|а т|лаш|р ҳ|ала| эт|инл|ик |бош|ниш|ш ҳ|мас|и в|эти|тил|тла|а ҳ|и м|а қ|уқл|қар|ани|арн|рни|им |ат |оси|ўли|ги | да|а и|н ҳ|риш|и т|мла|ли | ха|а м|ият| бу|рла|а а|рча|бар|аси|ўз |арч|ати|лин|ча |либ|мум| ас|аро|а о|ун |таъ| бе| ту|икл|р в|тга|тиб| ке|н э|ш в|мда|амд|али|н қ|мат|шга| те|сид|лла|иро| шу| қо|дам|а ш|ирл|илл|хал|рга| де|ири|тиш|умк|ола|амл|мки|тен|гин|ур |а ў|рак|а ё|имо| эъ|алқ| са|енг|тар|рда|ода| ша|шқа|ўлг|кат|сий|ак |н о|зар|и қ|ор | ми|нда|н в| си|аза|ера|а к|тни|р т|мил| ки|к б|ана|ам |ошқ|рин|сос|ас | со|сиз|асо|нид|асл|н ў|н т|илг|бу |й т|ти |син|дав|шла|на |лим|қон|и а|лак|эма|муҳ|ъти|си |бор|аш |и э|ака|нга|а в|дек|уни|екл|ино|ами| жа|риг|а д| эм|вла|лма|кер| то|лли|авл| ка|ят |н и|аъл|чун|анл|учу| уч|и с|аёт| иш|а у|тда|мия|а с|ра |ўзи|оий|ай |диг|эът|сла|ага|ник|р д|ция| ни|и ў|ада|рор|лад|сит|кда|икд|ким',azj:' вә|вә |әр |лар| һә|ин |ир | ол| һү| би|һүг|үгу|гуг|на |ләр|дә |һәр| шә|бир|ан | тә|лик|р б|мал|лма|асы|ини|р һ|шәх|ән |әхс|ары|гла|дир|а м|али|угу|аг | ма|ын |илә|уна|јәт| ја|икд|ара|ар |әри|әси|рин|әти|р ш|нин|дән|јјә|н һ| аз|ни |әрә| мә|зад|мәк|ијј| мү|син|тин|үн |олу|и в|ндә|гун|рын|аза|нда|ә а|әт |ыны|нын|лыг|илм| га| ет|ә ј|кди|әк |лә |лмә|олм|ына|инд|лун| ин|мас|хс |сын|ә б|г в|н м|адл|ја |тмә|н т|әми|нә |длы|да | бә|нун|бәр|сы | он|әја|ә һ|маг|дан|ун |етм|инә|н а|рлә|си | ва|ә в|раг|н б|ә м|ама|ры |н и|әра|нма|ынд|инс| өз|аны|ала| ал|ик |ә д|ләт|ирл|ил | ди|бил|ығы|ли |а б|әлә|дил|ә е|унм|алы|мүд| сә|ны |ә и|н в|ыг |нла|үда|аси|или| дә|нса|сан|угл|уг |әтл|ә о|хси| һе|ола|кил|ејн|тәр|јин| бу|ми |мәс|дыр|һәм| да|мин|иш | һа| ки|у в|лан|әни| ас|хал|бу |лығ|р в| ед|јан|рә |һеч|алг| та|еч |и с|ы һ|сиа|оси|сос|фиә|г һ|афи|ким|даф| әс|ә г| иш|н ә|ији|ыгл|әмә|ы о|әдә|әса| со|а г|лыд|илл|мил|а һ|ыды|сас|лы |ист| ис|ифа|мәз|ыр |јар|тлә|лиј|түн|ина|ә т|сиј|ал |рил| бү|иә |бүт| үч|үтү|өз |ону| ми|ија| нә|адә|ман|үчү|чүн|сеч|ылы|т в| се|иал|дах|сил|еди|н е|әји|ахи|хил| ҹә|миј|мән|р а|әз |а в|илд|и һ|тәһ|әһс|ы в|һси|вар|шәр|абә|гу |раб|аја|з һ|амә|там|ғын|ад |уғу|н д|мәһ|тәм| ни|и т| ха',koi:'ны |ӧн | бы|да | пр|пра|рав| мо|лӧн| да|быд|лӧ |орт|мор|ӧм |аво|ӧй | ве|ыд | не|нӧй|ыс |ын |сӧ |тӧм|сь |во |эз |льн|ьнӧ|тны|д м| ас|ыны|м п| по|сьӧ| и |то |бы | ӧт| эм| кы|аль|тлӧ|н э| от|вер|эм | кӧ|ртл|ӧ в| ко|воэ|ств|ерм|тшӧ| до|ола|ылӧ|вол|ас |ӧдн|кыт|ісь|ето|нет|тво|ліс|кӧр|ӧс | се|ы с|шӧм|а с|та |злӧ| ме| ол|аци|ӧ к|ӧ д|мед| вы|вны|а в|на |з в| на|ӧ б|лас|ӧрт| во| вӧ| сі|лан|рмӧ|дбы|едб|ыдӧ|оз |ась| оз| сы|ытш|олӧ|оэз|тир|с о| чу|ы а|оти|ция|ись|ӧтл| эт|рты| го|ы п|ы б|кол|тыс|сет| сь|рті|кӧт|о с|н б|дз |н н| мы| ке|кер|тӧн|тӧг|ӧтн|ис |а д|мӧ |ост|ӧ м| со|онд|нац|дӧс|итӧ|ест|выл| ви|сис|эта| уд|суд|нӧ |удж|ӧг |пон|ы н|н п|мӧд|а п|орй|ӧны|ӧмӧ|н м|ть |сыл|ана|ті |нда|рны|сси|рре|укӧ|з к|чук|йын|рез| эз|ысл|ӧр |ьӧр|с с|с д|рт |с в|езл|кин|осу|эзл|й о|отс| тӧ|ы д| ло| об|овн|лӧт|асс|кӧд|с м|ӧ о|нал|быт|она|ӧт |слӧ|скӧ|кон|тӧд|ытӧ|дны|а м|ы м|нек|ы к|ӧ н|асл|дор|ӧ п| де| за|а о| ов|сть|тра| дз|ь к|ӧтч|н к| ст|аса|етӧ|ьны|мӧл|умӧ|сьн| ум|ерн|код| пы|тла|оль|иал|а к|н о| сэ|а н|ь м|кыд|циа|са | ли|а б|езӧ|й д| чт|ськ|эсӧ|ион|еск|ӧ с|оци|что|ан |соц|йӧ |мӧс|тко|зын|нӧя|вес|енн| мӧ|ӧтк|ӧсь|тӧ |рлӧ|ӧя |оля|рйӧ|ӧмы|гос|тсӧ|зак|рст|з д|дек|ннё|уда|пыр|еки|ако|озь| а |исӧ|поз|дар|арс|ы ч',bel:' і | пр|пра|ава| на|на | па|рав|ны |ць |або| аб|ва |ацы|аве|ае | ча|ння|анн|льн| ма| св|сва|ала|не |чал|лав|ня |ай |ых | як|га |век|е п| ад|а н| не|пры|ага| ко|а п| за|кож|ожн|ы ч|бод|дна|жны|ваб|цца|ца | ў |а а|ек |мае|і п|нне|ных|асц|а с|пав|бо |ам |ста| са| вы|ван|ьна| да|ара|дзе|одн|го |наг|він|аць|оўн|цыя|мі |то | ра|і а|тва| ас|ств|лен|аві|ад |і с|енн|і н|аль|най|аво|рац|аро|ці |сці|пад|ама| бы| яг|яго|к м|іх |рым|ым |энн|што|і і|род| та|нан| дз|ні |я а|гэт|нас|ана| гэ|інн|а б|ыць|да |ыі |оў |чын| шт|а ў|цыі|які|дзя|а і|агу|я п|ным|нац| у | ўс|ыя |ьны|оль|нар|ўна|х п|і д|ў і| гр|амі|ымі|ах | ус|адз| ні|эта|ля |воў|ыма|рад|ы п|зна|чэн|нен|аба| ка|ўле|іна|быц|ход| ін|о п| ст|ера|уль|аў |асн|сам|рам|ры | су|нал|ду |ь с|чы |кла|аны|жна|і р|пер|і з|ь у|маю|ако|ыцц|яко|для|ую |гра|ука|е і|нае|адс|і ў|кац|ўны|а з| дл|яўл|а р|аюч|ючы|оду| пе| ро|ы і|вы |і м|аса|е м|аду|х н|ода|адн|нні|кі | шл|але|раз|ада|х і|авя|нав|алі|раб|ы ў|нна|мад|роў|кан|зе |дст|жыц|ані|нст|зяр|ржа|зак|дзі|люб|аюц|бар|ім |ены|бес|тан|м п|дук|е а|гул|я ў| дэ|ве |жав|ацц|ахо|заб|а в|авы|ган|о н|ваг|я і|чна|я я|сац|так|од |ярж|соб|м н|се |чац|ніч|ыял|яль|цця|ь п|о с|вол|дэк| бе|ну |ога| рэ|рас|буд|а т|асо|сно|ейн',bul:' на|на | пр|то | и |рав|да |пра| да|а с|ств|ва |та |а п|ите|но |во |ени|а н|е н| за|о и|ото|ван|не | вс|те |ки | не|о н|ове| по|а и|ава|чов|ни |ане|ия | чо|аво|ие | св|е п|а д| об|век|ест|сво| им|има|ост|и д|и ч|ани|или|все|ли |тво|и с|ние|вот|а в|ват|ма | ра|и п|и н| в |ек |сек|еки|а о| ил|е и|при| се|ова|ето|ата|воб|обо|бод|аци|ат |пре|оди|к и| бъ| съ|раз| ос|ред| ка|а б|о д|се | ко|бъд|лно|ния|о п| от|ъде|о в|за |ята| е | тр|и и|о с|тел|и в|нит|е с|ран| де|от |общ|де |ка |бра|ен |ява|ция|про|алн|и о|ият|ст |нов| до|его|как|ато| из|нег|а т|ден|а к|щес|а р|тря|а ч|ряб|о о|вен|ябв|бва|дър|гов|нац|ено|тве|ърж|е д|нос|ржа|а з|вит|зи |акв|лен| та|ежд|и з|род|е о|обр|нот| ни| с |т с|нар|о т|она|ез |йст|кат|иче| бе|жав|е т|е в|тва|зак|аро|кой|осн| ли|ува|авн|ейс|сно|рес|пол|нен|вни|без|ри |стр| ст|сто|под|чки|вид|ган|си |ди |и к|нст| те|а е|вси|еоб| дъ|сич|ичк|едв|жен|ник|ода|т н|о р|ака|ели|одн|елн|лич| че|чес|бще| ре|и м| ср|сре|и р|са |лни| си|дви|ичн|жда| къ|оет|ира|я н|дей| ме|еди|дру|ход|еме|кри|че |дос|ста|гра| то|ой |тъп|въз|ико|и у|нет| со|ави|той|елс|меж|чит|ита|що |ъм |азо|зов|нич|нал|дно| мо|ине|а у|тно|таз|кон|лит|ан |клю|люч|пос|тви|а м|й н|т и|изв|рез|ази|ра |оят|нео|чре',kaz:'ен |не | құ|тар|ұқы| ба| қа|ға |ада|дам|құқ|ық | бо| ад|ықт|қта|ына|ар | жә|ың |ылы|әне|жән| не|мен|лық|на |р а|де | жа|ін |а қ|ары|ан | әр|қыл|ара|ала| ме|н қ|еме|уға|ның| де|асы|ам |іне|тан|лы |нды|да |әр |ығы|ста|еке| өз|ын |ған|анд|мес| бі| қо|ды |ің |бас|бол|етт|ып |н б|ілі|қық|нде|ері|е қ|алы|нем|се |бір|лар|есе|ы б|тын|а ж| ке|тиі|ост|ге |бар| ти|е б| ар|дық|сы |інд|е а|аты| та| бе|ы т|ік |олы|нда|ғын|ры |иіс|ғы | те|бос|луы|алу|сын|рын|еті|іс |рде|қығ|е ж|рін|дар|іні|н ж|тті|қар|н к|ім | ер|егі|ыры|ыны| са|рға|ген|ынд|аны|уын|ы м|лға|ана|нің|тер|уы |ей |тік|ке |сқа|қа |мыс|тық|м б|ард| от|е н|е т|мны|өзі|нан|гіз|еге| на|ы ә|аза|ң қ|лан|нег|асқ|кін|амн|кет|рал|айд|луғ|аса|ті |рды|і б|а б|ру | же|р м|ді |тта|мет|лік|тыр|ама|жас|н н|лып| мү|дай|өз |ігі| ал|ауд|дей|зін|бер|р б|уда|кел|біл|і т|қор|тең|лге| жү|ден|ы а|елі|дер|ы ж|а т|рқы|рлы|арқ| тү|қам|еле|а о|е ө|тін|ір |ең |уге|е м|лде|ау |ауы|ркі|н а|ы е|оны|н т|рыл|түр|ция|гін| то| ха|жағ|оға|осы|зде| ос|ікт|кті|а д|ұлт|лтт|тты|лім|ғда| ау| да|хал|тте|лма| ұл|амд|құр|ірі|қат|тал|орғ|зі |елг|сіз|ағы| ел|ң б|ыс | ас|імд|оты| әл|н е|ағд|қты|шін|ерк|е д|ек |ені|кім|ылм|шіл|аға|сты|лер|гі |атт|кен| кө|ым‐| кұ|кұқ|ра |рік|н ә| еш',tat:' һә|лар|әм |һәм| ке| хо|кук|оку|хок|еше| бе|ләр|кеш|га |әр |рга|ан |кла| бу|ар |ең |нең|гә | то| ба|да |ргә| ти|ырг|һәр|ене|бер|ән |ен |р к|бул|укл|дә |а т|ары|тор|ире| үз|на |ган|ара| ка| ал|ә т|нә | ит| дә|ы б| ир|рын|ше |ын |енә|тие|лык|екл|ына|н т|иеш|бар|еле|ка |елә|а х|н б|кы |рек|ала|кар| та|ә к|нда|еш |лән|бел|укы|лан|ите|тә |шен|ле |лы |ез |ерг|н и|ә б|а к|клә|үз |тел|лыр|не |әрг|ы һ|е б| га| ха|алы|рне|м и|тен|әрн|а б|ның|ынд|ың |ләт|дан|сә | як|лга|улы|ел |а а| яи|яис|асы|ш т|а һ| са|рлә|лек|иге|ә х|гез|орм|ем |аны|р б|м а|р һ|рмы|мыш|сын|шка|ә һ|исә|тәр|үлә|әт |мәт|сен|сез|чен| ни|ә и|н м|илл|ять|ны |ылы|үзе| ки| эш| ту|алу|акы|ып |уга|ль |тан|н к|лу |бу |мас|рен|кә | тү| тә|түг|зен| җә|тын|ди |баш|кле|гән|ть | би|әре|штә|гын|әүл|ер |мил| ми|клы|гел|ыш |лер|ерл|әве|рдә|а я|р а| мә| рә|лем|хал| ан|ң т| аш|ык |ция|е х|стә|ә д|аль|рак|ек | де|рәв|тот|кән|улг|орг|веш|ешт|ни |итә|кка|м т|үге|шел|а и|ндә| да|рел|кер| кы|ерә|та |н я|еге|ый |а д|аци|р о|шла|тлә|әтл|н д|айл|ллә|ард|рда|кта|шкә| за|ге |ләш|ш б|әсе|кон|шыр|циа|нин|лау|уры|ры |оты|әне| тө|инд|нди| җи|оци|соц|лә |арт|якл|зак|тиг|рке| ди| со|ыкл|кем| ко|р и|ң б|әте|гыя|чар|үгә|ин |иле| сә| ил|мгы| ае|н а|аер|ыны|л һ',tuk:' би|лар| ве|ве |да |ада|ары| хе|ир | ад|бир|дам|кла|ер |р б|ың | ха|ара|га |ен |лан|ыны|или|дыр|ам |ала| бо|хер|р а|ыр |лы |лер|ан |бил|иң |ыды|р х|акл|нда| өз|клы|ны |хук|ери| ху|уку|ага|не |лыд|ине|ына|лен|на |хак|де |‐да|ин |рын|атл| эд|маг|өз | де|асы|лыг|кук|е а|ынд|алы|лма|бол|дан|ини|а х| я‐|е х|ге |иле|я‐д|ар |ама|ли |ыгы|ети| ба| га|гын|ере|укл|лиг|ның|зат|лык|тлы|нде|ни |лик|ден|мак|сын|дил|ры |аны|кин|әге|п б|а г|хем|иги|эрк|аза|а д|мек| эр|мал|ыкл|мәг|сас| эс|екл| ма|рин|эса|ола|ы б|айы|н э|эди| гө| хи|сы | аз|баш|ы д|йда|шга|ашг|а в| до|ыет|ы в|дак|ниң|рки|гал|чин|гда|ак | җе|а б| эт|этм|кы |лет|йән| та|гин|ян |тме|хич|ич |мез| гу|хал|ылы|үнд|илм|дай|ягд| яг|и в|им |акы|ы г|ән |а а|рың|ги |тле|н м| го|ип |ал |еси| се|лме| ка|м х|дең|ң х|е д|дир|илл|рил| ал|кан|е г|лин|ра |дол| бе| ми|мил|ң д|н х|ели|н а|е м| ге|ы х| дө|ик | со|ң а|чил|дөв|е б| са|гар|е в|ең |н б|рма| ме|кли|үчи| дә| үч|ция|н в| дү|и б|айд|кле|сер|а я|соц|гор|оци|дал|мы |олм|циа|уң | он|уп |кда|дәл|ири| ди|еле|лип|алк|лим|гур|үни|нме| әх|н г| иш|ы ө|ң э|нун|еги|тин|ы а|рле|аци|ыз |з х|сыз|аха|м э|олы|рам| ту| ни|ып |ерт|алм|ора|и х|хли|әхл|к э|өвл|вле|тмә|ет |нли|ахс|гөз|гы |етл|ы ү|нуң|ону|сиз|емм|ек ',tgk:'ар | ба| ҳа| да|ад | ва|он |ва | та|дар|ти | ин|ба | бо| ки|аро| до|ои |дор|ард|ки |бар|д ҳ|уқу| як|ин |ҳар|и о| на| ма|и м|ора| ҳу|як |ни |нсо|инс|и ҳ|аи |и б|сон|рад| му|ҳои|р я|ҳуқ|қуқ|ҳақ|ии |к и| ша|и д| аз|и и| оз|нд |яд |қ д|озо|аз |зод|анд|д б|ояд| ка|ият|она|да |амо|ақ |а б|ди | ё |гар|ат |дан|ҳам|оди|рда|моя| он|уда|қи | ху|бо |и т|дон|ст |нам|н ҳ|ода|и с|ан |н б|мил|и х|бош|они|оша|худ|ава|боя|аст|и а|ро | ме|а ҳ|имо|ила|оми|оба|ида|кар|н д|лат|д в|а ш|ҳо | ас|таҳ|рои|и н|д к|яти| ди|шад|ӣ в|ри |рдо|шав| ми|е к|роб|тар|та |кор| бе|о д|вад|мон|иҳо|ли |уд |оси|ошт|ми |р м|ати|т б| со|ӣ ё|нҳо|мин|шар|ара|таъ|ани|а в|иро|а д|дав|ят |даа| са|ама|дош|раф|шуд|лӣ |д а|оти|а м| фа|ист|ор |р ҳ|на |и к|р к|д т|и ҷ|и ш| эъ| су|н м|н в|и ӯ|фи |вар|диҳ|ига|зар| шу|ари|а т| иҷ| ақ| ҳи|асо|р б|т ҳ|а а|одо|мум|р в|а о| ӯ |рон|наз|диг| ни|бот| ҷа|авр| қа|яи |р д|уқи|лал|кас|шта|уна|еҷ |ино|тҳо|уни|або|сти| во|авл|и қ|вла|ун |у о|ӣ б| ҳе|дӣ |қу |чун|н и|сар|ояи|тав|маҳ|онҳ|қар|атҳ|тир|оҳ |ахс| қо|уқ |оли| ис|д д|и з| ко|аза|ори|фар|сос|ран|н к|р а|ҷти|ону|сӣ |ири|рра|рӣ |ҳеҷ| за|ид |ҳти|рии|ами|қон|уди|н н| од|иҷт|мия|ъло|лом|ию |наи|али|нда|оӣ |оят|янд| зи|оян|ӣ ҳ|и п|офи|киш|ҳим|рат|тим',kir:' жа|на |ана|жан| би|уу |уку|га |бир| ук|ар |ен |луу|тар|кук|укт| ка| ад|ын |ада|ууг|дам| ме|уга|ык | ар|ене|мен|нен|ан |ары|олу| бо|ин |ам |ган|ир |бол| ал|ара|нда|н к|туу|р б|н ж| ба|анд| же|р а|кта|ына|ард|кту|эрк|үн |да |н б|н э| эр|нди|а т| ко|рды|н а|дык|рки|инд|а ж|кин|ала|а а|лар|аны|үү | өз|а к|тер|алу| та|а у|алы|а э|же |ук |ийи| ти|иш |тий| ма|гө |кыл|йиш|улу|нын|ке |н т|кар|бар|или|у м| кы|иги|рын|а б|үгө|рга|е а|ун |етт|дик| ту|дар|тта|баш|у а|н у| ээ|дын|им |рүү|гин|лык|ушу|нды|тур| са| эл| эм| мү|гон|лга|алд|икт|үүг| бе|ры |өз |нан|он | ан|кте|ул |дай|ерд|диг|р м|ери|үчү| не|атт|лды|еке|еги|үнө|лук|амд|у б|ынд|үнү|рди|тук|ка |кан|к ж| ки|м а|күн|не |ине|мда|рин|ого|кет| со|кам|дин|к м| эч| то|сыз|ылу|өзү| де|н м|ция|ээ |чүн|гиз|уп |нег|эч |руу|ыз |мес|эме| иш|лут|ы м|шка|ыкт|мам|ашк|лде| ке|лго| тү|ө ж|олг|ес |к т|кор|ге |бил|түү|угу|рал|алг|тын|кен| ул|лим|утт|ыгы|орг|н н|у ж|рде|нуу|тал|ч к|рго|мак| те| уш|уну|ктө|ди |акт|нүн| ди|зүн|иле| кө|кат|аци|мсы| эс|тык|е к|ей |тан|е э|ай |ер |соц|оци|циа|аты| жо|к к|амс|лан|а м|ири|ске|айд|ирд| мы|ылы|зги|ыны|ага|ген|е б|шул|тол|өнү|дыг|е ж|ү ү|з к|айы|раб|енд|абы|жал|ү ж|оо |уна|к а|кал|лек|ект|рма|дей| үч|тоо|мат|у э|бер',mkd:' на|на | пр| и |во | се|то |ите|те |рав|та |а с|пра|ува|да | да| не|ва |а п|а н|и с|ата|о н|еко|а и| по|но |ој |кој| со| за| во|ств|ја |ње |ање|аво|ни | им|от |е п|е н|ма |ат |вањ|ост|а д|о с|е и|се |ова|ија|и п| сл|а о|има|сек|сло|ото|ли |о д|ава|обо|о и| ил|или| би|бод|и н|лоб| од|бид|ред|ен |при|вот|иде|а в|ста| об|и и|и д|пре|нос|ст |е с| ни| ќе|ове|аат|аци|ќе |со |ови|про|ј и|тво| ра|ест|што| де|т и|акв| ко|раз|гов|его|нег|ани|едн|ако|циј|бра|од |а з|е б|и о|а б|о п|ват| е | др|ето|ваа|как|ди |т с| ка| чо|ени|алн|одн|ено| си|чов| шт|а г|а е|вен|нит| ја|де |оди|е о|ран|и з|сно|нот| ед|тит|лно|ви |јат|ден|т н|нац| оп| до| ос|и в|осн|кон|дна|е д| ст|век|о о|род|сто|сит|еме|ара|дно|обр|ј н|пшт|еди|опш|за |ние|аро|нов|а к|вни|дру| ов|тве|жив|ште|д н|ие | ме|ед |иот|и м|о в|ќи |дат|шти|јќи|без|бед|ки |ков|ко |а р|нар|чно|дни| вр|ели|нак|ашт|ичн|ка |ема|цел|зем|еду|чув|тес|држ|ник|т п|луч|аа |деј|нст|не |а ч|руг|ода|ивн| це|нив|дин|авн| зе|нио|пор|а м|заш|лас|вит|дек|го |ине|ело|нет|ез |тен| ре| из|под|раб|або|бот|дув|нув| бе|ење|еде|он |њет|зов|иту|ван|н и|аѓа|е в|еѓу|рем|дел|о к|кот|им | жи|дос|вре|меѓ|олн|нап| го|емј|кри|уна|нем|оја| су|ита|азо|лит|тор|инс|ора|огл|ипа|пот|слу|кви',khk:' эр|эрх| хү|ний|н б|эн |тэй|ийг|х э|эй | бо|хүн| бү|йн |ан |ах | ба|ийн|бол|ий | ха|бай|уул|рх |оло|й х|йг |гаа|эх |бүр|гүй|үн | бу|он |аар|рхт|үнд|хтэ|үр |лэх|ар | за|н х|лах|эр | хэ|й б|өлө|н э|лөө|эл | үн|аа | ул|ын |хий|үй | ор| ту|улс|ула|үлэ| чө|чөл|н т|үүл| ху|сэн| ни|ндэ|лон|гээ|р х|өөр|сан| нэ|ны | ёс|нь |эд | гэ| нь| ч | тө| тэ|лаг|оро|дэс|лс |г х|ох |үни|ээр|хам|х ё| ша|д х|р э|лго|лд | дэ|н а|бую|уюу|гуу|төр|ай |юу |тай|ээ |ж б|эг |лий|хан|ыг | эд| то|х б|дсэ|й э|рга| ал|хар|арг|ад |лга|рэг| зо|айг|ага| тү|л х|ал | хө|өөт| са|н н|йгэ|дэл|нд |гий|н з|ол |ава|лла| өө|рол|өтэ|гэр|г б|л б|бус|нэг|н д|аг |аал|н ү|алд|рла| үз|гэм|й а|н у| ол|хуу|х ч|эрэ|мга|олг|эс |хүү|той| ар|үү |лал| эн| мө|йх |ин |өрө|х т|луу|рий|сон| га|хэн|айх|эни| ам|гла|өр |аса|ана|амг| би|ард| ял|йгм|ой |лын|үрэ|эгт| ав|эдэ|оо |мий|х н|аан|үйл|арл|нха|тгэ|дээ|с о|рхи|лов|д н|тэг|өг |өн |хэр|лэн|өөг|үүн|вср|га |р т| хи|хүр|рон|ч б| хо|гөө| мэ|бие|н г|ура|бүх|ори|али| аж| үй| яв|өх |хээ|г н|ата| та|гш |г ү|эгш|вах|лох|эгд|длэ|х ү|гох|үх |энэ|лж |олц| шү|л т| да|дал|эж |д б|лан|й т|айл|л н|х а|агл|тоо| со|өри|йгу|гми|дил|ээн|дар|н ш|шүү|овс| ад|а х|р ч|ади|ааг|лаа|айд|амь|гтэ|н с|д т|ийт|лэл|х ш|н ч|унх',oss:'мӕ |ӕн | ӕм|ӕмӕ|ӕй |бар| ба|адӕ|он | кӕ|дӕр|ӕр |ты | ад|ы а|тӕ | хъ|дӕй| дӕ|н ӕ| ис|ар |кӕн| йӕ|над|ӕйм|ды |йма|ӕ ӕ|гӕн|йӕ |алы| ал|лы |нын|маг|ис |нӕн|н д| ӕх|хуы| уа|хъу|ӕны|агӕ|ы б|ӕнӕ|цы |ынӕ|ын |амӕ|уам|ъуа|ӕст|уа | па|онд|арт|ад |сты|дӕм|ӕ к|н а|ӕнд|р и| ма|сӕн|дзи|ртӕ|ады|уыс|с б| ку|ӕ у|ӕхх|ст |р ӕ|ӕцы|адд|ӕ х| ах|ӕ б|аци|ддз|ӕ а|зин| уы|ахъ|дон|хъӕ|ы ӕ| цӕ|кӕц| сӕ| ра|нӕй| ӕн|ы у|ӕ с|гӕ |дза|дзӕ|ыст|пад|ина|хсӕ|ы х|аха|зах|стӕ|ӕна|тӕй|уыд|н к| хи|нӕ |ара|ард| нӕ|ӕрд|цӕу|хиц|куы|ицӕ|йы |нд |ой |лон|зон|ало|ны |джы|ӕхс|н б| ст|хъа|иба|йӕх|ӕнг|й ӕ|цӕн|ацы| на|бын| ар|д а|ӕм | уӕ|гон|ӕхи|ӕ й|ӕ м|хад| ац|н х|ына|мад|рд |ъӕн|ынд|хӕс|вӕр|арӕ|ӕ н|н и| ца|уыз|ъах|уыр|й а|ы д|рад|адз|аг |хху|ыд | бы| фӕ|ӕг |н у|нды|фӕн|ытӕ|ӕ г|сгӕ|ино|адо|нон|ппӕ|ы н|имӕ| рӕ|ххӕ|зӕн|хи |ций|пӕт|кӕй| ӕп|рӕй| за|мӕй|къо| гӕ|й р| ны|дур|ӕуы|гӕй|ӕ и|ӕмб|ахӕ|акӕ|рды|раз|нду|рон|д ӕ|ӕпп|р к|тӕн|ӕри|риб|ийы|ы ф|дмӕ|уын|жы |рӕс|т к| ӕв|уы | хӕ|ыны|сӕ |циа|ызо|ыс |ы р|зак|р а| де|рын|ы с|оци|р х|ӕмы|амы|ндӕ|соц|ӕсг|гӕс|ист|й с|й х|ъон|акъ|мху|сӕр|ӕ ц|дтӕ| ӕр|ары|авӕ|цар|й к|р й|лар|иал|айд| би|бин|мӕн|мыс|мбӕ|нац| ха|ӕ ф|ани|дек|онт|ӕ п|кон|аху|а ӕ|ӕдт|ӕмх|аты|мы |с ӕ|нам|адж|зӕр|ндз| фы|сын|цыт| сы|хӕд| ин',sah:'ар | ки|ан | бы|аах|таа|эр |ах |нна|ары|лар|уон|на | уо|онн| ха|раа| бу|ыра|быр|иһи| су| кө|киһ| ту|ын |тар|р б|һи |уол| би|ин |аап|иир|н т|суо|н б|уох|ии |апт|пта|а к|с б|бии|ас |а с|хта|эйэ|тта|ай |рди|дии|буо|ирд|тэр| бэ|эн |эри|нан|и к|ара|бэй|най|тан|хас| дь|н с|ына|н к|р к|охт|гар|гэр| ол|аты|игэ|тын|оло|этэ| ба|рын|х х|ана|ала|эти|өҥү|х б|и б|йэт|тин|көҥ|га |аци|ҥүл|уга|р т|ция| са|ыла|ору|лэр|ллэ|ста| да|ытт|ола|р у| кэ| та|аст|ыга| со|ох |аҕа|туһ|ахт|олу|ны |эх |лла|аль|н д|уту|улу|ыыт|уру|ств|ьна|һин|ини|льн|ык |абы|анн|көм|ыты|а б|ээх|эһи|аны|быһ| тө|тут|оһу|ааб|бэт|р с|ыһы|хан| на| до|э с|он | кы|ыба|оҕо|наа|нны|илл|ор |аар|нар|аһы|тво|ылл|н у|руо|ни |аҕы|ттэ|ьон| эб|уу |рин|лаа|кин| сы|х к| ыл|дьо|луо| ма|эҥ |нык|нэн|н а|руй|сты|лор|бар|тэн|т б| хо|да |а т|рыт| ку|һыы|итэ|ыта|эбэ| тэ|уһу|оро|н о|бур|тээ|үлү|во |нор|үлл|хтэ| үө|лан|үөр|р и|эрэ|өрү|өрэ| тү|уһа|көр|йду|үн |һын|рга|та |ити|эхт|куо|э б|и о|уот|нэр|бил|лта|тэҥ|ойд| но|рар|дой|тэ | оҥ|оҥо|ыст|утт|тур|ргэ|ллы|ааҕ| си|р х|хол|р д|айы|уда|тал|рор|йэ |бат|ат |ҕан|кэм|рыс|нац|дьи|аас|уоб|бу |ры |суд|рыг|үлэ|элэ|үгэ|ааһ|или| эр|тул|эрг|дьа|у б| ар|ну |иэх|ҕын|ест|эни|н х|тэҕ|эҕэ| ит|үнэ|укт|кта|төр|р о| ор|иял|яла',tyv:' бо|лга|бол| эр|рге|эрг|га | ки|аш |олг|гел| ба|гаш|ары| бү|азы|нга|ижи|киж|ан |ге |иг |ар |лер|үрү|иң | хо|ың |аза|за |ынг|баз|рин| ту|ниң|лиг|ели|и б|үзү|иле|ери| чо|рын|жи |аар|тур|ның| ка|уг |ган|г к|лар|н б|ын |еле| ха|ин |г б|ажы|зы |бүр|рүз|ала|зү | де|ост|хос|нге|дыр|зын|лге|рга|р б|анд| би|лды| кы|даа|алг|а б|ура|ң б|ыны|олу|да |луг| да|аан|гал|бил|урл|ле |аа |рар|алы|е б|ыр |жур|а к|ужу| уж|нды|ини| аж|ыг | аз|алд|еди|ста| ал|зин|тал|ур |п т|елд|ези|р э|ады|ыры|ору|аны|рлу|үгү|ен |н ч|лур|тты|н к|а а|ң к|ас |дыг|е а|а э|нда|шкы|нде|ылд|лээ|ышк|инг|ы б|рни|дар|уң | кү|чок|атт|ени|маа|ылг|бүг|ң х|кын| та|ыра|аци|ал |гаа|н х| со|рла|ээр|ң э|ир | чу|ып |ң ч| на|уру|иит|ер |н а|лда|бод|ама|рүн|газ|гла|ити| ча|р к| ар| оо|п б|гү |а х|ерн|ция|өөр|е к|рны|кан|арн|хам|жыл|ара|улг| хү|нуң|р у|сту|туг|оң |лаа| са|ооң|дал|ү к| хе|уну|дун| чү|оду|ни |лде|а ч|өре|а д|р а|ынд|ург|ээн|кыл|үлэ|үлг|ок |дең| ни|тта|нии|лыр|н т|үне|угу|ден| уг|н д|еп |шаа|ең |тын|хан|нар|нна|ы х|чор|дер|арл|чур|арг|ойл| кө|дил|эп |а т|алб|ка |ш х| ке|ске|ири|ааш|рыл|ны |етк|гуу|р д|ү б|урт|илг|үнд|ген|өск| өс| ол|инд|күр|бот|нац|еге|амг| че|эр |лел|өрү|ыша|ред|ада|язы|еви|кам|ашк|ды |хоо|дан|айы|ы к|рал|шка',abk:'ара|ра |еи |ала|а а|а и| иа| ау|ауа|заа|реи| аз|ақә|зин|уп |аза|әа |и а|ы и| да|оуп|гьы|лак|ак |ьы |уаҩ|зар|атә|лар|аҩы|аал|арб| еи|к а|ыла|аар|қәа|дар|ҩы |у а|ы а|рба|әеи|бан|ази|ла |а р|моу|иар|роу|тә |оу | им|анз|қәе|нза|ин |ны | ры|аре|аро|и и| ма|н и| ах|әар| их|имо|ила|рат|аҭа|шьа|ахь|а д|аҵа|ҵар|и р|рақ|аха| ал| аи|аз |уа |п а|қәи|әиҭ|аны|иҧш| из|еиҧ|ҭра| ам|ахә|нқә| ир|инқ| зе|тәы|әла|ы д|а м|ура|шәа|әыл|егь|жәл|ацә|ана|неи| ин|цәа|рра|хәа|ҳәа|а з|ма |а у|п д| аа|мза|ан |ина|ьар|леи|гь |рым|арр| уб|арг|мам| аҭ| аб|әан|сгь|асг|хар|гыл| ад|хра|зы |зег|әи | на|иҭр|азы|ас |ажә|кәа|акә|ҭаз|мҭа|уаа|арц|иал|амз|бас|тәи| ҳә|иха|аҳә|ри |ргь|хақ|агь| рз|аац|ҭаа|лаз|аҧш|дун|каа|има| ха|з а|уне|ықә|изи|уба|ышь|ашь|ага|ар |еил|раз|аҭы| ре|наг|ҳәы|рал|лаҭ| аҳ|хәы|мил|рҭ |ы е|рц |аба|да |раа| ды|лах|иду|ада| ид|ҧшы|ахы|о а|иҟа|нас|бар|амҭ|аӡә|ҭах|хьа|әыр|п и|ыҟа|бжь|гар|у и|ало|рхә|ҟаз|аан| аҧ|зак|аам|ҭқа|аҳа|мҩа|дыр|әым|әаҧ|ырш|аус|нҭқ|маз|ами|хы |иры|зеи| аӡ|куа|ынҭ|еид| ан| иш|әын|аа |қәы|шьҭ| ҟа|иҭа|қар|гӡа|ус |аҧс|ым |м а|р а|ҧш |ҭар|хьч|әал|хьы|алх| ус|ӡба|и д|хаҭ|лаг|с и|а ҟ|ҿка|иҿк|ьҭр|бри|әра|ьақ|ҳаҭ|жьа|аҟа|рыл| аҟ|арҭ|циа|ам |абр|уаз| аҵ|кгь|ацх|акг|агӡ|ҭыр| иҟ|еиц|с а|әгь|аша',alt:' ја| та|ла | ка|тап|рик| ки| ла|эри|ыҥ |икт|п‐э|‐эр|а к|ап‐|ижи| бо|киж|лу |ныҥ|ажы|тӱ |ктӱ|ле |ына|айы| ту| он|ы л|лар| ке|жы |а т|јар|ери|каж|бол|да |ар |га |рга| де|учу|де |жи | уч|ый |иҥ |чур|ын | би|ынд|ары|йым|е ј|рлу|урл|ер |јай|е к|нды|оло|арг| ле|рын| эм|эме|ара|аҥ |ан | те|зе |ин |езе|ган| ор|ҥ т|оны|ниҥ|лга|зын|йын|мез|ыны| је|алы|ула|ҥ к|кер| ал|ык |рин|ок |ӱ к| ай|наҥ|ере|до |ири|ция|кан|нда|ала|лык|а ј|тур| ба|р т|р у|рӱм|лор|тер|ини|аци|бир|е т|ҥ ј| ко|анд|ыкт|на |о о|ор |а а|кте| јо|јаҥ|јӱр|ы ј|ине|ым |ӱре|рек|азы|у к|бой|аны| ол|ару|ен |ойы|‐та|ик |и ј|ный|улу|а б|аҥы|кем|ай |кор|лан|ыла|ге |оно| иш|дый|н ј|и к| бу|рул|кал|р а|иле| тӧ|к к| јӱ|тай| ар|жин|тар|алд|ама|н а| кӧ|зин|лер|ады|ӱми|кта| ок|н т|еп |ард|ана|алг|н к|йдо|ойд|мин|дар|ген|ной|ӱрӱ|теҥ|у б|не |ри |јет|ол |рды|р о|деп|ӧмӧ| ул|р л|к б| чы|а о|ры |ств|оон|едӱ|тки|е б|лге|ору| то|ьны|ҥ б|льн|аль|ҥ‐т|тӧз|айа|ны |нар|нде|ек |п ј|кти|тек| кӱ|еҥ‐|ире|амы|оро|тво|роо|ас | бӱ|ди |огы|одо|оры|ишт|лик|с у|кши|екш|инд|етк|йал|еер|ада|рер|а э|лус|и б|ект|нчо|онч|ӱ о|ы б|ҥ а|кӧр| ӱр|руг|соц|аја|тод| ај|кир|ды |ӱмд|рил|ир |илг|зы |баз|чын|јӧм|лда| на|ӧзи|е э|ка |рто|орт|иял|ып |е о|дыҥ|ҥын|еҥ |гал|и о|ши |ред|ы а',kjh:' па| по|аза|паз|а п|за |ай |лар|ар |пол|а к|ға |ың | тј| кі|ала|ған|рға|на | ха|ізі|ан |кіз|ның|лға|арғ|тјр| ки|јре|е п|аны| ал|зын|ара| на| пр|ің |кир|нің|ире|іні|зін|олғ| са|да |н н|ын |азы|ң п|пра| ча| чо|най|р п|рге|пар|ге |р т|рек|ре |а а|нар|ары|пос|ына|лер| хо|н п|нда| пі|ола|ені|аци|сты|сха|а т|ос | ар|а ч|а х|й п|ек |ыра| то|ны |ыны|ция|чар|лай|хай|ығ |рын|ген|ста|ост|ы п|дай|а с| оң|нна|ер |ен | ан|оңд|ңда|еле|ынд|ерг|чон|пір|рай|онн|ра |іг | ту| чу|асх|ха |урт|чур|алы|ң т|льн|аль|ьна|нын|не |зі |зар|рел| ти|айд|сан|рта|арн|ері|рав|с о|іне|ін |рны|тыр|нін|і п|айл|озы|зна|хан|е а|ң а|хаз|зы |ча |чох|тер|лан|ғыс|тар|сте|н т| пу|р а|к п|ох |пу | сы|ним|ыс |тоғ|пас|оғы|нча|ні |име| ни|аво|дыр|раз|азн|ағы|поз|ас |анд|хоо|та |гре|ң ч|нал|оос| та|ғла| ол|аба|нац|кен|рер|лге| да|ана|н х|тас|ады|рад|а о|езі|дағ|тха|с п|іре|е х|й к|й ч|пир| пи| чи|ирг|аст|еді|йзы|айз|иң | де|е ч|ард|н с|йла|ағ |она|чат|е т|ірі|дыл|бин|і т|рее|н к|сын|рга|ніс|олд|ылғ|й а|чыл|лды|аа |кір|ли |н а|лир|лығ|де |хон|лын| со|ң с|тол|ест|ред|г п|ых |анн| ре|йда|инч|ылб|тиң|ске|ект|сай|айб|атх|нге| ег|циа|оци|соц| те|нға|ачы|рач|ып | ке|діг|егр|рде|ліг|ныс|с т|рі |ғ п|с ч|јст|тјс|а и|иск|туз|рін|енн|ион|й т',evn:'ин | ил|илэ| тэ|тэд|чин|эде|кин| би|ду |тык|ыки|эл |тын| о̄|ын | та|н т|э̄н|эты|н и|ачи|ңи |н э|мач|лэт| эр|̄н |ава|дет| дя|ет |э̄ |упк|на |иты| гу|най|ки | мэ|вэл| вэ|ств|элэ| уп| һа|лэл|эр |ан |нңи|ми |пка|ай |нэ |кат|дяр|̄нм|ва |чэ̄|н б|о̄м|тар|гу | ты|мэ̄|лэ |мчэ| ая|дук|нду|ция|дер|ви |н а|э̄т|эчи|н г|ган|дян|э т|аци|н о|эн |мэч|тчэ|ун |һав|нма|яри|эгэ|т б|эдэ|ӣ |а т|ат |дун|бим|р и|н д|̄ма|гэ̄|ден|а д|ани|рэ̄| ду|нму|ама|уңа| да|вад|и т|и д|ту |а и| ав| ну|т т|у и|и и|имч|урэ| ңи|тво|н у|ысу|дыс| ды|рэ |инд|ди |рга|бис|иси|нуң|дэ̄|н һ|гды|лду|̄чи|эру|мук|лды|лэ̄|ады|и в|ичэ| со|бид|сӣ|кит| об|ит |суд|̄нң|да |ча̄|син|ңан|эрэ|н с|а̄ |и б|уки| бэ|эвк|рин|вки|̄ты|эгд| бу|аду| дэ| де|ен |дыт|р д|ма |вэ |а̄н|яра|элд| дю|кэ̄|н ң|ери| эм|у д| эв| ит|ук | га|а э|ир | ич|аты|и г|рӣ|эду|ар |иде|и о|э̄л|эвэ| ур| ас|һэг| һэ| һу|эт |льн|дем|аль|э̄в|вэр|ңэ̄|ман|ды |арс|рст|гэл|л б|л т|нӣ|ал |тэг| эд|яна|ян |бин|ӣв| са|у т|чир|ты̄|тки| го|гос|осу|тыл|уда|дар|дин|ӯн|рэв|чэт|н м|ерэ|энэ|еңэ| гэ|дең|эси|лва|уку|тва|ӣч|си |суч|учи|̄ т|и у| – | су|ьна|а б|т г| ум|уму|н н|лэд|̄ и|анд|тур|у с|уңт|адя|ңту|илд|эма|у б|эмэ|л и|бэл|ннэ|инм| си|ыга|тыг|тат| на|и м|ича|вэт|алд|нна|енн|̄л |ыты|анң',cjs:'ын | ки|ижи| па|киж| по|да | қа|н к|пар|зын|ға | ча|жи |а к|рчы|чын|арч|ге |а п| ке|ин |аны|пол|ана|н п| са|алы|рге| да| те|қа |ған|ар |сан|за |лар|ың |ан |лер|зин|арғ|н қ|азы|ара|ере| чо|қал|кер|а ч|ген|наз|ола|а т|нға| то|аза|нар|ығ | пи|нын|а а|аға| кӧ| ан|ерг|иле|жил|кӧр|рға|аң |қай|ынғ|лық|н т|ның|оол|тоо|н а|айд|ыға|ер |ери|сын|ең |ны |ықт|чад|ады|нна|ен |қта|шқа|уғ |лзы|ары|тар|чар|п к|ашқ|пир|ң к|нер| ул|и п|ези|улу|н ч|луғ|а қ|аба| че| ал|паш|қан|а с|ғ т|де |ол |ынн|ы п|жин|поз| ту|рбе|ң п|нда|ы ч|озу| иш|сқа|еги|рег|гин| шы|рин|ция|теп| қы|еп |ӱрг|ып |ғ п|пош|зун|рын|уны|баз|ӱп |ош |аци|е с| аа|кем|рба|и қ|тең|ебе|ште|ба |ишт|олз|ӧрӱ|с п|ӧре|чер|рӱп| ол|ыйы| ар|лығ|дый|р п|рек| тӧ|нне|оза|ағы|кир|ип |нге|инг| ӱр|тқа|чат|ини|асқ|чоз| не|тег|еле|тсы|еге|пас|ш ч|кла|п п|ек |иң |по |рғы|е ч|ени|р а|ра |чығ|ча |ала| но|ноо|йды|дығ|рзи|бе |ерд|неб|е а|қаа|е у|н н|аан|ынд|а ӱ|зақ|наң| ай|ң ч|ас |қат|ааң|оо |жиг|ла |алз|и т|тут|о д|ири|иге| де|дек|екл|е д|рац|тыр|а д|ни |йда|ста|е т|и а|е п|лағ|рда|инн|и к|бен|шсы|ақ |ем |ре |р ч|тығ|ыны|н с|атқ|ғ д|чон|ыст| ағ|қты|нде|тың|ң қ|анд| қу|икт|быс|кте|язы|чоқ| пӱ| ти|л п|р к|яда|нан|ун |ына|без|рик|оқ |тча|ң у|инд|дар| эт|он |аар|ққа',eve:'эн | бэ|бэй|нэн|ан |да |‐да| би|эй |н б|нян|ян |ннэ| ня|н т|н н|л б|мэн|тэл|инн|чин|кэн|эл |өмэ|мэт| мэ|эсн| ҥи| өм| эс| та|ни |этэ|и‐д|а б| но|ин |ноҥ|элэ|сни|оҥа|бин|эчи|ара|н ө|дьи| тэ|н д|ҥан|ств| го|н э|нна|дук| хо|н г|рав|ҥи‐|н ҥ|ргэ|эйи|икэ|тар|н х|дэн|тти|йил|суд| пр|тво|бид|ник|идэ|ур |и н|этт|тэг|а э|эгэ|н м|ьи |дар|иву|э б|бэл|най|ич |ай |уда|н а|нан| дь| ху|ки |во | тө|ти | эн|ча |гос|аль|эйд|арс|рст|осу|гур|й н| га|чим|и э|пра|гэл|кэт|и т|ын |лэч|гэч|нтэ|ург|й б| гу|н п|куч| ба|ир |йдь|ач |лив|энд|дьэ|гэн| ач| бо|нат|тта|та |льн|ла |ьна|ун |тын|алд|мэр|к‐д|кон|н һ|тэ | аи|мнэ|кан|и б|ил |имн|утт|нду|эни|онт|хон| һи|уку|рду| ку|ала| һа|эрг|лэн|и ҥ|снэ|вал|й м|ав |этч|лэ |чур|бу |окэ|бок|а а|лбу|ция|нди|илб|аич|р б|и х| ҥэ|ҥэл|ари| ил|иду|лгэ|дэ |илэ|иһи|ака|ями|лда|бал|идь|имэ|лни|инэ|куй|ми |тчу| кэ|дял| ям| дя|төр| дю|гэв|пку|упк|атт|н к|ман|ама|хуп|йи |ч т|и а|р г|ҥии|айу|а д|ава| де|тал|ми‐|дол| до|анн| за|ээн|зак|ако|ача|рэк|н‐д|чэ |и и|гэт|они|аци|лкэ| хи|й х|ди |энн| на|унн| су|н и|ьэн|төг|н я|өгэ| эр|эки|дьо|он |ук‐|бак|ҥид|дач|чча|йут|иал|циа|оци|һай|соц| со|биһ|лан|вур|дюл|омк|лдэ|там|так|ика|а о|ьом| ор|рак|эли|ак |эчэ|тэн|вун|ч б|й г|тур| ‐ |ите|укэ| ай|нюн',ykg:'уол|раw|ньэ|дэ |ол |аwн|л м|эй | мо|ора|мор|йуо|ьэй|аҕа| та|эл |ҕа | эл| кө|көд|ьэ |тэ |wнь| па|дьэ|өдэ|эҥ |льэ|анэ|ҕан|э к|даҕ|аат|даа|пар|атэ|тад|ада|нэ | ту|йаw|эҕа| йа|ара|wна|туд|удэ|э т|эйу|нар|wаа|аwа|элэ|э й| мэ|ар |э п| ча|ьэл|э w|ньи| нь|wиэ|аан|ги |эк |дьи|аw |лҕа|урэ|ндь|эдэ|лэ |й т| ки|ьил|лэк| wи|ань|лль|эда|уйу|й к|w п|ури| су|ҕат|кин|уур|э ч|энь|э м| ҥо|нэй| уу| тэ|мэ |уон| кэ|э э|нул|элк|тэт| эн|ри |ьии|ину|эн |ҕад|адь|нну|нь |инь|эдь|бан|ат |лк |иэй|таҥ|нун|энн|итэ|аль| со|рэҥ|дэл|иэн| wа|одэ|л т|лги|ньа|ҥ э|эрэ|нуй|э н|к э| ха|нуо|ул |чаҕ| эw|а э|пэд|мэн| чи|чии|уку| ль|дэҥ|ийу| чу|льи|анд|э л|и т|дит|имэ|ҥол|нэҥ|э у|э х|ҥдэ|ьуо|эwэ|пэҕ|wэй|эт |чуҥ|ару|олл|а к|р т|куо|нҕа|уҥд|маа|ьэр|луо|аал| лэ| ма|льн|лда|ҥ т|кэд|эги|он |эйн|дэҕ|унҥ|эру|кун|л л|эwр|мэд|н н|ади|эмэ|ура|лэw|йнб| ур|нбу|бур|рэб|ҥи |олу| ди|нэм|аму|рук|аҥу|й с|чам|эль|ьэҥ|дьу|р э| пр|и э|эбэ|чуо|ола|л ч|и к|ьнэ|ил | ба|пэ |апэ|хад|раа|энд|ств|иэ |нур| нэ|ция|й ч|алл|ьал|ай |най|лдь|а ч|ҥну|лпэ|wрэ|одь|пэл|ҥин| эд| уо|инҕ|оҥн|рэл|йэ |н ч|олҕ|аап|ан |иий|ьид|э б|э с|улҕ| ни|ним| чо|чоҥ|аай|тэй|кэй|ану|оҕо|амб|т э|мэл|иал|э ҥ| ко|уул|суу|олн|ут |л э| по|иил|ууй| ти|лнь|мөр|оку|ииг|аар|а м|иги|ҥ м|аци',nio:'нә | ку| ӈа|ә” |ӈан|мән| ӈи|аса|ны |ана|онә|нас| ӈо| мә|ӈон|әди|әны|са |ӈил|иле|ле |рәд|урә|кур| пр|ты |ти |” ӈ|пра|рав| ни|ту |тән| кә|ите|е м|нту|әнә|те | хо|дит|дя | тә|хон|тү |е ӈ|сан|ынт|ы ӈ|әнд|ити|анә|мын|үтү| мы|нде| ня|во |” к| ӈә|бса|нә”|и” |нты|у” |бся|ә ӈ|аво| та|ся |ә к|кәр|ә т|ә п|” х|тти|бит|” т|тан|әтт|онт|де”| бә|уни|е” |уо | хе|әй |ә н|и ӈ| те|ы к|мәә|туо|няг|и м| ху|кун|а х|ягә|ный|гәт|хүт|иби|ндя|тә | ме|бән| де|анд|ый |о” |изи|рçу|итт|елы| сы|әрç|ә м|ыты|әә |ндә| ит| ӈу|кәт|түо|” н|” с|”тә|ств|я ӈ|әтә|әту|нин| си|ава|ены|я к|нсә|тен|ттү|аци|хел|у к|әмә|ы н|ану|али|әты|ди |нил|ыӈ |а ӈ|хун|ы” |у ӈ|ӈәз|ә х|тәт|әән|әә”|мты|гуй|тыӈ|лит|нян|зә |тәб|ниб|тәр|зи”|ини|” м|бәу|янд|нәй| сә|әбс|ӈуо|уом|ы с|ни |гал|гәә|ерә| не|й ӈ|әйб|мел|”дя|ыби|етә|ы м|ү м|йбә| су|а” |ӈәй| ка| об|е н|ӈиз|иде| на|сыт|тум|уо”|тыә| их|агә| хү|о т|рә”|ыбс|я и|унс|ыры|атә|сиә|й н|илы|ӈ ӈ|сы |әзы|и н| мо|ызә|уйс|нен|” д|уод|ы и|вай|наг|суд|а к|моу|” п|лы”|ы х|әуз|уза|кон|у н|ә с|инт|мту|тыг|ыгу|ы т|о ӈ|ели|о н|нтә|ымт| дя|ция|айт|унт|сыл|нии| го|дей| ко|иәр|би”|үо”|омт|й с|лид|ибс|әрә|унә|и к|сун|ү” |ы”с|йся|”сы|үо |ихү|сиб|çу |түӈ|ябс|нис|лыг|дә |гәй|о д|у т| тя| дү|ӈәт|ү”т|уда|ниа|әнү| ма|нер'},Arabic:{arb:' ال|ية | في|الح|في | وا|وال| أو|ة ا|أو |الم|الت|لحق|حق |لى |كل |ان |ة و|الأ| لك|لكل|ن ا|ها |ق ف|ات |مة |ون |أن |ما |اء |ته |و ا|الع|ي ا|شخص|ي أ| أن|الإ|م ا|حري| عل|ة ل|من |الا|حقو|على|قوق|ت ا|أي |رد | شخ| لل| أي|ق ا|لا |فرد|رية| ول| من|د ا| كا| إل|خص |وق |ا ا|ة أ|ا ي|ل ف|ه ا|نسا|جتم|ن ي|امة|كان|دة | حق|ام |الق|ة م| فر|اية|سان|ل ش|ين |ن ت|إنس|ا ل| لا|ذا |هذا|ن أ|لة |ي ح| دو|ه ل|لك |ترا|لتع|اً |له |إلى| عن|ى ا|ه و|ع ا|ماع|د أ|اسي| حر|ة ع|مع |الد|نون| با|لحر|لعا|ن و|، و|يات|ي ت|الج| هذ|ير |بال|دول|لإن|عية|الف|ص ا| وي|الو|لأس| إن|أسا|ساس|ماي|حما|رام|سية|انو|مل |ي و|عام|ا و|تما| مت|ة ت|علي|ع ب|ك ا| له|ة ف|قان|ى أ|ول |هم |الب|ة ب|ساو|لقا|الر|لجم|ا ك|تمت|ليه|لتم|لمت|انت| قد|اد |ه أ| يج|ريا|ق و|ل ا|ا ب|ال |يه |اعي|لدو|ل و|لإع|لمي|لمج|لأم|تع |دم |تسا|عمل|اته|لاد|رة |اة |غير|قدم|وز |جوز|يجو|عال|لان|متع|مان|فيه|اجت|م و|يد |تعل|ن ل|ر ا| يع| كل|مم |مجت|تمع|دون| مع|تمي|ذلك|كرا|يها| مس|ميع|إعل|علا| تم| عا|ملا|اعا|لاج|ني |ليم|متس|ييز|يم |اعت|الش| تع|ميي|عن |تنا| بح|لما|ي ي|يز |ود |أمم|لات|أسر|شتر|تي | جم|ه ع|ر و|ي إ|تحد|حدة| أس|عة |ي م|ة، |معي|ن م|لمس|م ب|اق |جمي|لي |مية|الض|الس|لضم|ضما|لفر| وس|لحم|امل|ق م|را |ا ح|نت | تن|يته| أم|إلي|واج|د و|لتي| مر|مرا|متح| ذل| وأ| تح|ا ف| به| وم| بم|وية|ولي|لزو',urd:'ور | او|اور| کی|کے | کے|یں | کا|کی | حق|ے ک|ایٔ|کا |یٔے| کو|یا |نے |سے | اس|ٔے |میں|کو | ہے| می|ے ا| ان|وں | کر| ہو|اس |ی ا|ر ا|شخص| شخ|حق | سے| جا|خص |ہر |ام |ے م|ں ک|ہیں| یا|سی |ادی|آزا| آز|زاد|ص ک|ہ ا|ہے |جای|ا ح|ر ش|ت ک|کہ |م ک| پر|ی ک|ان |پر |۔ہر|دی |یٔی|س ک|ا ج|ر م|ہے۔|ق ہ|ں ا|ی ح|و ا|ار |ن ک|قوق|کسی|حقو|ری |وق |ے گ| ہی|ی ج| مع|سان| نہ| مل| حا|ٔی | جو|نی |کرن| لی|تی |ی ت|نسا|ل ک| کہ|جو |انس|اپن|ے ب|نہ | اپ|یت |ا ا|ہ ک| کس|ر ک|رے |ے ہ| ای|می |ل ہ|۔ ا|ے ل|ی ش|رنے|وہ |حاص|ی م|معا|اصل|صل |یں۔|ویٔ|نہی|ملک|ایس|انہ|ات |ی ب|د ک|ی ہ| تع|کیا|ق ک|ر ہ|ا م|دہ | من| بن| قو|ے ج|یہ |ں م|اشر|مل | دو|عاش|قوم|ر ب|انی|وام|قوا|اقو|لیٔ|دار| وہ| و | عا|ی س|بر |علا|اد |ہ م|و ت|ر ن| جس|ے۔ہ|ے، |انو| دی|گی |لیم|یوں| قا| یہ|دوس|ے۔ |ا ہ|تعل|یم |ر پ|جس |ریق|ے ح| اق|نیا|لک | گی|ین |یاد| مس|لاق|، ا|ی ن|پنے|وری|م ا| با|علی|یر |ی، |انے|ون |ن ا|ر ع| بر|ی آ|ر ح| رک|ے پ|کر |گا۔| پی|سب | گا|نا | پو|یسے|رای| مر|اری|قان|نون| مم|ندگ| اع|دگی|ہ و| ہر|ر س| چا|خلا|ا پ|ق ح| بھ|س م| شا|ہوگ|ے خ|وسر|رتی|ومی| بی|رکھ| مت|کوی|ر آ|پور|اف | مح|ے س|ہوں|نکہ|ونک|ت ا| طر|ے ع|یٔد|د ا|ال |ں۔ |م م|اں | مق|غیر|پنی| ام|ں، |من |ہو |ریع|و ک|ذری| ذر|عام|، م|دان|ادا|اعل|مام|تما| عل|دیو|بھی|ھی |بنی|ے ی|ا ک|اوی|ل م| زن|یاس|لان|عمل| عم|ت م| بچ',skr:'تے |اں | تے|دے |دی |وں | دا| حق| کو|ے ا|کوں| دے|دا | دی|یاں| کی|ے ۔|یں |ہر | ۔ |کیت|ہے | وچ| ہے|وچ | ان| شخ|شخص|ادی|ال | حا|اصل|حق |حاص|ے م|خص |صل |ں د| نا|یا | ای|اتے|ق ح|ل ہ|ے و|ں ک| ات|ہیں|سی | مل|نال|زاد|ازا|ی ت| از|قوق|ار |ا ح|حقو| او|ص ک| ۔ہ|۔ہر|ر ش|دیا|ے ج|وق |ندے| کر|یند| یا|نہ | جو|کہی|ئے |ی د|سان|نسا|وند|ی ا|یتے|انس|ا ا|ملک|ے ح|و ڄ|ے ک|ڻ د| وی|یسی|ے ب|ا و| ہو|ں ا|ئی |ندی|تی |آپڻ|وڻ |ر ک|ن ۔| نہ|انہ|جو | کن| آپ| جی|اون|ویس|ی ن| تھ| کہ|ان |ری |ڻے | ڄئ| ہر|ے ن|دہ |ام |ں م|ے ہ|تھی|ں و|۔ ا|ں ت|ی ۔|کنو|ی ح|ی ک|نوں|رے |ہاں| بچ|ون |ے ت|کو | من|ی ہ|اری|ور |نہا|ہکو|یتا|نی |یاد|ت د|ن د| ون|وام|ی م|قوا|تا |ڄئے|پڻے| ہک|می | قو|ق ت|ے د|لے |اف |ل ک|ل ت| تع|چ ا|ین |خلا|اے |علا| سا|جیا|ئو |کرڻ|ی و|انی|ہو |دار| و |ی ج| اق|ن ا|یت |ارے|ے س|لک |ق د|ہوو| ڋو|ر ت| اے|ے خ| چا| خل|لاف|قنو|نون|پور|ڻ ک| پو|ایہ|بچئ|چئو|ات |الا|ونڄ|وری|این| وس| لو|و ا|ہ د| رک|یب |سیب|وسی|یر |ا ک|قوم|ریا|ں آ| جا|رکھ|مل |کاں|رڻ |اد |او |عزت| قن|ب د|وئی|ے ع| عز| ۔ک| مع|اقو|ایں|م م|زت |ڻی |یوڻ|ر ہ| سم|ں س|لوک| جھ| سی|جھی|ت ت|ل ا|اوڻ|کوئ|ں ج|ہی |حدہ|تعل|ے ذ|وے |تحد|متح|لا |ا ت|کار| اع|ے ر| مت|ر ا|ا م|ھین|ھیو|یہو| مط| سڱ|ی س|ڄے |نڄے|سڱد|لیم|علی|ے ق| ذر|م ت| کھ|ن ک| کم|ہ ا|سار|ائد|ائی|د ا| ہن|ہن |ی، |و ک|ں ب|ھیا|ذری|ں پ|لی ',uig:' ئا| ھە|ىنى|ە ئ|نىڭ|ىلى| ۋە|ىڭ |ۋە | ئى| بو|ھوق|وقۇ| ھو|قۇق|نى |بول| ئە|لىك|قىل|ىن |لىش|شقا|قا |ەن | قى|ن ب|ھەم|ى ئ|ئاد|ىشى|دەم|ادە|كى |لىق|غان|ىي |ىغا|گە | بى|دىن|ىدى|ەت |كىن|ىكى|ندا|ۇق | تە|نلى|تىن|ەم |لەت|قان|ىگە|ىتى|ىش |ھەر|ئەر| با|ولۇ|دۆل|غا |اند| دۆ|اق |مە |لۇش|دە |لۇق| ئۆ|ان | يا|ەرق|ۆلە|ركى| قا|ەرك|ەمم|ا ئ|ممە|ۇقى|ىق | بە|رقا|داق|ارا|ىلە|رىم|ىشق|ى ۋ|لغا|مەن|اكى|ەر |ا ھ|دۇ |ياك|ۇقل|ئار|ق ئ|ىنل|لار| ئې|ى ب|لىن|ڭ ئ|ئۆز|ق ھ|شى |ىمە|قلۇ|ن ئ|لەر|ەتل|نىش|ىك |ەھر| مە|ھرى|لەن|ىلا|ار |بەھ| ئۇ|ە ق|ئىي|اسى| مۇ|رلى| ئو|بىر|، ئ|بىل|ش ھ|بار|ى، |ۇ ھ|ايد|ۇشق|شكە|ە ب|يەت|ا ب|رنى|كە |ىسى| كې|ېلى|الى|ەك |م ئ|ماي|ولم|تنى|ىدا|ارى|يدۇ|لىد| قو|ەشك|تلە|ك ھ|انل|ەمد|مائ|ئال|ر ئ|مدە|ىيە|ش ئ|ە ھ|لما|ائى|ئىگ|دا |ي ئ|ۇشى|راۋ|ا، |سىي| تۇ|كىل|ە ت|ىقى|قى |ۆزى|ېتى|ىرى|ىر |ىپ |ى ك|ن، |ر ب|لەش|اسا|اۋا|ى ھ|شلى|ساس|ادى|تى |اشق|ەتت|قىغ|ىما|انى| خى|ۇرۇ| خە|ن ق|منى| خا|چە |ى ق| جە|رقى|تىد| ھۆ|باش|ارل|ئىش|تۇر| جى|مۇش|نۇن|شۇ |انۇ|ۇش |رەك|ېرە|كېر| سا|الغ|ۇنى|ئېل|ىشل|تەش|خەل|مەت|اش |دىغ|كەن|ەلق|تىش|مىن|ايى|سىز|ق ۋ|نىي|جىن|رىش|پ ق| كى|ېرى|ئاس|ەلى| ما|تتى|ىرل|ولى| دە|ارق|سىت|ە م| قە|شىل| تى|ەرن|كىش|ن ھ|ەلگ|ەمن|ك ئ| تو|ى ي|قتى|ئاش|تىم|تەۋ|ناي|ىدە|ىنا| بۇ|ىيا|زىن|امى|قار|شكى|ىز | ئۈ|ەۋە|ۆرم|ە خ|شىش|ىيى|جتى|ىجت|ئىج|نام|تەر',pes:' و | حق| با|که |ند | که| در|در |رد | دا|دار|از | از|هر | هر|یت |ر ک|حق |د ه|ای |د و|ان | را|ین |ود |یا | یا|را |ارد|ی و|کس | کس| بر| آز|باش|ه ب|آزا|د ک| خو|ه ا|د ب|زاد| اس|ار | آن|ق د|شد |حقو|قوق|ی ب|وق |ده |ه د|ید |ی ک|و ا|ور |ر م|رای|اشد|خود|ادی|تما|ری | اج|ام |دی |اید|س ح|است|ر ا|و م| ان|د ا|نه | بی|با | هم| نم|مای| تا|د، |ی ا|انه|ات |ون |ایت|ا ب|ست | کن|برا|انو| بش| مو|این| مر|اسا| مل|وان|ر ب|جتم| شو| اع|ن ا|ورد| می| ای|آن | به|و آ|ملل|ا م|ماع|نی |ت ا|، ا|ت و|ئی |عی |ائی|اجت|و ب|های|ن م|ی ی|بشر|کند|شود| من| زن|ن و|ی، |بای|ی ر| مس|مل |مور|ز آ|توا|دان|اری|علا|گرد|یگر|کار| گر| بد|ن ب|ت ب|ت م|ی م| مق|د آ|شور|یه |اعی| عم|ر خ|ن ح| کش|رند|مین| اح|ن ت|ی د| مت|ه م|د ش| حم|و د|دیگ|لام|کشو|هٔ |ه و|انی|لی |ت ک| مج|ق م|میت| کا| شد|اه |نون| آم|اد |ادا|اعل|د م|ق و|ا ک|می |ی ح|لل |نجا| مح|ساس|یده| قا|بعی|قان|ر ش|مقا|ا د|هد |وی |نوا|گی |ساو|ر ت|بر |اً |نمی|اسی|اده|او | او| دی| هی|هیچ|ه‌ا|‌ها|یر |خوا|د ت|همه|ا ه|تی |حما|دگی|بین|ع ا|سان|ر و|شده|ومی| عق| بع|ز ح|شر |مند| شر|ٔمی|أم|تأ|انت|اند|اوی|مسا|ردد|بهر| بم|ارن|یتو|ل م|ران|و ه|ر د|م م|رار|عقی|سی |و ت|زش | بو|ا ا|ی ن|موم|جا |عمو|رفت|عیت| فر|ندگ|واه|زند|م و|نما|ه ح|ا ر|دیه|جام|مرد|ت، |د ر|مام| تم|ملی|نند|الم|طور|ی ت|تخا|ا ت|امی|امل|دد | شخ|شخص'},Devanagari:{hin:'के |प्र|और | और| के|ों | का|कार| प्|का | को|या |ं क|ति |ार |को | है|िका|ने |है |्रत|धिक| अध|अधि|की |ा क| कि| की| सम|ें |व्य|्ति|क्त|से | व्|ा अ|्यक|में|मान|ि क| स्| मे|सी |न्त| हो|े क|ता |यक्|क्ष|ै ।|िक |त्य| कर|्य | या|भी | वि|रत्|र स|ी स| जा|स्व|रों|्ये|ेक |येक|त्र|िया|ा ज|क व|र ह|ित |्रा|किस| अन|ा स|िसी|ा ह|ना | से| पर|र क| सा|देश|गा | । | अप|्त्|े स|समा|ान |ी क|्त |वार| ।प|ा प| रा|षा |न क|।प्|ष्ट|था |अन्| मा|्षा|्वा|ारो|तन्|वतन|ट्र|्वत|प्त|ाप्|्ट्|राष|ाष्| इस|े अ| उस| सं|राप|कि |त ह|हो |ं औ|ार्|ा ।|किय|े प| दे| भी|करन|री |जाए|ी प| न |र अ|क स|अपन|े व|ाओं|्तर|ओं | नि|सभी|रा | तथ|तथा|िवा|यों|पर | ऐस|रता|ारा|्री|सम्| द्|ीय |िए |व क|सके|द्व|होग| सभ|ं म|माज|रने|िक्|्या|ा व|र प| जि|ो स|र उ|रक्|े म|पूर| लि|ाएग| भा|इस |त क|ाव |स्थ|पने|ा औ|द्ध|श्य|र्व| घो|घोष|रूप|भाव|ाने|कृत|ो प|े ल|लिए|शिक|ूर्| उन|। इ|ं स|य क|्ध |दी |ी र|र्य|णा |एगा|न्य|रीय|ेश |रति|े ब| रू|ूप |परा|्र |तर्| पा| सु|जिस|तिक|सार|जो |ेशो| शि|ानव|ी अ|चित|े औ| पू|ियो|ा उ|म क|ी भ|शों| बु|म्म|स्त|िश्|्रो|्म |ो क| यह|र द|नव |चार|दिय|े य|र्ण|राध|ोगा|ले |नून|ानू|ोषण|षणा|विश| जन|ारी|परि|गी |वाह|साम|ाना|रका| जो|ाज |ी ज|ध क|बन्|ताओ|ंकि|ूंक|ास |कर |चूं|ी व|य ह|ा ग|य स|न स|त र|कोई|ुक्|ोई | ।क|ं न|हित|निय|याद|ादी|्मा|्था|ामा|ाह |ी म|े ज',mar:'्या|या |त्य|याच|चा | व |ण्य|प्र|कार|ाचा| प्|धिक|िका| अध|अधि|च्य|ार |आहे| आह|ा अ|हे | स्|्रत|्ये|ा क|स्व| कर|्वा|ता |ास |ा स|ा व|त्र| त्|वा |ांच|यां|िक |मान| या|्य | का| अस|रत्|ष्ट|र्य|येक|ल्य|र आ|ाहि|क्ष| को|ामा|कोण| सं|ाच्|ात |ा न| रा|ंत्|ून |ेका| सा|राष|ाष्|चे |्ट्|ट्र|तंत| मा|ने |किं| कि|व्य|वात|े स|करण|ंवा|िंव|ये |क्त| सम|ा प|ना | मि|कास|ातं|्र्|र्व|समा|मिळ| जा|े प|व स|यास|ोणत|रण्|काम|ीय |ा आ| दे|े क|ांन|हि |रां| व्|्यक|ा म|िळण|ही | पा|्षण|ार्|ान |े अ| आप| वि|ळण्|ाही|ची |े व|्रा|मा |ली |ंच्|ारा|ा द| आण| नि|णे |द्ध| नय|ला |ा ह|नये| सर|सर्|्री|बंध|ी प|आपल|ले |ील |माज| हो|्त |त क|ाचे|्व |षण |ंना|लेल|ी अ|देश|आणि|णि |ध्य| शि|ी स|े ज|शिक|रीय|ानव|पाह|हिज|िजे|जे |क स|यक्|न क|व त|ा ज|यात|पल्|न्य|वी |स्थ|ज्य| ज्|े आ|रक्|त स|िक्|ंबं|संब| के|क व|केल|असल|य अ|य क|त व|ीत |णत्|त्व|ाने| उप|्वत|भाव|े त|करत|याह|रता|िष्|व म|कां|साम|रति|सार|ंचा|र व|क आ|याय|ासा|साठ|ाठी|्ती|ठी |ेण्|र्थ|ीने|े य|जाह|ोणा|संर|ायद|च्छ|स स|ंरक|तील|ी व|त आ|ी आ|ंधा|ेशा|ित | अश|हीर| हक|हक्|क्क|य व|शा |व आ|तीन|ण म|ूर्|ेल्|द्य|ेले|ांत|ा य|ा ब|ी म|ंचे|याव|देण|कृत|ारण|ेत |िवा|वस्|स्त|ाची|नवी| अर|थवा|अथव|ा त| अथ|अर्|ती |पूर|इतर|र्ण|ी क|यत्| इत| शा|रका|तिष|ण स|तिक|्रक|्ध |रणा| आल|ेल |ाजि| न्|धात|रून|श्र|असे|ष्ठ|ुक्|ेश |तो |जिक|े म',mai:'ाक | आ |प्र|कार|िका|धिक|ार |्रत|ेँ |क अ|्यक|िक |्ति| अध|व्य|अधि|क स| प्|क्त| व्|केँ|यक्|तिक|न्त| स्|हि |क व|मे |बाक|मान| सम|त्य|क्ष| छै|छैक|ेक |स्व|त्र|रत्|्ये|ष्ट| अप|येक|र छ|सँ |वा | एह|ैक।|ित | वि| जा|ति |्त्|ट्र|िके|राष|ाष्| हो|्ट्| रा|्य | सा| अन| कर|अपन|।प्|कोन|अछि|वतन|्वत|तन्|क आ| अछ|ताक|था | पर| वा| को|ार्|एहि|पन |ा आ|नहि|नो |समा| मा|्री|रता| नि| का|देश| नह|्षा|क प| दे| कए|रक | सं|ोनो|ि क|न्य|आ स|छि |्त |ल ज|्वा|ारक|ा स|तथा|ान्| तथ|्या|आ अ|ना |ँ क|ान | जे|जाए|वार|ता |ीय |र आ|क ह|करब|िवा|ामा|र्व| आओ|्रस|परि|त क|स्थ|ा प|ानव|रीय|धार|्तर|अन्|घोष|साम|माज|आओर|ारण| एक|कएल|ँ अ|ओर |एबा|स्त|द्ध|्रा|ँ स|रण | सभ|ोषण|क।प|ाहि|रबा|क ज|ा अ|चित|यक |कर |पूर|रक्|नक | घो|षा |िक्|सम्|एहन| उप|र प| अव|एल |ूर्|षणा| हे|त अ|शिक|तु |ाधि|ेतु|हेत|हन |िमे|र अ|वक |ँ ए|जाह| शि|आ प|भाव|े स|्ध |क क|ि ज|प्त|रूप|निर|िर्| सक|च्छ|होए|रति|अनु|सभ |हो |ेल |त आ|चार|ण स|रा |त ह|जिक|ाजि|र्ण|्रक|एत।|ि आ|र्य|सभक|ैक |क उ| जन|त स|ाप्|न प|श्य|न अ|कृत|हु |रसं|री |राप|ा व|जे |क ब|ि घ| भा|उद्|ाएत|्ण |विव| उद|वाध|िसँ|आ व|ि स|न व|ारा|ोएत| ओ |य आ|कान|िश्|न क| दो|णाक| द्|हिम| अथ|अथव|ामे|द्व|ेश |ओ व|ि अ|क ए|वास| पू|षाक|त्त|य प| बी|यता|धक |ए स|थवा|ि द|पर | भे|जेँ| कि|कि |क ल| रू|विश|न स| ले|सार|ाके|िष्|रिव|क र|ास |ेओ |्थि|केओ|राज',bho:' के|के |ार |े क|कार|धिक|िका|ओर |आओर| आओ| अध|अधि|े स|ा क|े अ| हो| सं|र क|र स|ें | मे|में|िक | कर|ा स|र ह| से|से |रा |मान| सम|न क|क्ष|े ब|नो | चा|वे |ता |चाह|ष्ट| रा|ति |्रा|खे |राष|ाष्|प्र| सा| का|ट्र|े आ| प्| सक| मा|्ट्| स्|होख| बा|करे|ि क|ौनो|त क|था |कौन|पन | जा| कौ|रे |ाति|ला | ओक|ेला|तथा|आपन|्त | आप|कर |हवे|र म| हव| तथ|सबह|र आ|ोखे| ह।|िर |े ओ|केल|सके|हे | और|ही |तिर|त्र|जा |ना |बहि|।सब|े च| खा|े म| पर|खात|ान |र ब|न स|ावे| लो|षा |ाहे|ी क|ओकर|ा आ|माज|ित |े ज|ल ज|मिल|संग|्षा|ं क| सब|ा प|और |रक्|वे।|िं |े ह|ंत्|ाज |स्व|हिं|नइख|कान|ो स| जे|समा|क स|लोग|करा|क्त|्रत|ला।| नइ|े। |ानव|िया|हु |इखे|्र |रता|्वत|ानू|े न|ाम |नून|ाही|वतं|पर |ी स| ओ |े उ|े व|्री|रीय|स्थ|तंत|दी |ीय |े त|र अ|र प|्य |साम|बा।| आद|ून |। स|व्य|ा।स|सभे|भे |या | दे|ा म|े ख| वि| सु|केह|प्त|योग|ु क|ोग |े द|चार|ादी|ाप्| दो| या|राप|ल ह|पूर| मि|तिक|खल |यता|्ति| बि|ए क|आदि|दिम| ही|हि |मी | नि|र न| इ |ेहु|नवा|ा ह|री |ले | पा|ाधि| सह| उप|्या| जर|षण | सभ|िमी|देश|े प|म क|जे |ाव | अप|शिक|ाजि|जाद|जिक|े भ|क आ|्तर|िक्|ि म|ेकर|ुक्|वाध|गठन| व्|निय|ठन |।के|ामा|रो | जी|य क|न म|े ल|न ह|ास |ेश | शा|घोष|ंगठ|िल | घो|्षण| पू|े र|ंरक|संर|उपय|पयो|हो |बा |ी ब|्म |सब |दोस|ा। | आज|साथ| शि|आजा| भी| उच|ने |चित| अं|र व|ज क|न आ| ले|नि |ार्|कि |याह|्थि',nep:'को | र |कार|प्र|ार |ने |िका|क्त|धिक|्यक| गर|व्य|्रत| प्|अधि|्ति| अध| व्|यक्|मा |िक |त्य|ाई |लाई|न्त|मान| सम|त्र|गर्|र्न|क व| वा|्ने|वा | स्|रत्|र स|्ये|तिल|येक|ेक |छ ।|ो स|ा स|हरू| वि|क्ष|्त्|िला| । |स्व|हुन|ति | हु|ले | रा| मा|ष्ट|समा|वतन|तन्| छ |र छ| सं|्ट्|ट्र|ाष्|ो अ|राष|्वत|ुने|नेछ|हरु|ान |ता |े अ|्र | का|िने|ाको|गरि|े छ|ना | अन| नि|रता|नै | सा|ित |तिक|क स|र र|रू |ा अ|था |स्त|कुन|ा र|ुनै| छै|्त |छैन|ा प|ार्|वार|ा व| पर|तथा| तथ|का |्या|एको|रु |्षा|माज|रक्|परि|द्ध|। प| ला|सको|ामा| यस|ाहर|ेछ |धार|्रा|ो प|नि |देश|भाव|िवा|्य |र ह|र व|र म|सबै|न अ|े र|न स|रको|अन्|ताक|ंरक|संर|्वा| त्|सम्|री |ो व|ा भ|रहर| कु|्रि|त र|रिन|श्य|पनि|ै व|यस्|ारा|ानव| शि|ा त|लाग|रा |शिक| सब|ाउन|िक्|्न |ारक|ा न|रिय|्यस|द्व|रति|चार| सह|्षण| सु|ारम|ुक्|ुद्|साम|षा |ैन | अप| भए|बाट|ुन | उप|ान्|ो आ|्तर|िय |कान|ि र|रूक|द्द|र प|ाव |ो ल|तो | पन|ैन।| आव|ा ग|।प्|बै |ूर्|िएक|र त|निज|त्प| भे|जिक|ेछ।|िको|्तो|वाह|त स|ाट | अर|ाजि|्ध | उस|रमा|ात्|र्य|नको|ाय |जको|ित्|ागि| अभ|न ग|गि |ा म| आध|स्थ| पा|ारह|घोष|त्व|यता|ा क|र्द| मत|विध| सक|सार|परा|युक|राध| घो|णको|अपर|े स|ारी|।कु| दि| जन|भेद|रिव|उसक|क र|र अ|ि स|ानु|ो ह|रुद| छ।|ूको|रका|नमा| भन|र्म|हित|पूर|न्य|क अ|ा ब|ो भ|राज|अनु|ोषण|षणा|य र| मन| बि|्धा| दे|निर|ताह|र उ|यस |उने|रण |विक',mag:'के | के|ार | हई|कार|िका|धिक|हई।| और|े अ|और |अधि| अध|ा क|र ह|े स|े क|सब |ें |में| मे| कर|से | सम|था |तथा| हो| से|र स|र क|िक | तथ| सब| सं|क्ष|मान|ब क|ा स|ना | सा|प्र|कर | प्| भी|ति |ई। |रा |भी |्रा| अप| का|त क|या |अपन| को|ट्र|क ह|पन | पर| मा| रा| या|ी क|ता | स्| ओक|ष्ट|ही |ान |्त |करे|्रत|त्र|ाष्|्ट्| सक|न क|राष|ओकर|।सब|रे |ेल |हई |े ब| जा|ई।स|रक्| ले|ंत्|े म| ही|सक |नो |र म| ना|स्व|ाम |होए|र औ|दी |व्य|क्त|ा प|वतं|ानव|ित | शा|ादी|षा |माज| इ |तंत|पर |ी स|्वत|्य |े उ|्र |ोग |वे |्षा|े भ|े ल|न स|करा|कान| एक|ल ज|म क|लेल|्ति|ावे| दे|रता|क स|साथ|ानू|नून|ेकर|र अ|य क|ाथ |प्त|ा म|ला |ई।क| वि|समा|ून |े प|साम|। स|ा ह| जे|े ह| चा|ोई |जा |मिल| व्|ि क|बे |ाप्|राप|ोए |रो |वार|कोई|चाह| दो|व क| नि|चार|र व|ाधि| पा|र प|स्त|एल |कोन|े व|ोनो|काम|ो स|्म |े ओ|योग| सु|ए क|नवा|न ह|षण |ीय |एक |परि| उप|े आ|्तर| सह|ाजि|ल ह|संर|ई क|ास |पूर|ं स|ंरक|ो क|जिक|देश|ुक्|ामा|होब|सम्|।के|्यक|े च|केक|्वा|पयो|उपय|री |ी ह|ाही|दोस|र आ| उच|ाति|म्म|्मा|े ख| लो|तिक|रति|ेश |न औ|स्थ|वा |मी |े त| आद|निय|न प|वाध| घो|घोष|ब अ|रिव|ा ब|कि |म स|रीय|्री|य स|यक्|ि म|ा द|ा त|ब ह|जाद|उचि|युक|ंयु|संय| उ |इ स|े इ|्षण|। त|चित|ा औ|व ह|हे |त स| पू|क औ|ग क|े न|न द|करो|लोग|ोषण|ारा|र न|िल |समय|कौन|ं क|मय |ौनो|ुरक|ो भ| भा|ाज | कए|कएल|सुर|र्म|ाव |िवा',san:'प्र|ां |स्य|्या| प्|्य |पि |िका| स्|कार|स्व|न्त|धिक| च |ं स| सं|्रत|क्ष|्वा|तुं|ुं |त्य| वि|मान|ार्| सम|त्र|ष्ट|्ये|ाना|ं अ| जन|्ति|रत्|र्व|नां|स्त|ाणा|ं व|ाधि|्त्|तन्|ते।|ारा|व्य|र्य|णां|मपि|येक| नि|ट्र|्ट्|ति।|राष|ाष्|ा स|अधि| अध| सा|त्त|वा |च स|रं |या |ते |्यत|सर्|वीय|वर्|ान्|िष्| वा|िता| रा|ेकम|धार|कमप|्वी|क्त|जन |य स| मा|राण|षु |ि च|ितु|्तु|र्त|ेन |ाया|साम|ं प| सर|्वे|ारं|वात|्ते|िक |न्य|ेषु|ष्य|न स|कृत|त्व|ं च|र्थ|े स|ानव|रक्|ि स|ऽपि|ातन|यित|ि ज|यते| अन|ं न|म् |्थं| पर| वर|निर|याण|नं |थं |यति|ति |ोऽप|वाध|्तर| अभ|संध|िर्|्यक|ामा|वस्|रस्|विध|श्च|समु|िवा|कस्|ारय|परि|माज|।प्|संर|्च |षणा|तान|्र |ेण |अभि|यां| का|ा अ| अप|ीय |ंरक|न क|यं |ा व|ित्|भवि|्षण|्षा|य प|समा|कं |्रा|वित|ात्| एत|िक्|घोष|अपि|रति|य्व|क स| कृ|िघो|नवा|रयत|पूर|र्ण| व्|धत्|ं ज|ास्|षा |्र्|भिघ|त् |चित|ृते|ध्य|संघ|ाजि| न |ऽस्|िश्|ार |ं ध|शिक|ोषण|ूर्|्री|च्छ|। अ|नान| भव|देश|र्ह|च प|्रि|ं क|ंधत|ानि|नि |्ता|रिक|विक|ैव |्रस|यक्|जिक|राध|तं |वार|य क|तित|य च|न व|े। |् स|ता |विव|तिक|र स|ना |ताय|्ञा|यान|्यम|ारे|ज्ञ|अन्|े च|ोऽस| शि|विर|्रम|नैव|्वस|ि।प|ष्ठ|योग|स्थ|नस्|य व|यता|रिव|सम्|कोऽ| को|ि न| वै|यस्|ि व|याप|द्ध|्रव|ता।|ेषा| धा|संय| सह|ुक्|जीव|ा प|्षे|्तन|े प|ने |श्य|न् |च व|परा|ि प|्रय|िरु|्वत|्ञ्|यत्|भाव|न्ञ|रुध|ुध्| पू|निय'},Ethiopic:{amh:'፡መብ|ሰው፡|ት፡አ|ብት፡|መብት|፡ሰው|፡አለ|፡ወይ|ወይም|ይም፡|ነት፡|ንዱ፡|አለው|ለው።|ዳንዱ|ያንዳ|ንዳን|እያን|ዱ፡ሰ|ት፡መ|፡እን|፡የመ|።እያ|እንዲ|፡ነጻ|፡የተ|ም፡በ|ው፡የ|ም፡የ|፡የሚ|ና፡በ|ን፡የ|፡የማ|፡አይ|ነጻነ|ና፡የ|ው፡በ|ቶች፡|ው።፡|ሆነ፡|ት፡የ|፡በሚ|፡መን|ው።እ|ትና፡|ኀብረ|ትን፡|ውም፡|ንኛው|እኩል|ብቻ፡|ኛውም|ንም፡|፡ለመ|፡ያለ|ም፡ሰ|ማንኛ|መብቶ|፡አገ|ት፡በ|ራዊ፡|፡እኩ|፡ለማ|ለት፡|በት፡|ሆን፡|መንግ|፡በተ|ረት፡|ብቶች|ጋብቻ|ዎች፡|ህንነ|ጻነት|ም፡እ|ወንጀ|፡ልዩ|ሰብ፡|ማንም|ጠበቅ|ኩል፡|ደህን|።ማን|ነጻ፡|ግኘት|ማግኘ|።፡እ|፡የሆ|፡ሁሉ|ች፡በ|፡በመ|ሥራ፡|፡ደህ|ፈጸም|ል፡መ|ተግባ|፡ድር|ት፡ወ|ው።ማ|ፍርድ|ርድ፡|፡በሆ|ር፡ወ|በትም|ትም፡|ይነት|ቸው፡|ብ፡የ|ነትና|ቱን፡|ሕግ፡|ንና፡|፡ሥራ|የማግ|፡መሠ|ኘት፡|፡ጊዜ|ጻነቶ|ነቶች|በር፡|በኀብ|ዩነት|ልዩነ|፡በኀ|፡ዓይ|ዓይነ|ችና፡|ግባር|ባር፡|፡ደረ|ነው።|፡ነው|ደረጃ|ም።እ|ም፡መ|፡ወን|ይማኖ|ማኀበ|ሃይማ|፡ኑሮ|መሠረ|ሁሉ፡|ነቱ፡|ሌሎች|ንግሥ|በቅ፡|የሆነ|፡ይህ|ንዲጠ|ገር፡|ተባበ|ትክክ|ጸም፡|ር፡የ|ዲጠበ|ትም።|ው፡ከ|፡እያ|ሩት፡|ድርጅ|፡ብቻ|ና፡ለ|ይገባ|የመኖ|፡ማን|ንነት|ቤተሰ|ርጅት|ት፡ድ|፡መሰ|እንደ|፡አላ|ብሔራ|ት፡ለ|ሔራዊ|ርት፡|ህርት|ውን፡|የሚያ|ል።እ|ሆኑ፡|ምህር|ትምህ|በት።|ለበት|አለበ|፡አስ|ሎች፡|ች፡የ|፡በሕ|ብረ፡|፡ከሚ|ን፡አ|ት፡እ|ን፡ወ|ረግ፡|በሆነ|የኀብ|፡የኀ|መሆን|፡መሆ|ን፡መ|፡ውሳ|ንጀል|ፈላጊ|ህም፡|ረታዊ|ክለኛ|ክክለ|ታዊ፡|ጀል፡|ኑሮ፡|።፡ይ|ዓዊ፡|ዜግነ|ንዲሁ|ዲሁም|፡ማኀ|ገሩ፡|ር፡በ|ብዓዊ|አገሩ|ሁም፡|ና፡ነ|ሰብዓ|የተባ|ጅት፡|ማኖት|ር፡አ|ንግስ|ኖት፡|በሕግ|መኖር|ው፡ያ|መጠበ|ረጃ፡|፡በማ|ነትን|ብነት|ገብነ|፡ገብ|መፈጸ|፡ሁኔ|ሁኔታ|ን፡ለ|ው፡ለ|፡ተግ|፡የአ|፡ይገ|፡በአ|ችን፡|፡ትም|ነቱን|፡ቢሆ|ቢሆን|ጊዜ፡|ረ፡ሰ|ት፡ጊ|ሰቡ፡|ምበት|ላቸው|አላቸ|በነጻ|፡በነ|አንድ|ቅ፡መ|፡መጠ|ት፡ይ|መሰረ|ጥ፡የ|ስጥ፡|ፈጸመ|ውስጥ|ንድ፡|፡ውስ|፡በግ|፡ሆኖ|ሉ፡በ|፡ጋብ|ንስ፡|ንነቱ|መው፡|የሚፈ|አይፈ|ብረሰ|ነ፡መ|፡የሃ|ም፡ከ|ች፡እ|ስት፡|ሙሉ፡|አገር|ሆኖ፡|ደረግ|ኢንተ|ንተር|ተርና|ርናሽ|ናሽና|ሽናል',tir:' መሰ| ሰብ|ሰብ | ኦለ|ትን |ኦለዎ|ናይ | ናይ| ኦብ|ዎ፡፡|ለዎ፡|ሕድሕ|ኦብ |ድሕድ|ሕድ |መሰል|ውን |ሰል |ድ ሰ|ይ ም|ል ኦ|ካብ |፡ሕድ|፡፡ሕ| ወይ|ወይ | መን| ነፃ|ን መ|ዝኾነ|፡፡ |ታት |ብ ዝ|ነት |ን ነ| ካብ|መሰላ|ነፃነ| እዚ|ብ መ|ኦዊ |ታትን|መንግ|ዊ መ| እን|ብ ብ|ንግስ|ት ኦ|ሰላት|ን ም|ኾነ |እዚ |ብኦዊ|ሰብኦ|ን ኦ|ን፡፡| ንክ| ዝኾ|ን ን| ምር|ኹን |ይኹን| ይኹ|ምርካ|ርካብ| ኦይ| ሃገ|ሕጊ |ራት |ሎም | ብሕ|ነ ይ| ከም|ማዕሪ|ይ ብ| ንም| ዝተ|ርን |ን ብ|ራዊ | ፣ |ብ ሕ|ላትን|ብ ኦ|ማሕበ|ነታት| ኦድ|ዕሪ | ማዕ|ስታት|ግስታ|’ውን|ት መ|ን ዝ|ታዊ |፣ ብ| ማሕ|ነትን|ንጋገ|ድንጋ| ስለ| ድን|ስራሕ|ኩሎም|ሕበራ|ኦት |ን ሰ|ዓለም|ፃነታ| ብም|ት ወ|መሰሪ| ስራ|ፃነት|ተሰብ|ካልኦ|ልኦት|ን ሓ|ዓት |ዋን |ቡራት|ሕቡራ| ሕቡ|ብሕጊ|ድብ |ውድብ| ውድ|ብን |ትምህ|ነቱ |ዚ ድ|፣ ኦ|ሃገራ| ኩሎ|ለዎም|ምህር|ም፡፡|ም መ| ብዝ|ምኡ’|ኡ’ው|እንት| ዓለ| ብዘ|በራዊ| ሓለ|ሓለዋ|ዎም፡|ቱ ን|ት ብ|ጋገ |ነፃ | ምዃ|ን ዘ| ገበ|ት፣ | ትም|ኸውን|ራሕ | ዘይ|ህርቲ|ርቲ |ከምኡ|ሃይማ| ምስ|ነ፣ |እንተ| ስር|ስርዓ|ርዓት|ባት |ይማኖ|ሰሪታ|ን ና| ክብ|ልን | ብማ|ገሩ | ህዝ|ላት |ት ና|ይ ኦ|ዕሊ |ለዝኾ|ስለዝ|ሪተሰ|ብሪተ|ሕብሪ| ሕብ|ን ተ|ኾነ፣|በን |ሃገሩ|ገ እ|ኻዊ | ሃይ|እን |ሪጋገ| ምሕ|ን እ|ለኻዊ|ር፣ | ብሓ| ብሃ| ክኸ|ክኸው|ብ ዘ|ዃኑ |ዊ ክ|ምን |ሓደ |ምዃኑ|ም ን|ት እ|ዊ ወ|ታውን| ሕድ|ብዘይ| ሕጊ|ት ን| ልዕ| ካል|ን ካ|ሰባት|ን ስ|ናን |ቤተሰ|ሕን |ለምለ|ት ስ|ምለኻ|፣ ከ|ተደን|ባል |ኦድላ|እዋን| እዋ|ደቂ | ደቂ| ሰባ|ፃን |ነፃን|ግስቲ|፣ ን|ዚ ብ|ስቲ | ቤተ|ምጥሓ| ክሳ| ነዚ|ን ክ|ነቲ | ነቲ|ነዚ | ምእ|ብነፃ| ምዕ|ምዕባ|ዕባለ|ክሳብ| ብነ|ል እ|ዚ መ|ልዕሊ|ክብሩ|ብማዕ|ሳብ |ህይወ|ኦቶም|ምስ |ንገገ|እምነ| እም|ድ ኦ|ቶም |ቲ ክ|ፍትሓ|ለም | ፍት|ብ ን|ን ዓ|ራውን|ሓፈሻ|ደንገ|ም ብ|ትዮን| ዝሰ|ዝተደ|ሉ መ|ብ ና|ጊ ካ|ልዎ |ኦባል| ኦባ|ድልዎ|ን ድ|ኦድል|ዜግነ|ላውን| ድሕ'},Tibetan:{bod:'འི་|་དང|གས་|ྱི་|ང༌།|༌། |ོབ་|་ཐོ|དང༌|་ཡོ|་བྱ|ཐོབ|ོད་|་ཀྱ|་པ་|ི་ཐ|ོས་|ད་པ|ཀྱི|་པའ|པའི|ེད་|ས་ཀ|ང་ད|ས་ས|ུང་|ང་བ|རྒྱ|བ་ཐ|རང་|བྱེ|ོན་|ི་ར|་ཐང|་དབ|ནས་|ཡོད|་འད|ཐང་|ང་ཡ|ས་པ|་མི|ྱེད|མས་|ས་འ|་ལ་|་རྒ|ིག་|དབང|སྐྱ|་དག|་རེ|བང་|་རང|་སྐ|ས་ལ|་སྤ|ེ་བ|་ཡི|ོགས|སྤྱ|་འག|ངས་|ོང་|ིན་|་བཅ|་གི|ས་ད|ང་ག|དེ་|ཡིན|ལ་བ|་ནས|སུ་|་བས|ང་འ|མི་|ས་བ|ོག་|བཅས|གྱི|་ཚོ|་བ་|་གྱ|ཅས་|གི་|གོས|དགོ|ྐྱེ|ྱེ་|ེན་|་རི|རིག|ན་ག|ང་མ|ེས་|ི་མ|ྱལ་|ང་ས|ྒྱལ|པ་ད|། ར|ིགས|ོངས|ལ་ག|དོན|གང་|། ད|་ཞི|ེར་|་གང|ཡང་|ང་ར|་བར|ེ་ར|ི་ས|བས་|ི་ག|དང་|་དོ|ེལ་|ོ་ར|ི་བ|་འབ|རེ་|་བོ|ས་མ|ུལ་|ཚོག|འགྲ|ལས་|ི་ད|་གན|བོ་|་གཞ|ུགས|ད་ད|ལ་ཁ|ིས་|མ། |ཁྲི|ན་ད|ིམས|་དུ|མཉམ|ན་བ|བ་ད|་སུ|་མཐ|ྲིམ|་བའ|ས་ག|ར་བ|ྱོད|ཉམ་|ྤྱོ|་ཡང|ོ་བ|ོད།|ར་ར|ས་ར|ིའི|བའི|ག་ག|དུ་|་དེ|འདྲ|ན་པ|ན་ར|ང་ལ|་ཁབ|ཞིག|་ལས|གྲོ|་ལེ|་ཆེ|་གཏ|ྤྱི|ུས་|ུན་|་རུ|་སྒ|ན་ས|ལེན|དྲ་|བྱུ|ི་འ|ྲེལ| དེ|ོད༎|ི་ཆ|་ཁྲ|ིད་|གནས|སྒྲ|་མཉ|ུ་ཡ|་ཆོ|་ཚུ|ལ་ས|ཁབ་|རེར|ཡོང|ྲོ་|་སྦ|ག་ལ|ར་ད|གལ་|་ནང|ས་ཡ|རུང|ྱུང|་འཛ|། ས|དག་|ད༎ས|ནང་|འདི|ཐོག|ག་ད|ཆོག|་སྟ|ང་ན|ན་ལ|༎སྐ|ཆེ་|བྱ་|དི་|ྲ་མ|ི་ཁ|མིའ|ཚང་|ྐྱོ|ྟར་|ྒྱུ|་པར|་གས|ི་ན|ུར་|་ཤེ|པར་|། འ|པ་ཡ|ཤེས|ང་ཚ|་ལུ|་རྩ| རང|། ག|ི་ཚ|ཞི་|་སྡ|ས་ཚ|ད་ཀ|བ་བ|སལ་|ྱིས|ི་ལ|ུག་|ལག་|ག་ན|་ལག|བ་མ|བ་ས|འདོ|ར་ག|ཚུལ|ིང་|གཞི|བ་པ|འགལ|ར་འ|་བཀ|་མང|་ནི|བསྟ|། མ|ས་ཤ|ིན།|ད་བ|ྱས་|གསལ|ྱང་|་པོ|་བད|ལ་ད|ོ་ན|ག་བ|ུ་ས|ཚོ་|་ཚང|ས་ཁ|ག་པ|ཏོང|ན་འ|གཏོ|ོར་|་འཚ|བསྒ|འཚོ'},Hebrew:{heb:'ות |ים |כל |ת ה| כל|דם |אדם|יות| של| זכ|ל א| אד|של |ל ה|אי |ויו|כאי|ת ו|י ל|זכא| ול|לא | וה|רות|זכו|ית |ירו|ין | או|ם ז| לא| הח|או | הא| וב| המ|חיר|ת ל|יים|ם ל|את |ת ב|ת ש|רה |ון | לה|נה |כוי|ותי|ה ש|ו ל|ו ב| הו|ת א|ם ב|ם ו|תו | את|לה |ני |אומ| במ|דה |א י|ה ה|ה ב|על |ם ה| על|הוא|וך |ה א|בוד|וד |ואי|נות|ה ו|ת כ|י ה|יה |ם ש|ו ו| שה|ם א|ו כ|ינו|ן ה| שו|שוו|החי|כות|לאו|בות|דות|ה ל|לית|ה מ| בי|וה |וא | הי| לפ|ור | לב|ל ב|בחי|הכר|לו |ת מ|ן ש|החו|ה כ| בכ|ומי|בין|ן ו|ן ל|רוי|פלי|ולה|ליה| הז|חינ| לע| בנ|יבו|חוק| אח|חבר| יה| חי|מי |ירה| חו|האד|ווה|חופ|ופש|וק |נו |יו |ל מ|מדי|כבו| הע|נוך| הד|י א|י ו| הכ|בני|עה |ו א|רצו|דינ|בזכ|מות|יפו| אל|סוד|לם |איש|רך | אי|הגנ|הם |פי |ם כ|חות|ל ו|איל|ילי|תיה|כלל|אלי|יסו|האו|זש | בא|ר א|ו ה|זו |אחר| הפ| בע| בז|משפ| בה| לח|דרך|ומו| בח| דר| מע|ל י|תוך|מנו| בש|לל |רבו| למ|פני| לק|תם |שה |שית|ללא|לפי|היה|מעש|דו |שות|להג|וצי|שוא|אין|וי |תי |ונו|ליל| לו|חיי|ל ז| זו|היא|יא |נתו|ה פ|לת |ובי| לכ|ך ה|יל |י ש|שיו|ן ב|עול|המד|ודה|ולם| ומ|א ה|ולא| בת|הכל| סו| מש| עב|סוצ|ארצ| אר|ציא|ד א|לחי|הן |יחס| יח|יאל|הזכ|ם נ| שר|בו |עבו|היס| לי|ת ז|פול|יהי|גבל|תיו|המא|שהי|א ל|מאו| יו|ותו|ישי|גנה|פשי|וחד|יהם|חרו|לכל|ידה|עות|ונה|ום |חה |עם |שרי|ם י|שר |והח| אש| הג|ק ב|הפל|נשו|הגב|ד ו',ydd:' פֿ|ון |ער |ן א| אַ|דער|ט א| או|און|אַר|ען |פֿו| אױ| אי|ן פ|ֿון|רעכ| דע| רע|עכט|פֿא|ן ד|כט | די|די |אַ |אױף|ױף |ֿאַ| זײ| גע|אַל|אָס| אָ|ונג| הא|האָ|זײַ| מע|אָל|נג |װאָ|ַן |אַנ|רײַ| װא|ָס |באַ| יע|יעד|ניט|ן ז|ר א|יט |אָט|אָר|עדע|מען|זאָ|ָט |פֿר|ײַן| בא|טן |אין|ן ג|ין |ן װ|נאַ|ֿרײ|ר ה| זא|לעכ|ע א|אָד|ַ ר|ענט|אַצ|ַצי|אָנ| צו| װע|יז |מענ|ָדע|איז|ן מ|ַלע|בן |ר מ|טער| מי| פּ|מיט|טלע|ָל |עכע|ײט |ַנד|ע פ|לע |געז|לאַ|אַפ|עזע|ראַ| ני|ַפֿ|רן |ײַנ|נען|טיק|כע |פֿע|יע |הײט|ַהײ|נטש|ײַה|ט ד|ן ב|לן |ן נ|פֿט|שאַ|רונ| זי| װי|ט פ| דא|טאָ|דיק|קן |ר פ|ר ג|יקן|אָב|ף א|אַק|קער|ערע|כער|י פ|ות |ַרב|פּר|קט |עם |יאָ|ציע|ציא|יט־|צו |ישע| קײ|ן ק|סער| גל|דאָ|ונט|גן |ַרא|יקע| טא|ענע|לײַ|שן |ַנע|יק |טאַ|ס א|עט |נגע|ט־א|ָנא|־אי|יקט|נטע|ײנע|־ני|ָר |װער|י א|ן י|יך |זיך|ער־|ערן|אױס|ָבן|נדע|ָסע|װי |ֿעל|ר־נ|ן ה| גר|גלײ| צי|ראָ|זעל|עלק|נד |לקע|אָפ| כּ|ט װ|ג א| נא|ט צ|ר ד|עס |דור|גען|קע |ג פ|ֿט |ן ל|שע |ר ז|רע |ײטן|פּע|קלא|קײט|יטע|ים |ס ז|ײַ | דו|אַט| לא|ר װ|קײנ|עלש|י ד|לשא|יות|נט |ַרז|ע ר|ל ז|אַמ|ן ש| שו|אינ|נטל| הי|בעט|ָפּ|ף פ|ײַכ|בער|ן צ|מאָ| שט| לע|גער|ורך|רך |נעם|גרו|פֿן|לער|װעל|ע מ|ום |שפּ|ך א|יונ|רבע|עפֿ|טעט|ן כ|רעס|ערצ|ז א|עמע|ם א|שטע|כן |רט |י ג|סן |נער|ליט|ט ז|נעמ|ּרא|היו|אַש|ת װ|אומ|ק א|יבע|ֿן |ץ א|פֿי|ײן |ם ט'},Canadian_Aboriginal:{csw:'ᑭᒋ | ᑭᒋ|ᓀᐢᑕ| ᓀᐢ|ᐢᑕ | ᑲ | ᐁ | ᐱᑯ|ᓂᐠ |ᒥᓯᐌ|ᐠ ᓀ|ᓯᐟ |ᐱᑯ |ᐎᐣ |ᑯᐎᓯ|ᐎᓂᐠ| ᐃᔑ|ᐎᓇ |ᓯᐌ |ᒋ ᐃ|ᐟ ᓀ|ᓂᐤ |ᐠ ᑭ|ᐗᐠ |ᐁᑲ |ᒥᓂᑯ| ᑎᐯ| ᒥᓂ|ᐃᔑ | ᐃᓂ|ᑕ ᐱ|ᐌᓇ |ᐊᐌᓇ|ᓂᑯᐎ| ᐊᐌ|ᐃᓂᓂ| ᐅᒋ| ᐊᐢ|ᐅᐟ |ᐊᐢᑭ| ᐅᐟ|ᒋᐠ |ᐌ ᐊ|ᓂᓂᐤ|ᐠ ᐅ| ᐁᑲ|ᑕᑯᓯ|ᓂᐗᐠ|᙮ᒥᓯ|ᒋ ᐊ|ᐅᒋ | ᑲᓇ|ᑲ ᑭ|ᓯᐎᓇ| ᒥᓯ|ᐟ ᑭ|ᐟ ᐃ| ᐁᔑ|ᑌᓂᑕ|ᓇ ᐁ|ᓂᒥᑎ| ᐊᓂ| ᐯᔭ|ᐠ ᐁ|ᑕ ᐁ|ᓂᑕᑯ|ᐟ ᐅ| ᐃᑕ|ᑕ ᑭ|ᑎᐯᓂ|ᐯᓂᒥ|ᐁᔑ | ᐊᐸ|ᐎᓯᐟ|ᑕᐢᑲ|ᓯᐎᓂ|ᐟ ᐊ|ᐎᓯᐎ|ᑭᐠ |ᑕ ᑲ|ᐯᔭᑾ| ᑭᐢ|ᒋ ᐅ|ᑲ ᐅ|ᐎᓂᓂ|ᑕᒧᐎ| ᐃᐢ|ᑯᓯᐟ|ᐢᑭᐠ|ᑎᓯᐎ|ᓂᑕᒧ|ᑲ ᐊ|ᔑ ᑲ|ᑌᐠ |ᐠ ᑲ|ᒋᑲᑌ|ᐤ ᑭ|ᐣ ᑭ| ᐱᒋ|ᓯᐎᐣ|ᑲᐠ |ᑲᑌᐠ|ᐃᐢᐱ|ᓇᐗᐸ|ᐢᑲᓀ|ᑕᐟ |ᑲ ᐱ| ᐅᑭ|ᑐᐎᓂ|ᐱᒋ |ᑲᓇᐗ|ᒋ ᒥ| ᐃᑗ|ᓂᒋᑲ|ᐢᐱ |ᒋ ᑭ|ᑲᓀᓯ|ᐠ ᐃ|ᒥᑎᓱ|ᒧᐎᐣ|ᑕᐠ |ᑭ ᐃ| ᐃᑌ|ᒋ ᓇ|ᐢᑲᒥ|ᐢᑌᓂ|ᐃᑕᐢ|ᐣ ᓀ|ᐠ ᐱ|ᓇ ᓀ|ᑾᐣ |ᑯᓯᐎ| ᐅᓇ|ᐠ ᐊ| ᑎᐸ|ᐤ ᓀ|ᓂᓂᐠ| ᐅᑎ|ᐃᑌᓂ|ᑲ ᐃ|ᒋ ᓂ|ᓀᓯᐎ| ᐅᑕ|ᐗᐸᒥ|ᐱ ᑲ|ᑭᐢᑌ| ᐎᒋ|ᑯ ᑭ|ᑕᓂᐗ|ᑾᐠ | ᑕᐺ|ᑕ ᐅ|ᐤ ᐁ|ᓂᓂᐗ|ᐠ᙮ᒥ|ᒥᐟ |ᔓᐌᐎ|ᓇᔓᐌ|ᓂᓂᐎ| ᐊᔭ|ᐊᐸᑎ|ᐸᑎᓯ|ᑎᓱᐎ|ᒋ ᒪ|ᑕ ᐊ| ᒪᑲ|ᐱᒪᑎ| ᑭ |ᐅᑭᒪ|ᒋ ᑲ|᙮ ᐁ|ᑲᓇᐌ|ᓂᐠ᙮|ᓇᐌᓂ|ᐌᐎᓂ| ᑫ |ᐅᒪ |ᓂᐎ |᙮ᐁᑲ| ᑯᑕ|ᔦᓂᑕ| ᐅᒪ|ᐣ ᐁ|ᒪᑲᐠ|ᒪᑎᓯ|ᒥᑯᐎ|ᔭᑾᐣ|ᑕᐌᓂ|ᐅᓇᔓ|ᓂᑭ | ᑫᑾ|ᐟ ᐁ|ᔑ ᒥ|ᒪᑲ |ᐊᔭᒥ|ᒪᐟ |ᓂᐃ |ᐊᓂᐃ|ᐠ ᒥ| ᓂᐸ|ᓂᐸᐎ|ᐸᐎᒪ|ᐎᒪᑲ|ᐁ ᒥ| ᒪᒪ|ᑭᒪᐎ|ᒪᐎᐎ|ᓂᒥᑯ|ᐁ ᐃ|ᐺᔦᓂ|ᑕᐺᔦ|ᑭᔭ |ᑎᓯᐟ|ᒪᒪᐎ|ᐢᑯᓂ|ᒪᐎ |ᓂᔑᒋ|ᐎ ᒥ|ᑫᐎᓂ|ᑲ ᑎ| ᐊᔑ| ᓇᑕ|ᓇᐌ |ᐸᒥᐟ|ᐸᒋᑕ|ᐸᑭᑎ|ᔭᑾᓄ|ᑕ ᒥ| ᐱᒪ|ᒋ ᐱ|ᑯᐟ |ᓄᐠ | ᑐᑕ|ᐌᓂᒥ|ᐁ ᑭ| ᐗᓂ| ᑲᑕ|ᐗᓂᔑ|ᐎᐣ᙮|ᑎᓇᒪ|ᒋᑕᐟ| ᐸᑭ|ᓇ ᑭ|ᐤ ᑲ|ᓇ ᑲ|ᒋ ᐸ|ᔑᒋᑫ|ᐊᐸᒋ|ᑐᑕᒧ|ᑎᐯᓇ|ᑭ ᐊ|ᑯᑕᑭ|ᑕ ᑎ|ᐣ ᐅ|ᐌᓂᑕ|ᒥᑎᓯ|ᐎᐎᓂ|ᑲ ᐁ|ᒋᑫᐎ|ᓇᐢᑯ|ᑐᒋᐠ|ᐃᐟ |ᑌᑭ |ᑲᑌᑭ|ᐎᑭᑐ|ᐯᓇᐌ|ᐊᓂᑭ|ᓯᐤ |ᐌ ᑲ|ᓂᑕᑾ|ᒋ ᑎ|ᐃᑗᐎ| ᐎᓇ|ᑕᒪᑫ|ᑎᐯᐣ| ᐎᑭ|ᑾᓄᐠ|ᐣᑕ |ᐸᐢᑯ|ᑯᓂᑲ|ᔑᓇᑾ|ᒥᐠ |ᑲᒥᐠ|ᐌᐢᑲ|ᓯᐌᐢ|ᐟ ᐱ|ᔑ ᓂ|ᐠ᙮ |ᓯᒋᐠ|ᐨ ᑲ| ᐱᑐ|ᐠ ᐸ|ᓇᑕᒪ|ᑲ ᐗ|ᑯ ᑲ| ᑾᔭ|ᑾᔭᐢ|ᒋᐠ᙮| ᐁᑯ|ᒪ ᑲ',ojb:'ᐎᓐ |ᓐ ᑲ|ᓂᒃ | ᑲᐃ|ᒃ ᑲ| ᒥᓇ|ᑲᐃᔑ|ᑕᑯᓯ|ᐗᒃ |ᒥᓇ |ᓯᐎᓐ|ᐎᓂᒃ| ᑲᑭ|ᓐ ᐅ|ᑫᑕᑯ|ᑌᐸᑫ|ᑯᓯᐎ|ᐸᑫᑕ|ᑲᔦ | ᑌᐸ| ᑲᔦ|ᒃ ᒥ| ᐅᑕ|ᓐ ᒥ|ᐅᒋ |ᓂᐗᒃ|ᐃᔑ |ᑲᑭᓇ|ᑭᓐ |ᒃ ᒋ|ᓇᓐ |ᒃ ᐅ|ᓀᓐ |ᒥᓯᐌ|ᐗᑦ |ᑦ ᑲ|ᓐ ᑌ| ᒥᓯ|ᑭᓇᐌ|ᐅᑕᔭ|ᑌᒃ |ᒋᑲᑌ|ᐌᓀᓐ|ᑦ ᐅ|ᓇᐌᓀ|ᑫᐎᓐ|ᓇᓂᐗ|ᔭᓐ | ᒋᐃ|ᑯᓂᑫ|ᓐ ᒋ|ᒋᐃᔑ| ᐅᒋ| ᐃᔑ|ᑕᔭᓐ|ᓇᐗ |ᑲᑌᒃ|ᓂᑫᐎ| ᒋᐅ|ᐎᓇᓐ|ᑾᒃ | ᑎᐯ| ᑲᐅ|ᓐ ᐊ|ᑕᔥ |ᑌᑭᓐ|ᒃ ᐊ|ᒪᑎᓯ| ᒋᑭ|ᐃᔑᓇ|ᓇ ᑲ| ᐅᒪ|ᑲᐎᓐ|ᐸᓐ | ᒋᐊ| ᑲᐎ| ᐱᑯ| ᐊᑭ|ᑲᑌᑭ|ᓯᑦ |ᒃ ᑭ|ᑫᐎᓂ|ᐊᐎᔭ|ᐅᒪ |ᓐ ᐃ|ᐅᐌ | ᐊᐎ|ᓂᒥᑎ|ᑎᐯᓂ|ᑭᒃ |ᑕᒃ |ᐱᑯ |ᐌᓂ |ᓯᐌᑲ|ᓯᐌ |ᑲᓇᐌ|ᒥᓇᐗ|ᐯᓂᒥ| ᐊᓂ|ᓄᓐ |ᐱᒪᑎ|ᐎᑦ |ᓇᑯᓂ|ᑕᑾᒃ|ᒋᐅᒋ|ᐊᑭᒃ|ᒥᒃ |ᑲᒥᒃ|ᓂᑲᑌ|ᐌᑲᒥ|ᑲᐅᒋ|ᑎᐸᑯ| ᒣᑾ|ᒣᑾ | ᑎᐸ|ᒃ ᑫ|ᑎᓱᐎ|ᐗᓐ | ᐃᑕ|ᓐ ᑫ| ᑲᐊ|ᐎᔭ | ᑲᑕ| ᑫᒪ|ᑫᒪ | ᑭᒋ| ᐅᐌ|ᐃᑕᔥ| ᑭᐃ|ᑭᑫᑕ| ᑫᑯ|ᐸᑯᓂ|ᑲᓐ |ᔭᒃ |ᒪ ᑲ|ᑎᐎᓂ|ᓇ ᒋ|ᑐᒋᑲ|ᒥᑎᓱ|ᐗᐨ |ᒃ ᐃ|ᓐ ᐁ|ᒧᐎᓐ|ᑦ ᐊ|ᐃᔑᒋ|ᐃᒪ |ᐌ ᐃ|ᑲᓂᐎ| ᒪᒪ|ᑭᓇ | ᑕᐱ| ᑲᓇ|ᐃᔑᐊ|ᓂᐗᓐ|ᓂ ᐅ|ᑯ ᒋ|ᓇᐌᑕ|ᐃᑯ | ᐃᑯ|ᒪ ᐊ|ᒋᑫᐎ|ᓐ ᑭ|ᐃᓀᑕ|ᓐ ᑕ| ᐅᑎ|ᐃᔑᑭ| ᐅᓇ|ᑕᐱᑕ|ᑎᓇᓂ|ᒋ ᑲ|ᓯᐎᓇ|ᑎᓯᑦ|ᔭ ᑕ|ᐊᓄᑭ|ᓱᐎᓂ| ᐱᓴ| ᑯᑕ| ᑕᐃ|ᑫᑕᑾ|ᐅᑭᒪ|ᐱᑕ | ᐊᔭ|ᒋᐎᑎ| ᑫᐎ|ᐅᐌᓂ|ᑲᒃ |ᑭᐃᔑ| ᒋᑲ|ᑫᐎᓇ| ᒥᐅ|ᑎᐯᑕ|ᒥᐅᐌ|ᔥ ᒣ|ᔑᓇᑾ|ᓐ ᒪ| ᐃᒪ|ᓯᓇᐃ|ᑎᓯᐎ|ᑲᓂᐗ|ᑭᒋᐃ|ᒋᐃᓀ|ᑯ ᑲ|ᓐ ᐱ|ᐃᑎᐎ| ᐁᔑ|ᑲᓀᓯ|ᓐ ᐎ|ᑕᑲᓀ|ᐅᓇᑯ|ᒋᐊᔭ|ᑕ ᐃ|ᔑᓇᑯ|ᐗ ᑲ|ᑕᐃᔑ|ᑌᓂᒃ|ᐯᒪᑎ| ᑲᑎ| ᐃᓇ| ᑎᐱ| ᐯᒪ|ᑕᑾᑭ|ᐃᓇᑯ|ᑫᑦ | ᑾᔭ|ᐸᒋᒧ|ᓇᐗᐸ|ᓐ ᒣ|ᔦ ᑭ|ᓱᐎᓐ|ᒃ ᐱ|ᓐ ᑎ|ᓯᐎᓂ|ᓇᑯᓯ|ᔦ ᒋ|ᓯᓇᓂ|ᒃ ᑎ|ᓯᓄᓐ|ᐌ ᐊ|ᒧᐗᑦ|ᓇᐃᑲ|ᐱᐃᑲ|ᐃᑲᓂ|ᒪᓯᓇ| ᒪᓯ|ᔑ ᐊ|ᑎᐸᒋ|ᑦ ᑌ|ᒃ ᒪ|ᐎᑎᑫ|ᑾᔭᒃ|ᒋᒧᐎ|ᑭᑲᓇ|ᓯᒃ |ᐃᑲᑌ|ᐌᓂᒥ| ᒪᐗ|ᐱᓂᑲ|ᑲᑌᓂ| ᐊᓄ|ᐅᑕᐱ|ᓂᐎᑦ|ᒪᒪᔑ|ᑕᒧᐗ|ᓇ ᐊ|ᐱᐃᑎ|ᑦ ᒋ|ᑯᓐ |ᐅᑕᑭ|ᑕᒧᐎ|ᐎᒋᐎ|ᐅᑾᐱ|ᑦ ᒥ| ᐅᑾ|ᐤ ᐅ|ᒋᑲᓂ|ᒪᐤ |ᒪᒪᐤ| ᑭᔥ|ᐌ ᑲ|ᑭᔥᐱ|ᐱᓇᐌ|ᐃᔑᑕ|ᑎᐱᓇ|ᔥᐱᓐ|ᑭᐸᓐ|ᑫᑯᓇ|ᒥᑕᔥ|ᑲᓂᒃ|ᐱᓐ |ᑯᓇᓐ|ᔑᑭᑫ|ᐅᔑᐱ| ᐅᔑ|ᑲᓇᐗ| ᐱᒪ|ᑯᓯᑦ|ᑭᑐᐎ|ᐱᓴᓐ|ᓴᓐ |ᑲᐃᓇ',ike:'ᑦ ᐊ|ᐊᒻᒪ|ᐃᓐᓇ|ᒻᒪᓗ|ᒪᓗ | ᐊᒻ|ᑐᐃᓐ|ᑦ ᐃ|ᑦᑎᐊ|ᑯᑦ |ᒃᑯᑦ|ᔪᓐᓇ|ᓄᑦ |ᒍᑦ |ᓂᒃᑯ|ᓐᓇᐅ|ᑦ ᐱ| ᐱᔪ|ᓇᐅᑎ|ᑎᖃᕐ|ᐅᑎᖃ|ᒧᑦ |ᐱᔪᓐ|ᒃᓴᐅ|ᓂᒃ | ᑭᓇ|ᒥᒃ |ᓇᒃᑯ| ᐃᓱ| ᐃᓅ|ᒃ ᐊ|ᓐᓇᕐ| ᑕᒪ|ᑎᒃ |ᓂᕐᒥ| ᐅᕝ|ᐅᕝᕙ|ᑭᓇᒃ|ᐃᓱᒪ|ᑦ ᐅ|ᑎᒍᑦ|ᒋᑦ |ᒃᑯᑐ|ᑦ ᑭ|ᑯᑐᐃ|ᕐᓂᕐ|ᓐᓃᑦ|ᓃᑦ |ᓘᓐᓃ|ᓗᒍ |ᓐᓇᖅ|ᕐᔪᐊ|ᖃᖅᑐ|ᐳᑦ |ᕐᒧᑦ|ᕙᓘᓐ|ᑐᒃᓴ|ᕝᕙᓘ|ᐊᑦ |ᖅᑐᒃ|ᕈᓐᓇ|ᓗᓂ | ᓄᓇ|ᓇᕐᓂ|ᑎᐊᑦ|ᓗᒋᑦ|ᖃᕐᐳ|ᑎᑦᑎ|ᓇᑦᑎ|ᖅᑕᐅ|ᓂᕐᒧ|ᔪᐊᕐ|ᕐᓂᒃ|ᕐᐳᑦ|ᓇᖅ |ᕐᓯᒪ|ᑦ ᑕ|ᕐᒥᒃ|ᖃᕐᓂ|ᑎᑕᐅ|ᓗ ᐃ|ᓴᐅᙱ|ᐊᕐᒥ|ᓕᒫᑦ|ᓂᖅ |ᑦ ᓇ|ᓗ ᐊ|ᓐᓇᑦ|ᑦ ᓴ|ᓗᑎᒃ|ᓪᓗᒍ|ᔾᔪᑎ|ᐊᕐᓂ| ᓯᓚ|ᓯᒪᔪ|ᓱᒪᖅ|ᐱᖁᔭ|ᓯᓚᕐ|ᓚᕐᔪ| ᐊᔾ| ᐱᖁ|ᕐᒥᐅ|ᐅᙱᓚ|ᖅᑐᐃ|ᑐᑦ |ᒪᖅᓱ|ᖅ ᐊ|ᓂ ᐊ|ᐊᔾᔨ|ᔪᑦ |ᐅᓯᒪ|ᒃ ᐃ|ᖅ ᐃ|ᑎᐊᖅ|ᖃᑎᒌ| ᐃᓄ|ᕐᓗᓂ|ᑎᐊᕐ|ᕆᐊᖃ|ᑕᐅᓯ| ᐃᓕ|ᓚᖅ |ᐅᑉ |ᑦ ᓯ|ᓪᓗᒋ|ᒋᔭᐅ|ᐃᓅᖃ|ᙱᓚᖅ|ᑎᓪᓗ|ᒪᑦ |ᑕᐅᔪ|ᓗ ᓇ|ᒫᑦᑎ| ᐃᓚ|ᑦ ᑲ|ᖕᒥᓂ|ᑦ ᓄ|ᖁᓪᓗ|ᖕᒋᓐ| ᐊᖑ|ᓇᖕᒥ|ᓂᑐᐃ| ᓇᖕ|ᓱᕈᓐ| ᐊᑐ|ᐊᖑᑎ|ᓐᓂᐊ|ᔭᐅᔪ|ᓯᒪᓂ|ᖢᑎᒃ| ᓇᓂ|ᖅᓱᕈ| ᐅᖃ|ᖅᑎᑦ|ᓗ ᐱ|ᓯᐅᑎ| ᓴᐳ|ᐅᓂᒃ|ᑕᒪᒃ|ᔾᔨᐅ|ᓐᓇᓕ|ᕗᑦ |ᓇᓂᑐ| ᐃᑲ|ᓇᓕᒫ|ᑕᐅᓂ|ᐊᖅᑐ|ᐅᔪᑦ| ᖃᓄ|ᐃᓅᓯ|ᐃᑲᔪ|ᓇᓱᐊ|ᖃᑦᑎ|ᕐᖢᑎ|ᒥᓂᒃ|ᓐᓇᐃ|ᓪᓕᐊ|ᑲᔪᖅ| ᐊᕐ|ᒥᒍᑦ|ᓴᐳᒻ|ᔪᖃᖅ|ᐳᒻᒥ|ᖅ ᐱ| ᒪᓕ|ᒃᑎᒍ|ᒻᒥᔭ| ᓴᓇ|ᒃ ᐱ|ᒍ ᐊ|ᐊᖅ |ᖅᑎᑕ|ᐅᔪᒥ|ᖃᓄᐃ|ᐊᕐᓇ|ᓂ ᐃ|ᑦ ᖃ|ᐊᕐᓗ|ᐅᑦ |ᔪᖅᑐ|ᑦᑎᔪ|ᕐᓱᐊ|ᕐᓂᖅ|ᖅᓯᐅ| ᓇᓪ|ᐃᒪᐃ|ᑎᓄᑦ| ᐃᒪ| ᐊᓯ|ᔭᐅᑎ|ᓐᓇ |ᖑᑎᐅ|ᐃᒻᒪ|ᐃᑦ |ᓇᓪᓕ|ᒃᑯᐊ| ᐊᑭ|ᒪᒃᑯ|ᒥᒃᑎ|ᓕᐅᖅ|ᓇᐃᑦ|ᑯᐊ |ᐅᑎᐅ|ᓂᕈᐊ| ᓂᕈ|ᕐᓗᑎ|ᐊᖕᒍ|ᑎᐅᔪ| ᒐᕙ|ᓪᓚᕆ|ᓗ ᑕ| ᓇᓗ|ᓱᐊᕐ| ᑲᑎ|ᔭᒥᓂ|ᑐᔾᔨ|ᓇᓗᓇ|ᓗᓇᐃ|ᓂᐊᕐ| ᐊᓂ|ᓂ ᐱ|ᖓᓄᑦ|ᖓᓂᒃ|ᖁᑎᒋ|ᕐᒥᒍ| ᓈᓚ|ᑦ ᒪ|ᕐᕕᖃ| ᑲᑐ|ᒃ ᐅ|ᖓᒍᑦ|ᒪᐃᒻ|ᔪᒃᓴ|ᐊᖃᕐ|ᔪᖅ |ᒻᒪᑦ|ᓅᖃᑎ|ᓱᒪᒋ|ᑦ ᑐ|ᒥᔭᐅ|ᒪᕐᒥ|ᕈᑕᐅ|ᑕᒪᕐ|ᖅ ᑭ| ᑭᒡ|ᓄᓇᒋ|ᓇᒋᔭ|ᓂᐊᖅ|ᒥᓂᖅ|ᓇᑐᐃ|ᓂᖃᕐ|ᐊᕆᓗ|ᓂᑦ |ᒪᑕ |ᙱᓪᓗ| ᐊᑕ|ᔪᒥᒃ|ᓪᓗᑎ|ᑎᖃᑦ|ᖅᑲᖅ|ᖕᒐ |ᒪᐅᑎ| ᐊᖏ|ᓐᓂᒃ|ᑎᔪᖃ|ᕕᖃᖅ|ᐃᖅᑲ|ᐅᔪᓐ|ᓪᓗᓂ| ᐃᖅ|ᙱᑦᑐ|ᐃᔾᔪ|ᑲᑐᔾ|ᒥᐅᓄ|ᐅᓄᑦ|ᑎᓂᒃ|ᒐᕙᒪ|ᒃ ᑭ|ᓱᐊᕆ|ᓐᓄᑦ'}}},{}],2:[function(b,a,c){a.exports={cmn:/[\u2E80-\u2E99\u2E9B-\u2EF3\u2F00-\u2FD5\u3005\u3007\u3021-\u3029\u3038-\u303B\u3400-\u4DB5\u4E00-\u9FCC\uF900-\uFA6D\uFA70-\uFAD9]|[\uD840-\uD868\uD86A-\uD86C][\uDC00-\uDFFF]|\uD869[\uDC00-\uDED6\uDF00-\uDFFF]|\uD86D[\uDC00-\uDF34\uDF40-\uDFFF]|\uD86E[\uDC00-\uDC1D]|\uD87E[\uDC00-\uDE1D]/g,Latin:/[A-Za-z\xAA\xBA\xC0-\xD6\xD8-\xF6\xF8-\u02B8\u02E0-\u02E4\u1D00-\u1D25\u1D2C-\u1D5C\u1D62-\u1D65\u1D6B-\u1D77\u1D79-\u1DBE\u1E00-\u1EFF\u2071\u207F\u2090-\u209C\u212A\u212B\u2132\u214E\u2160-\u2188\u2C60-\u2C7F\uA722-\uA787\uA78B-\uA78E\uA790-\uA7AD\uA7B0\uA7B1\uA7F7-\uA7FF\uAB30-\uAB5A\uAB5C-\uAB5F\uAB64\uFB00-\uFB06\uFF21-\uFF3A\uFF41-\uFF5A]/g,Cyrillic:/[\u0400-\u0484\u0487-\u052F\u1D2B\u1D78\u2DE0-\u2DFF\uA640-\uA69D\uA69F]/g,Arabic:/[\u0600-\u0604\u0606-\u060B\u060D-\u061A\u061E\u0620-\u063F\u0641-\u064A\u0656-\u065F\u066A-\u066F\u0671-\u06DC\u06DE-\u06FF\u0750-\u077F\u08A0-\u08B2\u08E4-\u08FF\uFB50-\uFBC1\uFBD3-\uFD3D\uFD50-\uFD8F\uFD92-\uFDC7\uFDF0-\uFDFD\uFE70-\uFE74\uFE76-\uFEFC]|\uD803[\uDE60-\uDE7E]|\uD83B[\uDE00-\uDE03\uDE05-\uDE1F\uDE21\uDE22\uDE24\uDE27\uDE29-\uDE32\uDE34-\uDE37\uDE39\uDE3B\uDE42\uDE47\uDE49\uDE4B\uDE4D-\uDE4F\uDE51\uDE52\uDE54\uDE57\uDE59\uDE5B\uDE5D\uDE5F\uDE61\uDE62\uDE64\uDE67-\uDE6A\uDE6C-\uDE72\uDE74-\uDE77\uDE79-\uDE7C\uDE7E\uDE80-\uDE89\uDE8B-\uDE9B\uDEA1-\uDEA3\uDEA5-\uDEA9\uDEAB-\uDEBB\uDEF0\uDEF1]/g,ben:/[\u0980-\u0983\u0985-\u098C\u098F\u0990\u0993-\u09A8\u09AA-\u09B0\u09B2\u09B6-\u09B9\u09BC-\u09C4\u09C7\u09C8\u09CB-\u09CE\u09D7\u09DC\u09DD\u09DF-\u09E3\u09E6-\u09FB]/g,Devanagari:/[\u0900-\u0950\u0953-\u0963\u0966-\u097F\uA8E0-\uA8FB]/g,jpn:/[\u3041-\u3096\u309D-\u309F]|\uD82C\uDC01|\uD83C\uDE00|[\u30A1-\u30FA\u30FD-\u30FF\u31F0-\u31FF\u32D0-\u32FE\u3300-\u3357\uFF66-\uFF6F\uFF71-\uFF9D]|\uD82C\uDC00/g,kor:/[\u1100-\u11FF\u302E\u302F\u3131-\u318E\u3200-\u321E\u3260-\u327E\uA960-\uA97C\uAC00-\uD7A3\uD7B0-\uD7C6\uD7CB-\uD7FB\uFFA0-\uFFBE\uFFC2-\uFFC7\uFFCA-\uFFCF\uFFD2-\uFFD7\uFFDA-\uFFDC]/g,tel:/[\u0C00-\u0C03\u0C05-\u0C0C\u0C0E-\u0C10\u0C12-\u0C28\u0C2A-\u0C39\u0C3D-\u0C44\u0C46-\u0C48\u0C4A-\u0C4D\u0C55\u0C56\u0C58\u0C59\u0C60-\u0C63\u0C66-\u0C6F\u0C78-\u0C7F]/g,tam:/[\u0B82\u0B83\u0B85-\u0B8A\u0B8E-\u0B90\u0B92-\u0B95\u0B99\u0B9A\u0B9C\u0B9E\u0B9F\u0BA3\u0BA4\u0BA8-\u0BAA\u0BAE-\u0BB9\u0BBE-\u0BC2\u0BC6-\u0BC8\u0BCA-\u0BCD\u0BD0\u0BD7\u0BE6-\u0BFA]/g,guj:/[\u0A81-\u0A83\u0A85-\u0A8D\u0A8F-\u0A91\u0A93-\u0AA8\u0AAA-\u0AB0\u0AB2\u0AB3\u0AB5-\u0AB9\u0ABC-\u0AC5\u0AC7-\u0AC9\u0ACB-\u0ACD\u0AD0\u0AE0-\u0AE3\u0AE6-\u0AF1]/g,mal:/[\u0D01-\u0D03\u0D05-\u0D0C\u0D0E-\u0D10\u0D12-\u0D3A\u0D3D-\u0D44\u0D46-\u0D48\u0D4A-\u0D4E\u0D57\u0D60-\u0D63\u0D66-\u0D75\u0D79-\u0D7F]/g,kan:/[\u0C81-\u0C83\u0C85-\u0C8C\u0C8E-\u0C90\u0C92-\u0CA8\u0CAA-\u0CB3\u0CB5-\u0CB9\u0CBC-\u0CC4\u0CC6-\u0CC8\u0CCA-\u0CCD\u0CD5\u0CD6\u0CDE\u0CE0-\u0CE3\u0CE6-\u0CEF\u0CF1\u0CF2]/g,mya:/[\u1000-\u109F\uA9E0-\uA9FE\uAA60-\uAA7F]/g,ori:/[\u0B01-\u0B03\u0B05-\u0B0C\u0B0F\u0B10\u0B13-\u0B28\u0B2A-\u0B30\u0B32\u0B33\u0B35-\u0B39\u0B3C-\u0B44\u0B47\u0B48\u0B4B-\u0B4D\u0B56\u0B57\u0B5C\u0B5D\u0B5F-\u0B63\u0B66-\u0B77]/g,pan:/[\u0A01-\u0A03\u0A05-\u0A0A\u0A0F\u0A10\u0A13-\u0A28\u0A2A-\u0A30\u0A32\u0A33\u0A35\u0A36\u0A38\u0A39\u0A3C\u0A3E-\u0A42\u0A47\u0A48\u0A4B-\u0A4D\u0A51\u0A59-\u0A5C\u0A5E\u0A66-\u0A75]/g,Ethiopic:/[\u1200-\u1248\u124A-\u124D\u1250-\u1256\u1258\u125A-\u125D\u1260-\u1288\u128A-\u128D\u1290-\u12B0\u12B2-\u12B5\u12B8-\u12BE\u12C0\u12C2-\u12C5\u12C8-\u12D6\u12D8-\u1310\u1312-\u1315\u1318-\u135A\u135D-\u137C\u1380-\u1399\u2D80-\u2D96\u2DA0-\u2DA6\u2DA8-\u2DAE\u2DB0-\u2DB6\u2DB8-\u2DBE\u2DC0-\u2DC6\u2DC8-\u2DCE\u2DD0-\u2DD6\u2DD8-\u2DDE\uAB01-\uAB06\uAB09-\uAB0E\uAB11-\uAB16\uAB20-\uAB26\uAB28-\uAB2E]/g,tha:/[\u0E01-\u0E3A\u0E40-\u0E5B]/g,sin:/[\u0D82\u0D83\u0D85-\u0D96\u0D9A-\u0DB1\u0DB3-\u0DBB\u0DBD\u0DC0-\u0DC6\u0DCA\u0DCF-\u0DD4\u0DD6\u0DD8-\u0DDF\u0DE6-\u0DEF\u0DF2-\u0DF4]|\uD804[\uDDE1-\uDDF4]/g,ell:/[\u0370-\u0373\u0375-\u0377\u037A-\u037D\u037F\u0384\u0386\u0388-\u038A\u038C\u038E-\u03A1\u03A3-\u03E1\u03F0-\u03FF\u1D26-\u1D2A\u1D5D-\u1D61\u1D66-\u1D6A\u1DBF\u1F00-\u1F15\u1F18-\u1F1D\u1F20-\u1F45\u1F48-\u1F4D\u1F50-\u1F57\u1F59\u1F5B\u1F5D\u1F5F-\u1F7D\u1F80-\u1FB4\u1FB6-\u1FC4\u1FC6-\u1FD3\u1FD6-\u1FDB\u1FDD-\u1FEF\u1FF2-\u1FF4\u1FF6-\u1FFE\u2126\uAB65]|\uD800[\uDD40-\uDD8C\uDDA0]|\uD834[\uDE00-\uDE45]/g,khm:/[\u1780-\u17DD\u17E0-\u17E9\u17F0-\u17F9\u19E0-\u19FF]/g,hye:/[\u0531-\u0556\u0559-\u055F\u0561-\u0587\u058A\u058D-\u058F\uFB13-\uFB17]/g,sat:/[\u1C50-\u1C7F]/g,Tibetan:/[\u0F00-\u0F47\u0F49-\u0F6C\u0F71-\u0F97\u0F99-\u0FBC\u0FBE-\u0FCC\u0FCE-\u0FD4\u0FD9\u0FDA]/g,Hebrew:/[\u0591-\u05C7\u05D0-\u05EA\u05F0-\u05F4\uFB1D-\uFB36\uFB38-\uFB3C\uFB3E\uFB40\uFB41\uFB43\uFB44\uFB46-\uFB4F]/g,kat:/[\u10A0-\u10C5\u10C7\u10CD\u10D0-\u10FA\u10FC-\u10FF\u2D00-\u2D25\u2D27\u2D2D]/g,lao:/[\u0E81\u0E82\u0E84\u0E87\u0E88\u0E8A\u0E8D\u0E94-\u0E97\u0E99-\u0E9F\u0EA1-\u0EA3\u0EA5\u0EA7\u0EAA\u0EAB\u0EAD-\u0EB9\u0EBB-\u0EBD\u0EC0-\u0EC4\u0EC6\u0EC8-\u0ECD\u0ED0-\u0ED9\u0EDC-\u0EDF]/g,iii:/[\uA000-\uA48C\uA490-\uA4C6]/g,aii:/[\u0700-\u070D\u070F-\u074A\u074D-\u074F]/g,div:/[\u0780-\u07B1]/g,vai:/[\uA500-\uA62B]/g,Canadian_Aboriginal:/[\u1400-\u167F\u18B0-\u18F5]/g}},{}],3:[function(d,s,t){'use strict';function j(a,b){return e(a,b)[0][0]}function e(c,l){var d=l||{},j=f,e;return d.minLength!==null&&d.minLength!==undefined&&(j=d.minLength),!c||c.length<j?b():(c=c.substr(0,k),e=p(c,i),e[0]in a?n(c,r(h.asTuples(c),a[e[0]],d)):e[1]===0?b():g(e[0]))}function n(g,a){var d=a[0][1],e=g.length*c-d,b=-1,f=a.length;while(++b<f)a[b][1]=1-(a[b][1]-d)/e||0;return a}function p(f,d){var a=-1,e,b,c;for(b in d)c=q(f,d[b]),c>a&&(a=c,e=b);return[e,a]}function q(b,c){var a=b.match(c);return(a?a.length:0)/b.length||0}function r(h,a,e){var c=[],f=e.whitelist||[],g=e.blacklist||[],d;a=l(a,f,g);for(d in a)c.push([d,m(h,a[d])]);return c.length?c.sort(o):b()}function m(f,g){var d=0,e=-1,h=f.length,b,a;while(++e<h)b=f[e],b[0]in g?(a=b[1]-g[b[0]]-1,a<0&&(a=-a)):a=c,d+=a;return d}function l(b,c,e){var d,a;if(c.length===0&&e.length===0)return b;d={};for(a in b)(c.length===0||c.indexOf(a)!==-1)&&e.indexOf(a)===-1&&(d[a]=b[a]);return d}function b(){return g('und')}function g(a){return[[a,1]]}function o(a,b){return a[1]-b[1]}var h=d('trigram-utils'),i=d('./expressions.js'),a=d('./data.json');j.all=e,s.exports=j;var k=2048,f=10,c=300;!function(b,d,e,f,g,c){for(g in a){b=a[g];for(d in b){f=b[d].split('|'),c=f.length,e={};while(c--)e[f[c]]=c;b[d]=e}}}()},{'./data.json':1,'./expressions.js':2,'trigram-utils':4}],4:[function(g,k,l){'use strict';function e(a){return(a===null||a===undefined)&&(a=''),String(a).replace(c,' ').replace(/\s+/g,' ').trim().toLowerCase()}function h(a,b){return a[1]-b[1]}function a(a){return d(' '+e(a)+' ')}function f(g){var e,c,f,d;e=a(g),c={},f=e.length;while(f--)d=e[f],b.call(c,d)?c[d]++:c[d]=1;return c}function i(d){var b,a,c;b=f(d),a=[];for(c in b)a.push([c,b[c]]);return a.sort(h),a}function j(d){var a,b,c;a={},b=d.length;while(b--)c=d[b],a[c[0]]=c[1];return a}var d,c,b;d=g('n-gram').trigram,b=Object.prototype.hasOwnProperty,c=/[\u0021-\u0040]+/g,k.exports={clean:e,trigrams:a,asDictionary:f,asTuples:i,tuplesAsDictionary:j}},{'n-gram':5}],5:[function(c,b,d){'use strict';function a(a){if(typeof a!=='number'||a<1||a!==a||a===Infinity)throw new Error('Type error: `'+a+'` is not a valid argument for n-gram');return function(b){var c,d;if(c=[],b===null||b===undefined)return c;if(b=String(b),d=b.length-a+1,d<1)return c;while(d--)c[d]=b.substr(d,a);return c}}b.exports=a,a.bigram=a(2),a.trigram=a(3)},{}]},{},[3])(3)})
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{}],102:[function(require,module,exports){
+},{}],106:[function(require,module,exports){
 
-},{}],103:[function(require,module,exports){
+},{}],107:[function(require,module,exports){
 (function (global){
 /*!
  * The buffer module from node.js, for the browser.
@@ -56502,7 +47624,7 @@ function isnan (val) {
 }
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"base64-js":104,"ieee754":105,"isarray":106}],104:[function(require,module,exports){
+},{"base64-js":108,"ieee754":109,"isarray":110}],108:[function(require,module,exports){
 'use strict'
 
 exports.byteLength = byteLength
@@ -56618,7 +47740,7 @@ function fromByteArray (uint8) {
   return parts.join('')
 }
 
-},{}],105:[function(require,module,exports){
+},{}],109:[function(require,module,exports){
 exports.read = function (buffer, offset, isLE, mLen, nBytes) {
   var e, m
   var eLen = nBytes * 8 - mLen - 1
@@ -56704,14 +47826,14 @@ exports.write = function (buffer, value, offset, isLE, mLen, nBytes) {
   buffer[offset + i - d] |= s * 128
 }
 
-},{}],106:[function(require,module,exports){
+},{}],110:[function(require,module,exports){
 var toString = {}.toString;
 
 module.exports = Array.isArray || function (arr) {
   return toString.call(arr) == '[object Array]';
 };
 
-},{}],107:[function(require,module,exports){
+},{}],111:[function(require,module,exports){
 // Copyright Joyent, Inc. and other Node contributors.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a
@@ -57015,9 +48137,9 @@ function isUndefined(arg) {
   return arg === void 0;
 }
 
-},{}],108:[function(require,module,exports){
-arguments[4][91][0].apply(exports,arguments)
-},{"dup":91}],109:[function(require,module,exports){
+},{}],112:[function(require,module,exports){
+arguments[4][96][0].apply(exports,arguments)
+},{"dup":96}],113:[function(require,module,exports){
 /*!
  * Determine if an object is a Buffer
  *
@@ -57040,7 +48162,7 @@ function isSlowBuffer (obj) {
   return typeof obj.readFloatLE === 'function' && typeof obj.slice === 'function' && isBuffer(obj.slice(0, 0))
 }
 
-},{}],110:[function(require,module,exports){
+},{}],114:[function(require,module,exports){
 (function (process){
 // Copyright Joyent, Inc. and other Node contributors.
 //
@@ -57268,7 +48390,7 @@ var substr = 'ab'.substr(-1) === 'b'
 ;
 
 }).call(this,require('_process'))
-},{"_process":111}],111:[function(require,module,exports){
+},{"_process":115}],115:[function(require,module,exports){
 // shim for using process in browser
 var process = module.exports = {};
 
@@ -57450,10 +48572,10 @@ process.chdir = function (dir) {
 };
 process.umask = function() { return 0; };
 
-},{}],112:[function(require,module,exports){
+},{}],116:[function(require,module,exports){
 module.exports = require("./lib/_stream_duplex.js")
 
-},{"./lib/_stream_duplex.js":113}],113:[function(require,module,exports){
+},{"./lib/_stream_duplex.js":117}],117:[function(require,module,exports){
 // a duplex stream is just a stream that is both readable and writable.
 // Since JS doesn't have multiple prototypal inheritance, this class
 // prototypally inherits from Readable, and then parasitically from
@@ -57529,7 +48651,7 @@ function forEach(xs, f) {
     f(xs[i], i);
   }
 }
-},{"./_stream_readable":115,"./_stream_writable":117,"core-util-is":120,"inherits":108,"process-nextick-args":122}],114:[function(require,module,exports){
+},{"./_stream_readable":119,"./_stream_writable":121,"core-util-is":124,"inherits":112,"process-nextick-args":126}],118:[function(require,module,exports){
 // a passthrough stream.
 // basically just the most minimal sort of Transform stream.
 // Every written chunk gets output as-is.
@@ -57556,7 +48678,7 @@ function PassThrough(options) {
 PassThrough.prototype._transform = function (chunk, encoding, cb) {
   cb(null, chunk);
 };
-},{"./_stream_transform":116,"core-util-is":120,"inherits":108}],115:[function(require,module,exports){
+},{"./_stream_transform":120,"core-util-is":124,"inherits":112}],119:[function(require,module,exports){
 (function (process){
 'use strict';
 
@@ -58500,7 +49622,7 @@ function indexOf(xs, x) {
   return -1;
 }
 }).call(this,require('_process'))
-},{"./_stream_duplex":113,"./internal/streams/BufferList":118,"_process":111,"buffer":103,"buffer-shims":119,"core-util-is":120,"events":107,"inherits":108,"isarray":121,"process-nextick-args":122,"string_decoder/":129,"util":102}],116:[function(require,module,exports){
+},{"./_stream_duplex":117,"./internal/streams/BufferList":122,"_process":115,"buffer":107,"buffer-shims":123,"core-util-is":124,"events":111,"inherits":112,"isarray":125,"process-nextick-args":126,"string_decoder/":133,"util":106}],120:[function(require,module,exports){
 // a transform stream is a readable/writable stream where you do
 // something with the data.  Sometimes it's called a "filter",
 // but that's not a great name for it, since that implies a thing where
@@ -58683,7 +49805,7 @@ function done(stream, er, data) {
 
   return stream.push(null);
 }
-},{"./_stream_duplex":113,"core-util-is":120,"inherits":108}],117:[function(require,module,exports){
+},{"./_stream_duplex":117,"core-util-is":124,"inherits":112}],121:[function(require,module,exports){
 (function (process){
 // A bit simpler than readable streams.
 // Implement an async ._write(chunk, encoding, cb), and it'll handle all
@@ -59240,7 +50362,7 @@ function CorkedRequest(state) {
   };
 }
 }).call(this,require('_process'))
-},{"./_stream_duplex":113,"_process":111,"buffer":103,"buffer-shims":119,"core-util-is":120,"events":107,"inherits":108,"process-nextick-args":122,"util-deprecate":123}],118:[function(require,module,exports){
+},{"./_stream_duplex":117,"_process":115,"buffer":107,"buffer-shims":123,"core-util-is":124,"events":111,"inherits":112,"process-nextick-args":126,"util-deprecate":127}],122:[function(require,module,exports){
 'use strict';
 
 var Buffer = require('buffer').Buffer;
@@ -59305,7 +50427,7 @@ BufferList.prototype.concat = function (n) {
   }
   return ret;
 };
-},{"buffer":103,"buffer-shims":119}],119:[function(require,module,exports){
+},{"buffer":107,"buffer-shims":123}],123:[function(require,module,exports){
 (function (global){
 'use strict';
 
@@ -59417,7 +50539,7 @@ exports.allocUnsafeSlow = function allocUnsafeSlow(size) {
 }
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"buffer":103}],120:[function(require,module,exports){
+},{"buffer":107}],124:[function(require,module,exports){
 (function (Buffer){
 // Copyright Joyent, Inc. and other Node contributors.
 //
@@ -59528,9 +50650,9 @@ function objectToString(o) {
 }
 
 }).call(this,{"isBuffer":require("../../../../insert-module-globals/node_modules/is-buffer/index.js")})
-},{"../../../../insert-module-globals/node_modules/is-buffer/index.js":109}],121:[function(require,module,exports){
-arguments[4][106][0].apply(exports,arguments)
-},{"dup":106}],122:[function(require,module,exports){
+},{"../../../../insert-module-globals/node_modules/is-buffer/index.js":113}],125:[function(require,module,exports){
+arguments[4][110][0].apply(exports,arguments)
+},{"dup":110}],126:[function(require,module,exports){
 (function (process){
 'use strict';
 
@@ -59577,7 +50699,7 @@ function nextTick(fn, arg1, arg2, arg3) {
 }
 
 }).call(this,require('_process'))
-},{"_process":111}],123:[function(require,module,exports){
+},{"_process":115}],127:[function(require,module,exports){
 (function (global){
 
 /**
@@ -59648,10 +50770,10 @@ function config (name) {
 }
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{}],124:[function(require,module,exports){
+},{}],128:[function(require,module,exports){
 module.exports = require("./lib/_stream_passthrough.js")
 
-},{"./lib/_stream_passthrough.js":114}],125:[function(require,module,exports){
+},{"./lib/_stream_passthrough.js":118}],129:[function(require,module,exports){
 (function (process){
 var Stream = (function (){
   try {
@@ -59671,13 +50793,13 @@ if (!process.browser && process.env.READABLE_STREAM === 'disable' && Stream) {
 }
 
 }).call(this,require('_process'))
-},{"./lib/_stream_duplex.js":113,"./lib/_stream_passthrough.js":114,"./lib/_stream_readable.js":115,"./lib/_stream_transform.js":116,"./lib/_stream_writable.js":117,"_process":111}],126:[function(require,module,exports){
+},{"./lib/_stream_duplex.js":117,"./lib/_stream_passthrough.js":118,"./lib/_stream_readable.js":119,"./lib/_stream_transform.js":120,"./lib/_stream_writable.js":121,"_process":115}],130:[function(require,module,exports){
 module.exports = require("./lib/_stream_transform.js")
 
-},{"./lib/_stream_transform.js":116}],127:[function(require,module,exports){
+},{"./lib/_stream_transform.js":120}],131:[function(require,module,exports){
 module.exports = require("./lib/_stream_writable.js")
 
-},{"./lib/_stream_writable.js":117}],128:[function(require,module,exports){
+},{"./lib/_stream_writable.js":121}],132:[function(require,module,exports){
 // Copyright Joyent, Inc. and other Node contributors.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a
@@ -59806,18 +50928,18 @@ Stream.prototype.pipe = function(dest, options) {
   return dest;
 };
 
-},{"events":107,"inherits":108,"readable-stream/duplex.js":112,"readable-stream/passthrough.js":124,"readable-stream/readable.js":125,"readable-stream/transform.js":126,"readable-stream/writable.js":127}],129:[function(require,module,exports){
-arguments[4][93][0].apply(exports,arguments)
-},{"buffer":103,"dup":93}],130:[function(require,module,exports){
-arguments[4][91][0].apply(exports,arguments)
-},{"dup":91}],131:[function(require,module,exports){
+},{"events":111,"inherits":112,"readable-stream/duplex.js":116,"readable-stream/passthrough.js":128,"readable-stream/readable.js":129,"readable-stream/transform.js":130,"readable-stream/writable.js":131}],133:[function(require,module,exports){
+arguments[4][98][0].apply(exports,arguments)
+},{"buffer":107,"dup":98}],134:[function(require,module,exports){
+arguments[4][96][0].apply(exports,arguments)
+},{"dup":96}],135:[function(require,module,exports){
 module.exports = function isBuffer(arg) {
   return arg && typeof arg === 'object'
     && typeof arg.copy === 'function'
     && typeof arg.fill === 'function'
     && typeof arg.readUInt8 === 'function';
 }
-},{}],132:[function(require,module,exports){
+},{}],136:[function(require,module,exports){
 (function (process,global){
 // Copyright Joyent, Inc. and other Node contributors.
 //
@@ -60407,4 +51529,4 @@ function hasOwnProperty(obj, prop) {
 }
 
 }).call(this,require('_process'),typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"./support/isBuffer":131,"_process":111,"inherits":130}]},{},[18]);
+},{"./support/isBuffer":135,"_process":115,"inherits":134}]},{},[19]);
