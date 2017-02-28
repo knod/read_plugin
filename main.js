@@ -1,5 +1,7 @@
 /* main.js
 * 
+* Attempting to delete folder
+* 
 * TODO:
 * - Cache whole page text when possible/read
 * - Cache reading progress?
