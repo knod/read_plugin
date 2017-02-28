@@ -1292,7 +1292,7 @@ button img {\
 			var op = '_set' + settingName;
 			if ( !rSpt[ op ] ) {
 				console.error('There is no approved setting by the name of "' + operation + '". Maybe check your capitalization. Also, you can check `yourWordSplitterObj.settingsAvailable` to see what setting names are available to you.');
-				return false;
+				return null;
 			}
 			
 			// The value after it has been normalized
@@ -1418,13 +1418,15 @@ button img {\
 			var splitMap = rSpt._makeCharsMap( chars, maxWithHyphen );
 
 			// Build the list of strings with the right number of letters
+			// as determined by the map
 			var start = 0;
 			for (let numi = 0; numi < splitMap.length; numi++) {
 				let str = chars.slice( start, start + splitMap[numi] );
 
 				// Make sure last string doesn't get a hyphen
 				if (numi < splitMap.length - 1) {
-					str = str + maybeHyphen
+					// A string that already ends with a hyphen shouldn't get /another/ hypen
+					if ( !/-/.test(str) ) { str = str + maybeHyphen }
 				}
 
 				split.push(str);
@@ -4253,7 +4255,8 @@ module.exports={
 		// ============== SET OPTIONS ============== \\
 
 		// Not needed, but might be nice to have:
-		rDel.settingsAvailable = ['wpm', 'sentenceDelay', 'otherPuncDelay', 'shortWordDelay', 'longWordDelay', 'numericDelay', 'slowStartDelay'];
+		rDel.settingsAvailable = ['wpm', 'sentenceDelay', 'otherPuncDelay', 'shortWordDelay',
+								  'longWordDelay', 'numericDelay', 'slowStartDelay'];
 
 		rDel.set = function ( settingName, value) {
 			// If we just go off of lowercase, we can remove at
@@ -5427,7 +5430,6 @@ module.exports={
 			// Otherwise keep going
 			var $newNode = $(node);
 			$newNode.addClass( '__rdly-settings-menu' );
-			// $newNode.addClass( '__rdly-settings-menu __rdly-scrollable-y-contents' );
 
 			$(menus).append( $newNode );
 			$newNode[0].addEventListener( 'destroyOneSettingsMenu', rSet._removeMenu, false );  // TODO: Remove this line
@@ -5447,7 +5449,13 @@ module.exports={
 			$(coreDisplay.nodes.below).removeClass('__rdly-hidden');
 			$(opener).addClass( '__rdly-active-ui' );  // different style
 			rSet._isOpen = true;
+
 			coreDisplay.update();
+			// Seems to be a Chrome issue going on. Need to call this twice with a delay.
+			// Don't remember what it is, but it's not from lag. Something really doesn't
+			// work until this is called for the second time. Something to do with height: 0
+			setTimeout(coreDisplay.update, 4);
+
 			return rSet;
 		};
 
@@ -6311,13 +6319,16 @@ module.exports={
 #__rdly_settings_tabs {\
 	display: flex;\
 	justify-content: center;\
-	height: 1.2em;\
+	height: auto;\
+  font-size: 1.23em\
 	overflow: hidden;\
 }\
 \
 .__rdly-settings-tab {\
 	flex-grow: 1;\
 	padding: 0.1em;\
+  display: flex;\
+  justify-content: center;\
 }\
 \
 #__rdly_settings_menus {\
