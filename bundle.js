@@ -4128,12 +4128,12 @@ module.exports={
 
 		var _rSetts = null;
 		var defaultSettings = {
-			wpm: 			500,
+			wpm: 			250,
 			slowStartDelay: 5,
-			sentenceDelay: 	2.5,
-			otherPuncDelay: 1.5,
+			sentenceDelay: 	5,
+			otherPuncDelay: 2.5,
 			shortWordDelay: 1.3,
-			longWordDelay: 	1.4,
+			longWordDelay: 	1.5,
 			numericDelay: 	2.0
 		};
 
@@ -4147,9 +4147,6 @@ module.exports={
 				shortWordDelay 	= settings.shortWordDelay 	|| defaultSettings.shortWordDelay,
 				longWordDelay 	= settings.longWordDelay 	|| defaultSettings.longWordDelay,
 				numericDelay 	= settings.numericDelay 	|| defaultSettings.numericDelay;
-
-			// !!!FOR DEBUGGING ONLY!!!
-			if ( false ) storage.clear()
 			
 			// Update settings based on what's passed in
 			_rSetts = rDel._settings = {};
@@ -5682,7 +5679,7 @@ module.exports={
 
 			slider({
 				sliderNode: nodes.sentenceDelaySlider,
-				range: 		{ min: 0, max: 5 },
+				range: 		{ min: 0, max: 10 },
 				startVal: 	setts.sentenceDelay,
 				step: 		0.1,
 				inputNode: 	nodes.sentenceDelayInput,
@@ -6519,8 +6516,14 @@ module.exports={
 		words 	= new Words();
 		wordNav = new WordNav();  // Maybe pass Words to WordNav
 		storage = new Storage();
-		// TESTING
-		storage.set({'maxNumCharacters': 10});
+
+
+		// !!!FOR DEBUGGING ONLY!!!
+		if ( false ) {
+			storage.clear()
+			console.log('cleared storage');
+		}
+
 		storage.loadAll( afterLoadSettings );
 	};  // End init()
 

@@ -87,8 +87,14 @@
 		words 	= new Words();
 		wordNav = new WordNav();  // Maybe pass Words to WordNav
 		storage = new Storage();
-		// TESTING
-		storage.set({'maxNumCharacters': 10});
+
+
+		// !!!FOR DEBUGGING ONLY!!!
+		if ( false ) {
+			storage.clear()
+			console.log('cleared storage');
+		}
+
 		storage.loadAll( afterLoadSettings );
 	};  // End init()
 
