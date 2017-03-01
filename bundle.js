@@ -644,7 +644,7 @@ body {\
 	margin: 0;\
 }\
 \
-#__rdly div,\
+/*#__rdly div,\
 #__rdly span,\
 #__rdly a,\
 #__rdly li {\
@@ -660,7 +660,7 @@ body {\
 	font-kerning: auto;\
 	-webkit-font-smoothing: auto;\
 	text-transform: none;\
-}\
+}*/\
 \
 /* Since using img src attribute, must change color in file */\
 /*button svg,\
@@ -6290,7 +6290,7 @@ module.exports={
 	display: flex;\
 	justify-content: center;\
 	height: auto;\
-  font-size: 1.23em\
+  font-size: 1.23em;\
 	overflow: hidden;\
 }\
 \
