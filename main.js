@@ -5,6 +5,7 @@
 * - Cache reading progress?
 * - Remove html parsing from sbd node module
 * - Break this up into more descrete modules
+* - Combine Words.js and WordNav.js
 * 
 * DONE:
 * - Cache options and prevent them from being reset on
@@ -85,7 +86,7 @@
 		parser.debug = false;
 
 		words 	= new Words();
-		wordNav = new WordNav();  // Maybe pass Words to WordNav
+		wordNav = new WordNav();
 		storage = new Storage();
 
 
@@ -107,21 +108,13 @@
 	// ============== RUNTIME ============== \\
 	var read = function ( node ) {
 
-		var sentenceWords = parser.parse( node );  // [[Str]]
-		// var sentences = parser.parse( node );
+		var sentenceWords = parser.parse( node );  // returns [[Str]]
+
         if (parser.debug) {  // Help non-coder devs identify some bugs
     	    console.log('~~~~~parse debug~~~~~ If any of those tests failed, the problem isn\'t with Readerly, it\'s with one of the other libraries. That problem will have to be fixed later.');
         }
-
-        // TODO: ??: Combine Words.js and WordNav.js since Words.js now does so little?
-
-		// // TODO: If there's already a `words` (if this isn't new), start where we left off
-		// var sentenceData = words.process( sentenceWords );
-		// // words.process( sentences );
 		
 		wordNav.process( sentenceWords, fragmentor );
-		// wordNav.process( sentenceData, fragmentor );
-		// wordNav.process( words );
 		timer.start( wordNav );
 		return true;
 	};
@@ -157,17 +150,9 @@
 
 	browser.extension.onMessage.addListener(function (request, sender, sendResponse) {
 
-
 		var func = request.functiontoInvoke;
-		if ( func === "readSelectedText" ) {
-			
-			readSelectedText();
-
-		} else if ( func === "readFullPage" ) {
-
-			readArticle();
-
-		}  // end if event is ___
+		if ( func === "readSelectedText" ) { readSelectedText(); }
+		else if ( func === "readFullPage" ) { readArticle(); }
 
 	});  // End event listener
 

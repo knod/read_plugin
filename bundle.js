@@ -19,7 +19,7 @@
         // root.Parser = setupFactory( JQuery );
     }
 }( this, function ( $, franc, langCodes, unfluff, sbd ) {
-	/* (jQuery, {}, {}, {}) -> Parser Constructor */
+	/* (jQuery, {}, {}, {}, {}) -> Parser Setup Constructor */
 
     "use strict";
 
@@ -42,7 +42,7 @@
     		var $node     = $(node),
                 // 'sup' has been declared distracting
                 // 'script' and 'style' have English, skewing language detection results
-                toRemove  = ['sup', 'script', 'style'];
+                toRemove  = ['sup', 'script', 'style', 'head'];
 
             for (let tagi = 0; tagi < toRemove.length; tagi++) {
                 let tag = toRemove[tagi];
@@ -116,26 +116,11 @@
 
 
     	rSup.splitSentences = function ( text ) {
-    	/* ( Str ) -> [Str]
+    	/* ( Str ) -> [[Str]
     	* 
     	* Returns a list of sentences, which are each a list of words (strings).
         * Best results with English.
 	    */
-	    	// var sentenceObjs  = sbd.text( text ).sentences,
-      //           sentences     = [];
-
-	    	// for (let senti = 0; senti < sentenceObjs.length; senti++) {
-	    		
-      //           let sentObj  = sentenceObjs[senti],
-      //               terms    = sentObj.terms,
-      //               sentence = [];
-      //           for (var wordi = 0; wordi < terms.length; wordi++) {
-      //               var word = terms[wordi].text;
-      //               sentence.push( word );
-      //           };
-	    		
-      //           sentences.push( sentence );
-	    	// };
             var sentences = sbd.sentences( text, {parse_type: 'words'} );
 
     		if (rSup.debug) {  // Help non-coder devs identify some bugs
@@ -164,7 +149,10 @@
 * 
 * TODO:
 * - Consider prepending main element as opposed to appending it. Possibly
-* 	easer for screen readers to find more quickly.
+* 	easer for screen readers/tabing to find more quickly (so the controls
+* 	can be accessed more quickly). Though now it's an iframe, so how does
+* 	that work for accessibility...? Maybe set up some tab-able controls
+* 	that are invisibile that are outside of the iframe...
 */
 
 (function (root, displayFactory) {  // root is usually `window`
@@ -274,8 +262,6 @@
 		// iframe element sizing
 		// https://jsfiddle.net/fpd4fb80/31/
 		rDis._sizeIframeAndContents = function () {
-			var debug = false;
-if (debug) console.log('~~~~~~~~~~~~~~~~~~~~')
 			// There should only be one (for now...)
 			var grower = $(readerly).find('.__rdly-to-grow')[0];
 
@@ -304,7 +290,7 @@ if (debug) console.log('~~~~~~~~~~~~~~~~~~~~')
 			// How much needs to be subtracted (almost, see below) from the
 			// scrollable node's height (not contents) in order to fit on the page.
 				diff 			= (potentialBottom - screenBottom);
-if (debug) console.log('top:', top, '; height:', height, '; potentialBottom:', potentialBottom, '; screenBottom:', screenBottom, '; diff:', diff);
+
 			// Have taken care off stuff above and in the contents
 			// Now will account for all the padding/borders, etc at
 			// the bottom that may otherwise get cut off in some browsers
@@ -317,14 +303,11 @@ if (debug) console.log('top:', top, '; height:', height, '; potentialBottom:', p
 
 			diff = diff + bottomDiff;
 
-if (debug) console.log('scrollBottom:', scrollBottom, '; outerBottom:', outerBottom, '; bottomDiff:', bottomDiff, '; diff:', diff)
-if (debug) console.log('diff > 0:', diff > 0)
 			var newHeight = height;
 			if ( diff > 0 ) {
 				newHeight = height - diff;
 			}
 			scrollable.style.height = newHeight + 'px';
-if (debug) console.log('scrollable height:', scrollable.style.height)
 
 			// Since the outer element is being used to determine the height of
 			// the iframe, I assume it's at the very top of the iframe, so no
@@ -403,6 +386,7 @@ if (debug) console.log('scrollable height:', scrollable.style.height)
 					// Reconfig needed. This should construct timer?
 					// Create parent object instead?
 					.addToTriggerList( timer );
+
 				// This should not be visible until it's .show()n
 				$iframe.hide();
 				$(readerly).hide(0, rDis.update )
@@ -1270,10 +1254,6 @@ button img {\
 		rSpt._init = function ( settings ) {
 
 			var maxNumCharacters = settings.maxNumCharacters || defaults.maxNumCharacters;
-
-			// !!!FOR DEBUGGING ONLY!!!
-			if ( false ) storage.clear()
-			
 			// Update settings based on what's passed in
 			rSpt.set( 'maxNumCharacters', maxNumCharacters);
 
@@ -1443,7 +1423,6 @@ button img {\
 
 		rSpt.process = function( chars ) {
 			// Check the chars' container node each time in case its size has changed
-			// var charsNode 	= document.getElementByID( '__rdly_text_button' ),
 			var styles 		= window.getComputedStyle( rSpt.charsNode ),
 				maxLength 	= rSpt._getMaxLength( chars, styles );
 
@@ -4613,7 +4592,6 @@ module.exports={
 			// Timer events
 			$(timer).on('playBegin', rPUI._play);
 			$(timer).on('pauseFinish', rPUI._pause);
-			// $(timer).on('stopFinish', rPUI._pause);  // Not sure pause should appear at the end
 			$(timer).on( 'startFinish', rPUI._start );
 			$(timer).on( 'newWordFragment', rPUI._showNewFragment );
 			$(timer).on( 'progress', rPUI._showProgress );
@@ -4711,7 +4689,7 @@ module.exports={
 * - Speed up with long ff or rewind
 * - ??: Make length delay proportional to word length?
 * - Long word delay not working? How about otherPunc? And do more
-* 	symbols need to be included in that set of otherPunc?
+* 	symbols need to be included in that set of otherPunc? Customizable?
 * - Implement more robust pausing? (store in bool and wait for appropriate time)
 * 
 * DONE:
@@ -5049,7 +5027,7 @@ module.exports={
 			// `._play()` to show current word, then keep going
 			incrementors = incrementors || rTim._incrementors;  // ??: Too indirect?
 			var frag 	 = rTim._queue.getFragment( incrementors ),
-				skipDir  = rTim._skipDirection( incrementors, frag );  // [int, int] of -1, 0, or 1
+				skipDir  = rTim._skipDirection( incrementors, frag );  // [int, int, int] of -1, 0, or 1
 
 			// !!! KEEP THIS even though it's not currently needed for sentences. I hope
 			// to make paragraphs their own sentences for reasons of accessibility.
@@ -5368,12 +5346,10 @@ module.exports={
 				thisMenu = rSet.menuNodes[ id ];
 
 			// Hide all, then show this one
-			// $menus.addClass( '__rdly-hidden' );
-			// $(thisMenu).removeClass( '__rdly-hidden' );
 			$menus.addClass( '__rdly-hidden' );
-				$menus.css( {'display': 'none'} );
+			$menus.css( {'display': 'none'} );
 			$(thisMenu).removeClass( '__rdly-hidden' );
-				$(thisMenu).css( {'display': 'flex'} );
+			$(thisMenu).css( {'display': 'flex'} );
 			// There should only be one (for now...). It's height gets adjusted.
 			// Should only have one child, which can grow.
 			$menus.removeClass( '__rdly-to-grow' );
@@ -5526,9 +5502,6 @@ module.exports={
 		rSet._destroy = function () {
 			opener.remove();
 			container.remove();
-
-			// $('#__rdly').off( rSet._onBlur );
-
 			return rSet;
 		};
 
@@ -5616,7 +5589,7 @@ module.exports={
 
 
 		rSpd._oneSlider = function ( data ) {
-		/* ( {} ) -> ?
+		/* ( {} ) -> Node (??)
 		* 
 		* Turn the given data into one noUiSlider slider
 		*/
@@ -6434,6 +6407,7 @@ module.exports={
 * - Cache reading progress?
 * - Remove html parsing from sbd node module
 * - Break this up into more descrete modules
+* - Combine Words.js and WordNav.js
 * 
 * DONE:
 * - Cache options and prevent them from being reset on
@@ -6514,7 +6488,7 @@ module.exports={
 		parser.debug = false;
 
 		words 	= new Words();
-		wordNav = new WordNav();  // Maybe pass Words to WordNav
+		wordNav = new WordNav();
 		storage = new Storage();
 
 
@@ -6536,21 +6510,13 @@ module.exports={
 	// ============== RUNTIME ============== \\
 	var read = function ( node ) {
 
-		var sentenceWords = parser.parse( node );  // [[Str]]
-		// var sentences = parser.parse( node );
+		var sentenceWords = parser.parse( node );  // returns [[Str]]
+
         if (parser.debug) {  // Help non-coder devs identify some bugs
     	    console.log('~~~~~parse debug~~~~~ If any of those tests failed, the problem isn\'t with Readerly, it\'s with one of the other libraries. That problem will have to be fixed later.');
         }
-
-        // TODO: ??: Combine Words.js and WordNav.js since Words.js now does so little?
-
-		// // TODO: If there's already a `words` (if this isn't new), start where we left off
-		// var sentenceData = words.process( sentenceWords );
-		// // words.process( sentences );
 		
 		wordNav.process( sentenceWords, fragmentor );
-		// wordNav.process( sentenceData, fragmentor );
-		// wordNav.process( words );
 		timer.start( wordNav );
 		return true;
 	};
@@ -6586,17 +6552,9 @@ module.exports={
 
 	browser.extension.onMessage.addListener(function (request, sender, sendResponse) {
 
-
 		var func = request.functiontoInvoke;
-		if ( func === "readSelectedText" ) {
-			
-			readSelectedText();
-
-		} else if ( func === "readFullPage" ) {
-
-			readArticle();
-
-		}  // end if event is ___
+		if ( func === "readSelectedText" ) { readSelectedText(); }
+		else if ( func === "readFullPage" ) { readArticle(); }
 
 	});  // End event listener
 
