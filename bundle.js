@@ -644,23 +644,12 @@ body {\
 	margin: 0;\
 }\
 \
-/*#__rdly div,\
+#__rdly div,\
 #__rdly span,\
 #__rdly a,\
 #__rdly li {\
-	/* font defaults from chrome inspection */\
 	font-family: 'droid', serif;\
-	font-size: 16px;\
-	line-height: normal;\
-	font-style: normal;\
-	font-weight: normal;\
-	font-variant: none;\
-	font-stretch: normal;\
-	font-feature-settings: normal;\
-	font-kerning: auto;\
-	-webkit-font-smoothing: auto;\
-	text-transform: none;\
-}*/\
+}\
 \
 /* Since using img src attribute, must change color in file */\
 /*button svg,\
