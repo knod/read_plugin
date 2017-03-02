@@ -261,7 +261,7 @@
 
 		// iframe element sizing
 		// https://jsfiddle.net/fpd4fb80/31/
-		rDis._sizeIframeAndContents = function () {
+		rDis._resizeIframeAndContents = function () {
 			// There should only be one (for now...)
 			var grower = $(readerly).find('.__rdly-to-grow')[0];
 
@@ -313,15 +313,25 @@
 			// the iframe, I assume it's at the very top of the iframe, so no
 			// extra 'outer top' value needs to be subtracted.
 			var currentOuterHeight 	= top + newHeight + bottomDiff;
+
 			$iframe[0].style.height = currentOuterHeight + 'px';
 
 			return rDis;
-		};  // End rDis._sizeIframeAndContents()
+		};  // End rDis._resizeIframeAndContents()
 
 
 		rDis.update = function () {
-		// Callable from outside to have the display reset what it needs to reset
-			rDis._sizeIframeAndContents();
+		// Callable from outside to have the display resize what it needs it
+
+			// Note on previous bug. Solution was to call function first without a delay
+			// then with one.
+			// Seemed to be a Chrome issue going on. Needed to call this twice with a delay.
+			// Don't remember what it was, but it wasn't from lag. Something really didn't
+			// work until this was called for the second time. Something to do with going
+			// from height: 0 to whatever height
+			setTimeout(rDis._resizeIframeAndContents, 4);
+			// Delay probably won't work when there's a lot of lag.
+			// TODO: Wait for an element to appear properly before calling resize
 			return rDis;
 		};
 
@@ -331,7 +341,8 @@
 
 		rDis._addEvents = function () {
 			$(rDis.nodes.close).on( 'touchend click', rDis.close );
-			$(readerly).on( 'mousedown mouseup mousemove touchstart touchend', rDis.update );
+			// $(readerly).on( 'mousedown mouseup mousemove touchstart touchend', rDis.update );
+			$(readerly).on( 'mousedown mouseup touchstart touchend', rDis.update );
 			$(window).on( 'resize', rDis.update );
 			// Event for content zooming?
 			return rDis;
@@ -389,8 +400,8 @@
 
 				// This should not be visible until it's .show()n
 				$iframe.hide();
-				$(readerly).hide(0, rDis.update )
-				// $('#__rdly_iframe').hide(0);
+				// $(readerly).hide( 0, rDis.update )
+				$('#__rdly_iframe').hide(0);
 			}
 			return rDis;
 		};
@@ -5339,6 +5350,7 @@ module.exports={
 			$menus.css( {'display': 'none'} );
 			$(thisMenu).removeClass( '__rdly-hidden' );
 			$(thisMenu).css( {'display': 'flex'} );
+			// $(thisMenu).css( {'display': 'block'} );
 			// There should only be one (for now...). It's height gets adjusted.
 			// Should only have one child, which can grow.
 			$menus.removeClass( '__rdly-to-grow' );
@@ -5413,10 +5425,6 @@ module.exports={
 			rSet._isOpen = true;
 
 			coreDisplay.update();
-			// Seems to be a Chrome issue going on. Need to call this twice with a delay.
-			// Don't remember what it is, but it's not from lag. Something really doesn't
-			// work until this is called for the second time. Something to do with height: 0
-			setTimeout(coreDisplay.update, 4);
 
 			return rSet;
 		};
@@ -6306,7 +6314,9 @@ module.exports={
 #__rdly .__rdly-setting {\
   /* For more visibility, try even more vertical padding */\
   position: relative;\
-	padding: 1.3% 1.5%;\
+  /* % causes weird rendering to happen in flexbox (maybe others too?) */\
+  /*padding: 1.3% 1.5%;*/\
+  padding: 13px;\
 }\
 \
 #__rdly .__rdly-slider-controls {\
