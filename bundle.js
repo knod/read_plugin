@@ -957,7 +957,7 @@ button img {\
 
         wNav.index 		 = 0;
         wNav.position    = [0, 0, 0],
-        wNav.currentWord = null;
+        wNav.currentWord = null;  // [ Str ]
         wNav.fragmentor  = null;
 
 
@@ -1008,7 +1008,7 @@ button img {\
             var pos         = wNav.position,
             // wNav.currentWord isn't just a string. It's not from the sentence/word
             // array, it's a word once it has been fragmented into a list of strings
-                currentWord = wNav.currentWord;
+                rawWord = wNav.currentWord;
 
             // TODO:
             // If maxNumCharacters changed, re-fragment word and start at
@@ -1016,7 +1016,7 @@ button img {\
 
             // if plain index change/jump
             if ( typeof changesOrIndex === 'number' ) {
-                currentWord = wNav._stepWord( changesOrIndex );
+                rawWord = wNav._stepWord( changesOrIndex );
                 pos[2]      = 0;
 
             // !!! CAN ONLY CHANGE ONE POSITION AT A TIME !!! \\
@@ -1026,14 +1026,14 @@ button img {\
 
                 // find new sentence and get the new index
                 var index   = wNav._stepSentence( changesOrIndex[0] );
-                currentWord = wNav._stepWord( index );
+                rawWord = wNav._stepWord( index );
                 pos[2]      = 0;
 
             // if word change
             } else if ( changesOrIndex[1] !== 0 ) {
 
                 index       = wNav.index + changesOrIndex[1];
-                currentWord = wNav._stepWord( index );
+                rawWord = wNav._stepWord( index );
                 pos[2]      = 0;
 
             // if fragment change
@@ -1042,26 +1042,28 @@ button img {\
                 var fragi = pos[2] + changesOrIndex[2];
 
                 // if current fragment starts new word
-                if ( fragi >= currentWord.length ) {
-                    
-                    currentWord = wNav._stepWord( wNav.index + 1 );
+                if ( fragi >= rawWord.length ) {
+
+                    rawWord = wNav._stepWord( wNav.index + 1 );
                     pos[2]      = 0;
                 
                 } else {
 
                     // don't change index or current word, just current fragment position
+                    rawWord = wNav._stepWord( wNav.index );
                     pos[2] = fragi;
 
                 }
 
+            // If no change, get whatever's current
             } else {
-                currentWord = wNav._stepWord( wNav.index );
+                rawWord = wNav._stepWord( wNav.index );
                 pos[2]      = 0;
             } // end if index or which position changed
 
 
-            wNav.currentWord = currentWord;
-            frag             = currentWord[ pos[2] ];
+            wNav.currentWord = wNav.fragmentor.process( rawWord );
+            frag             = wNav.currentWord[ pos[2] ];
 
             return frag;
         }  // End wNav.getFragment()
@@ -1074,10 +1076,9 @@ button img {\
             var pos         = positions[ wNav.index ];
             wNav.position[0]= pos[0];
             wNav.position[1]= pos[1];
-            var word        = sentences[ wNav.position[0] ][ wNav.position[1] ],
-                fragmented  = wNav.fragmentor.process( word );
+            var word        = sentences[ wNav.position[0] ][ wNav.position[1] ];
 
-            return fragmented;
+            return word;
         };  // End wNav._stepWord()
 
 
