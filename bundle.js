@@ -1229,7 +1229,7 @@ button img {\
 
 
 	var WordSplitter = function ( charsNode, settings, storage ) {
-	/* ( DOM Node, async {} ) -> WordSplitter
+	/* ( DOM Node, {}, async {} ) -> WordSplitter
 	* 
 	* Returns an object that takes a string and returns an array
 	* of strings, each of which isn't longer than it should
@@ -1240,21 +1240,10 @@ button img {\
 
 		// ============= SETUP ============= \\
 
-		rSpt.charsNode 	= charsNode;  // No reason I can see for this to change
-		rSpt._settings 	= {};
-		var _wSetts 	= rSpt._settings;
-		var defaults 	= { maxNumCharacters: 10 };
-
-
-		rSpt._init = function ( settings ) {
-
-			var maxNumCharacters = settings.maxNumCharacters || defaults.maxNumCharacters;
-			// Update settings based on what's passed in
-			rSpt.set( 'maxNumCharacters', maxNumCharacters);
-
-			return rSpt;
-		};  // End rSpt._init()
-
+		rSpt.charsNode 	= charsNode;  // No reason I can see for this to be changed later, but still
+		var _wSetts 	= rSpt._settings = {
+			maxNumCharacters: 10
+		};
 
 
 		// ============= USER INPUT ============= \\
@@ -1264,29 +1253,26 @@ button img {\
 		rSpt.set = function ( settingName, value) {
 			// If we just go off of lowercase, we can remove at
 			// least some typo mistakes and uncertainties
-			var op = '_set' + settingName;
-			if ( !rSpt[ op ] ) {
-				console.error('There is no approved setting by the name of "' + operation + '". Maybe check your capitalization. Also, you can check `yourWordSplitterObj.settingsAvailable` to see what setting names are available to you.');
+			if ( !_wSetts[ settingName ] ) {
+				console.error('There is no approved setting by the name of "' + settingName + '". Maybe check your capitalization. Also, you can check `yourWordSplitterObj.settingsAvailable` to see what setting names are available to you.');
 				return null;
 			}
 			
-			// The value after it has been normalized
-			var val = rSpt[ op ]( value );
+			var val = rSpt[ '_get' + settingName ]( value ); // normalize value
+			_wSetts[ settingName ] = val;  // Save locally
 
-			// Create object for data so we can use the value of `op` as a key
-			// instead of the literal word "op"
+			// Save in long term memmory
+			// Make it possible to use settingName as a key instead of the literal word "settingName"
 			var toSave 				= {};
 			toSave[ settingName ] 	= val;
 			storage.set( toSave );  // Should this be all lowercase too?
-
-			_wSetts[ settingName ] = val;
 
 			return rSpt;
 		};  // End rSpt.set()
 
 
-		rSpt._setmaxNumCharacters = function ( max ) {
-			return Math.max(max, 1);  // Minimum allowed length = 1
+		rSpt._getmaxNumCharacters = function ( val ) {
+			return Math.max(val, 1);  // Minimum allowed length = 1
 		};  // End rSpt.setMaxNumCharacters()
 
 
@@ -1294,7 +1280,6 @@ button img {\
 		// ============= RUNTIME ============= \\
 
 		rSpt._getMaxLength = function ( word, styles ) {
-
 			// Get the max letters that can fit in the width
 			var pxWidth		= parseFloat( styles['width'].replace('px', '') ),
 				fontSize 	= parseFloat( styles['font-size'].replace('px', '') );
@@ -1430,7 +1415,19 @@ button img {\
 
 		// ========= DO IT ========== \\
 
+		rSpt._init = function ( settings ) {
+		// Update local and long term memory settings based on what's passed in
+		// Also normalizes values before saving them
+			for ( let key in _wSetts ) {
+				let val = settings[key] || _wSetts[key];
+				rSpt.set( key, val );
+			}
+			return rSpt;
+		};  // End rSpt._init()
+
 		rSpt._init( settings );
+
+
 
 		return rSpt;
 	};  // End WordSplitter() -> {}
@@ -4100,8 +4097,7 @@ module.exports={
 	*/
 		var rDel = {};
 
-		var _rSetts = null;
-		var defaultSettings = {
+		var _rSetts = rDel._settings = {
 			wpm: 			250,
 			slowStartDelay: 5,
 			sentenceDelay: 	5,
@@ -4112,35 +4108,10 @@ module.exports={
 		};
 
 
-		rDel._init = function ( settings ) {
-
-			var wpm 			= settings.wpm 				|| defaultSettings.wpm,
-				slowStartDelay 	= settings.slowStartDelay 	|| defaultSettings.slowStartDelay,
-				sentenceDelay 	= settings.sentenceDelay 	|| defaultSettings.sentenceDelay,
-				otherPuncDelay 	= settings.otherPuncDelay 	|| defaultSettings.otherPuncDelay,
-				shortWordDelay 	= settings.shortWordDelay 	|| defaultSettings.shortWordDelay,
-				longWordDelay 	= settings.longWordDelay 	|| defaultSettings.longWordDelay,
-				numericDelay 	= settings.numericDelay 	|| defaultSettings.numericDelay;
-			
-			// Update settings based on what's passed in
-			_rSetts = rDel._settings = {};
-			rDel.set( 'wpm', 			wpm 			)
-				.set( 'slowStartDelay', slowStartDelay 	)
-				.set( 'sentenceDelay', 	sentenceDelay 	)
-				.set( 'otherPuncDelay', otherPuncDelay 	)
-				.set( 'shortWordDelay', shortWordDelay 	)
-				.set( 'longWordDelay', 	longWordDelay 	)
-				.set( 'numericDelay', 	numericDelay 	);
-
-			return rDel;
-		};  // End rDel._init()
-
-
-
 		// ============== RUNTIME ============== \\
 
 		rDel.calcDelay = function ( frag, justOnce ) {
-		/* ( Str || Obj, [bool] ) -> #
+		/* ( str || obj, [bool] ) -> #
 		* 
 		*/
 		// !!! TODO: `justOnce` is an issue because it's actually just whether
@@ -4229,25 +4200,23 @@ module.exports={
 		rDel.settingsAvailable = ['wpm', 'sentenceDelay', 'otherPuncDelay', 'shortWordDelay',
 								  'longWordDelay', 'numericDelay', 'slowStartDelay'];
 
-		rDel.set = function ( settingName, value) {
-			// If we just go off of lowercase, we can remove at
-			// least some typo mistakes and uncertainties
-			var op = '_set' + settingName;
-			if ( !rDel[ op ] ) {
-				console.error('There is no approved setting by the name of "' + operation + '". Maybe check your capitalization. Also, you can check `yourDelayerObj.settingsAvailable` to see what setting names are available to you.');
+		rDel.set = function ( settingName, value ) {
+			// ??: Convert all to lowercase instead? If we use of lowercase,
+			// we can remove at least some typo mistakes and uncertainties.
+
+			if ( !_rSetts[ settingName ] ) {
+				console.error('There is no approved setting by the name of "' + settingName + '". Maybe check your capitalization. Also, you can check `yourDelayerObj.settingsAvailable` to see what setting names are available to you.');
 				return false;
 			}
 			
-			// The value after it has been normalized
-			var val = rDel[ op ]( value );
+			var val = rDel[ '_get' + settingName ]( value ); // normalize value
+			_rSetts[ settingName ] = val; // Save locally
 
-			// Create object for data so we can use the value of `op` as a key
-			// instead of the literal word "op"
+			// Save in long term memmory
+			// Make it possible to use settingName as a key instead of the literal word "settingName"
 			var toSave 				= {};
 			toSave[ settingName ] 	= val;
-			storage.set( toSave );  // Should this be all lowercase too?
-
-			// _rSetts[settingName] = val;
+			storage.set( toSave );  // ??: Should this be all lowercase too?
 
 			return rDel;
 		};  // End rDel.set()
@@ -4264,41 +4233,49 @@ module.exports={
 		};
 
 
-
-		rDel._setwpm = function ( val ) {
-			_rSetts.wpm = rDel._toUsefulVal( val, 1, 5000 );
-			rDel.delay = 1/(_rSetts.wpm/60)*1000;
-			return _rSetts.wpm;
+		rDel._getwpm = function ( val ) {
+			var wpm = rDel._toUsefulVal( val, 1, 5000 );
+			// Convert words per minute to milliseconds
+			rDel.delay = 1/(wpm/60)*1000;
+			return wpm;
+		};
+		rDel._getslowStartDelay = function ( val ) {
+			return rDel._toUsefulVal( val, 0, 10 );
+		};
+		rDel._getsentenceDelay = function ( val ) {
+			return rDel._toUsefulVal( val, 1, 10 );
+		};
+		rDel._getotherPuncDelay = function ( val ) {
+			return rDel._toUsefulVal( val, 1, 10 );
+		};
+		rDel._getshortWordDelay = function ( val ) {
+			return rDel._toUsefulVal( val, 1, 10 );
+		};
+		rDel._getlongWordDelay = function ( val ) {
+			return rDel._toUsefulVal( val, 1, 10 );
+		};
+		rDel._getnumericDelay = function ( val ) {
+			return rDel._toUsefulVal( val, 1, 10 );
 		};
 
-		// ??: What do these numbers mean? It's not milliseconds, that's for sure.
-		rDel._setslowStartDelay = function ( val ) {
-			_rSetts.slowStartDelay = rDel._toUsefulVal( val, 0, 10 );
-			return _rSetts.slowStartDelay;
-		};
-		rDel._setsentenceDelay = function ( val ) {
-			_rSetts.sentenceDelay = rDel._toUsefulVal( val, 1, 10 );
-			return _rSetts.sentenceDelay;
-		};
-		rDel._setotherPuncDelay = function ( val ) {
-			_rSetts.otherPuncDelay = rDel._toUsefulVal( val, 1, 10 );
-			return _rSetts.otherPuncDelay;
-		};
-		rDel._setshortWordDelay = function ( val ) {
-			_rSetts.shortWordDelay = rDel._toUsefulVal( val, 1, 10 );
-			return _rSetts.shortWordDelay;
-		};
-		rDel._setlongWordDelay = function ( val ) {
-			_rSetts.longWordDelay = rDel._toUsefulVal( val, 1, 10 );
-			return _rSetts.longWordDelay;
-		};
-		rDel._setnumericDelay = function ( val ) {
-			_rSetts.numericDelay = rDel._toUsefulVal( val, 1, 10 );
-			return _rSetts.numericDelay;
-		};
+
 
         // ============== DO IT ============== \\
+
+		rDel._init = function ( settings ) {
+		// Update local and long term memory settings based on what's passed in
+		// Also normalizes values before saving them
+			for ( let key in _rSetts ) {
+				let val = settings[key] || _rSetts[key];
+				rDel.set( key, val );
+			}
+			return rDel;
+		};  // End rDel._init()
+
 		rDel._init( settings )
+
+
+
 		return rDel;
 	};  // End Delay() -> {}
 
