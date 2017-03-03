@@ -6212,11 +6212,11 @@ module.exports={
 }\
 \
 #__rdly_settings_tabs {\
+  background-color: rgba(160, 160, 160, 1);\
 }\
 .__rdly-settings-tab {\
   border-right: 1px solid gray;\
   border-bottom: 1px solid gray;\
-  background-color: rgba(160, 160, 160, 1);\
 }\
 .__rdly-settings-tab:last-child {\
   border-right: 0;\
@@ -6225,6 +6225,8 @@ module.exports={
   background-color: rgba( 230, 230, 230, 1);\
   fill: rgba(100, 100, 100, 1);\
   border-bottom: none;\
+  border-top-right-radius: 5px;\
+  border-top-left-radius: 5px;\
 }\
 \
 \
