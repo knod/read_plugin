@@ -28,7 +28,6 @@
 		ParserSetup = require('./lib/ParserSetup.js');
 
 	var Storage 	= require('./lib/ReaderlyStorage.js'),
-		Words 		= require('./lib/parse/Words.js'),
 		WordNav 	= require('./lib/parse/WordNav.js'),
 		WordSplitter= require('./lib/parse/WordSplitter.js'),
 		Delayer 	= require('./lib/playback/Delayer.js')
@@ -39,7 +38,7 @@
 		SpeedSets 	= require('./lib/settings/SpeedSettings.js'),
 		WordSets 	= require('./lib/settings/WordSettings.js');
 
-	var parser, fragmentor, words, wordNav, storage, delayer, timer, coreDisplay, playback, settings, speed;
+	var parser, fragmentor, wordNav, storage, delayer, timer, coreDisplay, playback, settings, speed;
 
 
 	var addEvents = function () {
@@ -85,10 +84,8 @@
 		parser  = getParser();
 		parser.debug = false;
 
-		words 	= new Words();
 		wordNav = new WordNav();
 		storage = new Storage();
-
 
 		// !!!FOR DEBUGGING ONLY!!!
 		if ( false ) {
