@@ -4111,24 +4111,17 @@ module.exports={
 		// ============== RUNTIME ============== \\
 
 		rDel.calcDelay = function ( frag, justOnce ) {
-		/* ( str || obj, [bool] ) -> #
+		/* ( str, [bool] ) -> num
 		* 
 		*/
-		// !!! TODO: `justOnce` is an issue because it's actually just whether
-		// or not a function has been passed into the loop, nothing else
-			var delay = rDel.delay;
-
-			var processed = frag;
-			// !!! TEMPORARY UNTIL CONVERTED TO ONLY STRINGS !!!
-			// If a string was passed in instead of an object, assess the string
-			if ( typeof frag === 'string' ) { processed = rDel._process( frag ); }
 			var processed = rDel._process( frag );
 
-			if ( processed.hasPeriod ) 	 delay 	*= _rSetts.sentenceDelay;
+			var delay = rDel.delay;
+			if ( processed.hasPeriod ) 	  delay *= _rSetts.sentenceDelay;
 			if ( processed.hasOtherPunc ) delay *= _rSetts.otherPuncDelay;
-			if ( processed.isShort() ) 	 delay 	*= _rSetts.shortWordDelay;
-			if ( processed.isLong() ) 	 delay 	*= _rSetts.longWordDelay;
-			if ( processed.isNumeric ) 	 delay 	*= _rSetts.numericDelay;
+			if ( processed.isShort() ) 	  delay *= _rSetts.shortWordDelay;
+			if ( processed.isLong() ) 	  delay *= _rSetts.longWordDelay;
+			if ( processed.isNumeric ) 	  delay *= _rSetts.numericDelay;
 
 			// Just after starting up again, go slowly, then speed up a bit
 			// each time the loop is called
@@ -4144,7 +4137,7 @@ module.exports={
 
 
 		rDel.resetSlowStart = function ( val ) {
-		/* (Num) -> Delayer
+		/* ( num ) -> Delayer
 		* 
 		* For after restart or pause, assign a value to start the
 		* text off slowly to warm the reader up to full speed.
@@ -4157,7 +4150,7 @@ module.exports={
 
 		// ======= PROCESSING STRING ======== \\
 		rDel._process = function ( chars ) {
-		/* ( Str ) -> {}
+		/* ( str ) -> {}
 		* 
 		* Assesses the properties of a string, saving them in an object
 		*/
@@ -4165,7 +4158,7 @@ module.exports={
 
 	        rDel._setPuncProps( frag );
 
-			// TODO: Get from storage (with callback)
+			// TODO: Get from custom user settings
 			var shortLength = 2,
 				longLength 	= 8;
 
