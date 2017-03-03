@@ -5239,8 +5239,8 @@ module.exports={
 			$(thisMenu).addClass( '__rdly-to-grow' );
 
 			// Same type of thing, showing this tab as active
-			$tabs.removeClass( '__rdly-active-ui' );
-			$thisTab.addClass( '__rdly-active-ui' );
+			$tabs.removeClass( '__rdly-active-tab' );
+			$thisTab.addClass( '__rdly-active-tab' );
 
 			return rSet;
 		};
@@ -6055,7 +6055,7 @@ module.exports={
     if (typeof define === 'function' && define.amd) {
         // AMD. Register as an anonymous module.
         define( [], function () {
-        	return ( root.settingsCSS = settingsCSSFactory() );
+          return ( root.settingsCSS = settingsCSSFactory() );
         });
     } else if (typeof module === 'object' && module.exports) {
         // Node. Does not work with strict CommonJS, but only CommonJS-like
@@ -6067,9 +6067,9 @@ module.exports={
     }
 }(this, function () {
 
-	"use strict";
+  "use strict";
 
-	var settingsCSS = "/* settings.css\
+  var settingsCSS = "/* settings.css\
 * \
 * Refer to main settings script (currently ReaderlySettings.js\
 * on 12/20/16) for DOM structure.\
@@ -6086,8 +6086,8 @@ module.exports={
 /* ============================== */\
 /* Should this be in readerly-main.css? */\
 #__rdly button {\
-	position: relative;\
-	padding: 0;\
+  position: relative;\
+  padding: 0;\
   /* functional */\
   cursor: pointer;\
 }\
@@ -6110,11 +6110,11 @@ module.exports={
 }\
 \
 #__rdly .__rdly-big-menu-button {\
-	width: 3em;\
-	height: 3em;\
+  width: 3em;\
+  height: 3em;\
   /* default followed by desired setting */\
   margin: 0;\
-	margin-right: .3em;\
+  margin-right: .3em;\
 }\
 \
 .__rdly-sup-menu-button {\
@@ -6137,28 +6137,28 @@ module.exports={
 #__rdly_settings_tabs,\
 #__rdly_settings_menus,\
 .__rdly_settings_menu {\
-	position: relative;\
-	width: 100%;\
+  position: relative;\
+  width: 100%;\
 }\
 \
 #__rdly_settings_tabs {\
-	display: flex;\
-	justify-content: center;\
-	height: auto;\
+  display: flex;\
+  justify-content: center;\
+  height: auto;\
   font-size: 1.23em;\
-	overflow: hidden;\
+  overflow: hidden;\
 }\
 \
 .__rdly-settings-tab {\
-	flex-grow: 1;\
-	padding: 0.1em;\
+  flex-grow: 1;\
+  padding: 0.1em;\
   display: flex;\
   justify-content: center;\
 }\
 \
 #__rdly_settings_menus {\
-	height: auto;\
-	text-align: center;\
+  height: auto;\
+  text-align: center;\
 }\
 \
 #__rdly .__rdly-settings-menu {\
@@ -6208,17 +6208,23 @@ module.exports={
 }*/\
 \
 #__rdly_settings_container {\
-	background-color: rgba( 230, 230, 230, 1);\
+  background-color: rgba( 230, 230, 230, 1);\
 }\
 \
 #__rdly_settings_tabs {\
-	border-bottom: 1px solid gray;\
 }\
-#__rdly_settings_tab {\
-	border-right: 1px solid gray;\
+.__rdly-settings-tab {\
+  border-right: 1px solid gray;\
+  border-bottom: 1px solid gray;\
+  background-color: rgba(160, 160, 160, 1);\
 }\
-#__rdly_settings_tabs:last-child {\
-	border-right: 0;\
+.__rdly-settings-tab:last-child {\
+  border-right: 0;\
+}\
+.__rdly-active-tab {\
+  background-color: rgba( 230, 230, 230, 1);\
+  fill: rgba(100, 100, 100, 1);\
+  border-bottom: none;\
 }\
 \
 \
@@ -6252,7 +6258,7 @@ module.exports={
 }\
 ";
 
-	// To put on the window object, or export into a module
+  // To put on the window object, or export into a module
     return settingsCSS;
 }));
 
