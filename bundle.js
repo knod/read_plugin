@@ -179,6 +179,8 @@
 
 		rDis._toTrigger = [];
 
+		var readerly, textElems, $iframe;
+
 
 		var iframeStr = '<iframe id="__rdly_iframe" title="Readerly article reader."></iframe>';
 
@@ -203,7 +205,6 @@
 	<div id="__rdly_below_bar" class="__rdly-main-section __rdly-hidden"></div>\
 </div>';
 
-		var readerly, textElems, $iframe;
 
 		// =========== HOOKS =========== \\
 
@@ -240,18 +241,14 @@
 		rDis.show = function () {
 			$iframe.show();
 			$(readerly).slideDown( 200 );
-			// $(readerly).slideDown( 200, rDis.update );
 			return rDis;
 		};
-
 
 		rDis.hide = function () {
 			$iframe.hide();
 			$(readerly).slideUp( 200 );
-			// $(readerly).slideUp( 200, rDis.update );
 			return rDis;
 		};
-
 
 		rDis.destroy = function () {
 			$(readerly).remove();
@@ -341,7 +338,6 @@
 
 		rDis._addEvents = function () {
 			$(rDis.nodes.close).on( 'touchend click', rDis.close );
-			// $(readerly).on( 'mousedown mouseup mousemove touchstart touchend', rDis.update );
 			$(readerly).on( 'mousedown mouseup touchstart touchend', rDis.update );
 			$(window).on( 'resize', rDis.update );
 			// Event for content zooming?
@@ -957,8 +953,7 @@ button img {\
     */
         var wNav = {};
 
-        // Contains .sentences, .positions
-        wNav.words = null;
+        wNav.words = null;  // Contains .sentences, .positions
 
         wNav.index 		 = 0;
         wNav.position    = [0, 0, 0],
@@ -1088,7 +1083,7 @@ button img {\
 
 
         wNav._stepSentence = function ( sentenceChange ) {
-        // ( [int, int] ) -> Int
+        // ( int ) -> Int
             if ( sentenceChange === 0 ) { return 0; }
 
             var pos     = [ wNav.position[0], wNav.position[1] ],
@@ -4721,7 +4716,7 @@ module.exports={
 	"use strict";
 
 	var ReaderlyTimer = function ( delayer ) {
-	/* ( {}, {} ) -> ReaderlyTimer
+	/* ( {} ) -> ReaderlyTimer
 	* 
 	*/
 		var rTim = {};
@@ -5311,8 +5306,6 @@ module.exports={
 
 		rSet.nodes 				= {};
 		rSet.menuNodes 			= {};
-		rSet._destroyTabEvent 	= null;
-		rSet._changeIDsEvent 	= null;
 
 		rSet._isOpen 			= false;
 
@@ -5350,7 +5343,7 @@ module.exports={
 			$menus.css( {'display': 'none'} );
 			$(thisMenu).removeClass( '__rdly-hidden' );
 			$(thisMenu).css( {'display': 'flex'} );
-			// $(thisMenu).css( {'display': 'block'} );
+
 			// There should only be one (for now...). It's height gets adjusted.
 			// Should only have one child, which can grow.
 			$menus.removeClass( '__rdly-to-grow' );
@@ -5364,7 +5357,7 @@ module.exports={
 		};
 
 		rSet.destroyMenu = function ( evnt ) {
-			var id = evnt.target.id;  // jQuery element? Need to get [0] item?
+			var id = evnt.target.id;  // Not a jQuery element
 
 			$(rSet.menuNodes[ id ]).remove();
 			rSet.menuNodes[ id ] = null;
@@ -5395,7 +5388,7 @@ module.exports={
 			if ( rSet.menuNodes[ id ] ) {
 				// Not sure how else to handle this gracefully...
 				// Just refuse to add something with this ID? That seems cruel.
-				console.warn( "A settings menu of this id is already in here. Please pick a different id or use someManager.destroyMenu( 'someID' ) to destroy it. Existing menu:", rSet.menuNodes[ id ] );
+				console.warn( "A settings menu of this id is already in here. Please pick a different id or use mySettingsManager.destroyMenu( 'someID' ) to destroy it. Existing menu:", rSet.menuNodes[ id ] );
 				return node;
 			}
 
@@ -5422,10 +5415,10 @@ module.exports={
 		rSet._open = function () {
 			$(coreDisplay.nodes.below).removeClass('__rdly-hidden');
 			$(opener).addClass( '__rdly-active-ui' );  // different style
+
 			rSet._isOpen = true;
-
 			coreDisplay.update();
-
+			
 			return rSet;
 		};
 
@@ -5433,8 +5426,10 @@ module.exports={
 		// Allowed to be called externally
 			$(coreDisplay.nodes.below).addClass('__rdly-hidden');
 			$(opener).removeClass( '__rdly-active-ui' );  // different style
+			
 			rSet._isOpen = false;
 			coreDisplay.update();
+			
 			return rSet;
 		};
 
@@ -5447,25 +5442,8 @@ module.exports={
 			return rSet;
 		};
 
-		rSet._onBlur = function ( evnt ) {
-			var parent = $(evnt.target).parents('#__rdly_settings_container')[0]
-			if ( !parent ) {
-				// If they've clicked the "open settings" button, toggle
-				if ( evnt.target === rSet.nodes._openSettings ) {
-					rSet._toggleOpenClose();
-				// Otherwise they're just getting out of the settings menu, so close
-				// ??: Allow users to click other buttons while settings are open?
-				// They may realize they want to pause while they're changing the
-				// settings, so maybe not.
-				} else {
-					rSet.close();
-				}
-			}
-			return rSet;
-		};
 
 		rSet._addEvents = function () {
-			// $('#__rdly').on( 'touchend click', rSet._onBlur );  // See question above
 			$(opener).on( 'touchend click', rSet._toggleOpenClose );
 			return rSet;
 		};
@@ -5496,17 +5474,8 @@ module.exports={
 			return rSet;	
 		};
 
-		rSet._destroy = function () {
-			opener.remove();
-			container.remove();
-			return rSet;
-		};
 
 		rSet._init = function ( coreDisplay ) {
-
-			// // Not sure yet why you'd want to rebuild this object from
-			// // scratch, but going to offer the option for now
-			// if ( $('#__rdly_open_settings') ) { rSet._destroy(); }
 
 			rSet._addBase( coreDisplay )
 				._addEvents();
