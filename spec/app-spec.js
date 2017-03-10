@@ -1,5 +1,10 @@
 // app-spec.js
 
+// npm install --save-dev jasmine
+// node node_modules/.bin/jasmine jasmine init
+// node node_modules/.bin/jasmine jasmine examples
+
+
 var WordNav = require('../lib/parse/WordNav.js');
 
 describe("WordNav _sentences", function() {
