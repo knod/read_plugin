@@ -27,18 +27,19 @@
 	var Parser 		= require('./lib/parse/Parser.js'),
 		ParserSetup = require('./lib/ParserSetup.js');
 
-	var Storage 	= require('./lib/ReaderlyStorage.js'),
+	var Settings 	= require('./lib/settings/Settings.js'),
+		Storage 	= require('./lib/ReaderlyStorage.js'),
 		WordNav 	= require('./lib/parse/WordNav.js'),
 		WordSplitter= require('./lib/parse/WordSplitter.js'),
-		Delayer 	= require('./lib/playback/Delayer.js')
+		Delayer 	= require('./lib/playback/Delayer.js'),
 		Timer 		= require('./lib/playback/ReaderlyTimer.js'),
 		Display 	= require('./lib/ReaderlyDisplay.js'),
-		Playback 	= require('./lib/playback/PlaybackUI.js'),
-		Settings 	= require('./lib/settings/ReaderlySettings.js'),
+		PlaybackUI 	= require('./lib/playback/PlaybackUI.js'),
+		SettingsUI 	= require('./lib/settings/ReaderlySettings.js'),
 		SpeedSets 	= require('./lib/settings/SpeedSettings.js'),
 		WordSets 	= require('./lib/settings/WordSettings.js');
 
-	var parser, fragmentor, wordNav, storage, delayer, timer, coreDisplay, playback, settings, speed;
+	var parser, fragmentor, wordNav, storage, delayer, timer, coreDisplay, playback, settingsUI, speed;
 
 
 	var addEvents = function () {
@@ -47,17 +48,18 @@
 
 
 	var afterLoadSettings = function ( oldSettings ) {
-		delayer 	= new Delayer( oldSettings, storage );
-		timer 		= new Timer( delayer, oldSettings, storage );
+		setts 		= new Settings( storage, oldSettings );
+		delayer 	= new Delayer( setts );
+		timer 		= new Timer( delayer );
 		coreDisplay = new Display( timer );
 
 		textElem 	= coreDisplay.nodes.textElements;
-		fragmentor 	= new WordSplitter( textElem, oldSettings, storage );
+		fragmentor 	= new WordSplitter( textElem, setts );
 
-		playback 	= new Playback( timer, coreDisplay );
-		settings 	= new Settings( timer, coreDisplay );
-		speedSets 	= new SpeedSets( delayer, settings );
-		wordSets	= new WordSets( fragmentor, settings );
+		playback 	= new PlaybackUI( timer, coreDisplay );
+		settingsUI 	= new SettingsUI( timer, coreDisplay );
+		speedSets 	= new SpeedSets( setts, settingsUI );
+		wordSets	= new WordSets( setts, settingsUI );
 
 		addEvents();
 	};  // End afterLoadSettings()
