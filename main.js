@@ -27,11 +27,11 @@
 	var Parser 		= require('./lib/parse/Parser.js'),
 		ParserSetup = require('./lib/ParserSetup.js');
 
-	var Storage 	= require('./lib/ReaderlyStorage.js'),
+	var Settings 	= require('./lib/settings/Settings.js'),
+		Storage 	= require('./lib/ReaderlyStorage.js'),
 		WordNav 	= require('./lib/parse/WordNav.js'),
 		WordSplitter= require('./lib/parse/WordSplitter.js'),
 		Delayer 	= require('./lib/playback/Delayer.js'),
-		Settings 	= require('./lib/settings/Settings.js'),
 		Timer 		= require('./lib/playback/ReaderlyTimer.js'),
 		Display 	= require('./lib/ReaderlyDisplay.js'),
 		PlaybackUI 	= require('./lib/playback/PlaybackUI.js'),
