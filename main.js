@@ -34,12 +34,12 @@
 		Settings 	= require('./lib/settings/Settings.js'),
 		Timer 		= require('./lib/playback/ReaderlyTimer.js'),
 		Display 	= require('./lib/ReaderlyDisplay.js'),
-		Playback 	= require('./lib/playback/PlaybackUI.js'),
+		PlaybackUI 	= require('./lib/playback/PlaybackUI.js'),
 		SettingsUI 	= require('./lib/settings/ReaderlySettings.js'),
 		SpeedSets 	= require('./lib/settings/SpeedSettings.js'),
 		WordSets 	= require('./lib/settings/WordSettings.js');
 
-	var parser, fragmentor, wordNav, storage, delayer, timer, coreDisplay, playback, settings, speed;
+	var parser, fragmentor, wordNav, storage, delayer, timer, coreDisplay, playback, settingsUI, speed;
 
 
 	var addEvents = function () {
@@ -54,12 +54,12 @@
 		coreDisplay = new Display( timer );
 
 		textElem 	= coreDisplay.nodes.textElements;
-		fragmentor 	= new WordSplitter( textElem, oldSettings, storage );
+		fragmentor 	= new WordSplitter( textElem, setts );
 
-		playback 	= new Playback( timer, coreDisplay );
-		settings 	= new SettingsUI( timer, coreDisplay );
-		speedSets 	= new SpeedSets( setts, settings );
-		wordSets	= new WordSets( fragmentor, settings );
+		playback 	= new PlaybackUI( timer, coreDisplay );
+		settingsUI 	= new SettingsUI( timer, coreDisplay );
+		speedSets 	= new SpeedSets( setts, settingsUI );
+		wordSets	= new WordSets( setts, settingsUI );
 
 		addEvents();
 	};  // End afterLoadSettings()
