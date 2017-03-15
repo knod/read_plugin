@@ -48,7 +48,7 @@
 
 
 	var afterLoadSettings = function ( oldSettings ) {
-		setts 		= new Settings( storage, oldSettings );
+		var setts 	= new Settings( storage, oldSettings );
 		delayer 	= new Delayer( setts );
 		timer 		= new Timer( delayer );
 		coreDisplay = new Display( timer );
