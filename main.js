@@ -49,8 +49,8 @@
 
 	var afterLoadSettings = function ( oldSettings ) {
 		setts 		= new Settings( storage, oldSettings );
-		delayer 	= new Delayer( setts, storage );
-		timer 		= new Timer( delayer, oldSettings, storage );
+		delayer 	= new Delayer( setts );
+		timer 		= new Timer( delayer );
 		coreDisplay = new Display( timer );
 
 		textElem 	= coreDisplay.nodes.textElements;
