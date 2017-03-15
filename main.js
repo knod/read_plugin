@@ -30,11 +30,12 @@
 	var Storage 	= require('./lib/ReaderlyStorage.js'),
 		WordNav 	= require('./lib/parse/WordNav.js'),
 		WordSplitter= require('./lib/parse/WordSplitter.js'),
-		Delayer 	= require('./lib/playback/Delayer.js')
+		Delayer 	= require('./lib/playback/Delayer.js'),
+		Settings 	= require('./lib/settings/Settings.js'),
 		Timer 		= require('./lib/playback/ReaderlyTimer.js'),
 		Display 	= require('./lib/ReaderlyDisplay.js'),
 		Playback 	= require('./lib/playback/PlaybackUI.js'),
-		Settings 	= require('./lib/settings/ReaderlySettings.js'),
+		SettingsUI 	= require('./lib/settings/ReaderlySettings.js'),
 		SpeedSets 	= require('./lib/settings/SpeedSettings.js'),
 		WordSets 	= require('./lib/settings/WordSettings.js');
 
@@ -47,7 +48,8 @@
 
 
 	var afterLoadSettings = function ( oldSettings ) {
-		delayer 	= new Delayer( oldSettings, storage );
+		setts 		= new Settings( storage, oldSettings );
+		delayer 	= new Delayer( setts, storage );
 		timer 		= new Timer( delayer, oldSettings, storage );
 		coreDisplay = new Display( timer );
 
@@ -55,8 +57,8 @@
 		fragmentor 	= new WordSplitter( textElem, oldSettings, storage );
 
 		playback 	= new Playback( timer, coreDisplay );
-		settings 	= new Settings( timer, coreDisplay );
-		speedSets 	= new SpeedSets( delayer, settings );
+		settings 	= new SettingsUI( timer, coreDisplay );
+		speedSets 	= new SpeedSets( setts, settings );
 		wordSets	= new WordSets( fragmentor, settings );
 
 		addEvents();
