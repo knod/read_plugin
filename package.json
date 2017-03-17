@@ -14,7 +14,8 @@
     "jasmine": "^2.5.3"
   },
   "scripts": {
-    "test": "test"
+    "test": "test",
+    "build": "browserify main.js -o bundle.js"
   },
   "repository": {
     "type": "git",
