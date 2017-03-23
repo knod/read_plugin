@@ -31,7 +31,7 @@
 		Storage 	= require('./lib/ReaderlyStorage.js'),
 		WordNav 	= require('./lib/parse/WordNav.js'),
 		WordSplitter= require('./lib/parse/WordSplitter.js'),
-		Delayer 	= require('./lib/playback/Delayer.js'),
+		Delayer 	= require('@knod/string-time'),
 		Timer 		= require('./lib/playback/ReaderlyTimer.js'),
 		Display 	= require('./lib/ReaderlyDisplay.js'),
 		PlaybackUI 	= require('./lib/playback/PlaybackUI.js'),
@@ -49,7 +49,7 @@
 
 	var afterLoadSettings = function ( oldSettings ) {
 		var setts 	= new Settings( storage, oldSettings );
-		delayer 	= new Delayer( setts );
+		delayer 	= new Delayer( setts._settings );
 		timer 		= new Timer( delayer );
 		coreDisplay = new Display( timer );
 
