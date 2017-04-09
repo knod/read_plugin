@@ -119,7 +119,7 @@ html, body {
 	transform: translate( -50% ,-50% );
 }
 
-div.flexible{
+div.__rdly-flexible{
   display:flex;
   position: absolute;
   transform: translate(-50%,-50%);
@@ -137,11 +137,11 @@ div.flexible{
   transform: translate(0,calc(-50% - 2px));
 }
 
-div.center{
+div.__rdly-center{
   justify-content: center;
 }
 
-.text {
+.__rdly-text {
   flex-grow: 1;
   flex-basis: 20%;
   display: flex;
