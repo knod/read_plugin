@@ -25,10 +25,10 @@
 	/* very simple example of alternative: https://jsfiddle.net/fpd4fb80/1/ (without iframe) */
 	/* example with iframe: https://jsfiddle.net/fpd4fb80/31/ */
 }
-#__rdly_iframe html, body {
+html, body {
 	/* !!!! Not on the parent site please! !!!! */
-	height: 100%;
-	overflow: hidden;
+	// height: 100%;
+	// overflow: hidden;
 }
 
 #__rdly,
