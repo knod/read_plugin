@@ -27,8 +27,8 @@
 }
 html, body {
 	/* !!!! Not on the parent site please! !!!! */
-	/*height: 100%;*/
-	/*overflow: hidden;*/
+	// height: 100%;
+	// overflow: hidden;
 }
 
 #__rdly,
@@ -105,6 +105,7 @@ html, body {
 
 #__rdly #__rdly_text_elements {
 	/* em counts the widest possible text */
+  position:relative;
 	width: 13em;
 	height: 100%;
 }
@@ -118,6 +119,42 @@ html, body {
 	transform: translate( -50% ,-50% );
 }
 
+div.__rdly-flexible{
+  display:flex;
+  position: absolute;
+  transform: translate(-50%,-50%);
+  left: 50%;
+  width: 100%;
+  top: 50%;
+}
+
+#__rdly_indicator {
+  position:absolute;
+  width: 100%;
+  left: 0;
+  top: 50%;
+  color: rgb(190,190,190);
+  transform: translate(0,calc(-50% - 1px));
+}
+
+div.__rdly-center{
+  justify-content: center;
+}
+
+.__rdly-text {
+  flex-grow: 1;
+  flex-basis: 20%;
+  display: flex;
+}
+
+#__rdly-text-left{
+    justify-content: flex-end;
+}
+
+#__rdly-text-center{
+  flex-grow: 0;
+  flex-basis: auto;
+}
 
 /* ============================== */
 /* SKIN */
